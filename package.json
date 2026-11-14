@@ -1,8 +1,8 @@
 {
-  "name": "skillpacker",
-  "module": "index.ts",
-  "type": "module",
+  "name": "skillset",
   "private": true,
+  "type": "module",
+  "module": "index.ts",
   "scripts": {
     "typecheck": "bun check"
   },
