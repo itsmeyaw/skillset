@@ -1,0 +1,16 @@
+{
+  "name": "skillpacker",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "bun check"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "skills": "^1.8.1"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  }
+}
