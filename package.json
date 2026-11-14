@@ -1,5 +1,5 @@
 {
-  "name": "skillset",
+  "name": "@itsmeyaw/skillset",
   "private": true,
   "type": "module",
   "module": "index.ts",
@@ -7,7 +7,6 @@
     "typecheck": "bun check"
   },
   "devDependencies": {
-    "@types/bun": "latest",
     "skills": "^1.8.1"
   },
   "peerDependencies": {
