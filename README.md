@@ -1,4 +1,4 @@
-# skillpacker
+# skillset
 
 To install dependencies:
 
