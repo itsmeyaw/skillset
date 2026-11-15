@@ -2,6 +2,7 @@ import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { Cause, Effect, Layer, Option, Queue, Runtime, Stdio, Terminal } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
+import type { AgentInfo, SkillSource } from "skills";
 import { runArgv } from "../src/cli.ts";
 import { Upstream, UpstreamError } from "../src/upstream.ts";
 
@@ -11,9 +12,12 @@ export const fakeUpstream = (
     readonly commits?: Readonly<Record<string, string>>;
     readonly skills?: Readonly<Record<string, ReadonlyArray<string>>>;
     readonly failedInstalls?: ReadonlyArray<string>;
+    readonly detectedAgents?: ReadonlyArray<AgentInfo>;
+    readonly supportedAgents?: ReadonlyArray<AgentInfo>;
   } = {},
-) =>
-  Layer.succeed(
+) => {
+  const disposed = new WeakSet<SkillSource>();
+  return Layer.succeed(
     Upstream,
     Upstream.of({
       resolveCommit: (source, ref) => {
@@ -32,14 +36,38 @@ export const fakeUpstream = (
             )
           : Effect.succeed(skills);
       },
+      resolveSource: (source, commit) => {
+        const skills = options.skills?.[JSON.stringify([source, commit])];
+        if (skills === undefined) {
+          return Effect.fail(
+            new UpstreamError({ message: `Fake skills not configured for ${source} at ${commit}` }),
+          );
+        }
+        const handle: SkillSource = {
+          source: { input: source, type: "git", url: source, commit },
+          skills: skills.map((name) => ({ name, description: "" })),
+          dispose: () => {
+            disposed.add(handle);
+            return Promise.resolve();
+          },
+        };
+        return Effect.acquireRelease(Effect.succeed(handle), (handle) =>
+          Effect.promise(() => handle.dispose()),
+        );
+      },
       install: (source) =>
-        options.failedInstalls?.includes(source.source.input)
-          ? Effect.fail(
-              new UpstreamError({ message: `Fake install failed for ${source.source.input}` }),
-            )
-          : Effect.succeed({ source: source.source, installed: [], skipped: [], failed: [] }),
+        disposed.has(source)
+          ? Effect.fail(new UpstreamError({ message: "Fake source was disposed" }))
+          : options.failedInstalls?.includes(source.source.input)
+            ? Effect.fail(
+                new UpstreamError({ message: `Fake install failed for ${source.source.input}` }),
+              )
+            : Effect.succeed({ source: source.source, installed: [], skipped: [], failed: [] }),
+      detectAgents: () => Effect.succeed({ agents: options.detectedAgents ?? [] }),
+      getSupportedAgents: Effect.succeed(options.supportedAgents ?? []),
     }),
   );
+};
 
 export const key = (name: string, input?: string): Terminal.UserInput => ({
   input: Option.fromNullishOr(input),
