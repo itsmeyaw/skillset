@@ -173,7 +173,7 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   if (interactive) {
     yield* Console.log(
       (added ? `Adding: ${added.map((entry) => entry.name).join(", ")}\n` : "") +
-        `Skills: ${plan.entries.map((entry) => `${entry.name} (${entry.source}@${entry.commit})`).join(", ")}\n` +
+        `Skills:\n${plan.entries.map((entry) => `  ${entry.name} (${entry.source}@${entry.commit})`).join(",\n")}\n` +
         `Agents: ${plan.agents?.join(", ") ?? "default"}\n` +
         `Scope: ${plan.global ? "global" : "project"}\nMode: ${plan.mode}`,
     );

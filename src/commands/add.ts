@@ -6,6 +6,7 @@ import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import { skillsetPath } from "../root.ts";
 import { writeSkillset } from "../skillset-file.ts";
+import type { Entry, Skillset } from "../skillset-file.ts";
 import { installSkillset } from "./install.ts";
 
 export { AddError };
@@ -24,26 +25,52 @@ export const add = Command.make(
     const interactive = yield* isInteractive(yes);
     if (Option.isNone(source) && !interactive)
       return yield* new AddError({ message: "Usage: skillset add <source>" });
-    const input = Option.isSome(source)
+    let input = Option.isSome(source)
       ? source.value
       : yield* cancelOnQuit(Prompt.String({ message: "Source?" }));
     const set = yield* skillsetPath;
-    const addition = yield* prepareAddition(input, set, { selected, all, list, interactive });
-    if (addition._tag === "Addition") {
-      yield* writeSkillset(set, addition.skillset);
-      yield* Console.log(`Added ${addition.added.map((entry) => entry.name).join(", ")} to ${set}`);
-      // Issue #11: offer to Install the Skillset only in an interactive terminal.
+    let first = true;
+    let pending: Skillset | undefined;
+    const additions: Array<ReadonlyArray<Entry>> = [];
+    for (;;) {
+      // -s/--all/-l describe the first Source only; later Sources are chosen interactively.
+      const addition = yield* prepareAddition(
+        input,
+        set,
+        first
+          ? { selected, all, list, interactive }
+          : { selected: [], all: false, list: false, interactive, base: pending },
+      );
+      if (addition._tag !== "Addition") break;
+      pending = addition.skillset;
+      additions.push(addition.added);
+      // Interactive add repeats Source selection until the user is done.
       if (
-        interactive &&
-        (yield* cancelOnQuit(Prompt.Confirm({ message: "Install skillset?", initial: false })))
+        !interactive ||
+        !(yield* cancelOnQuit(Prompt.Confirm({ message: "Add another source?", initial: false })))
       )
-        yield* installSkillset(set, {
-          selected: [],
-          agents: [],
-          global: false,
-          copy: false,
-          yes: false,
-        });
+        break;
+      input = yield* cancelOnQuit(Prompt.String({ message: "Source?" }));
+      first = false;
     }
+    // Nothing is written until every Source succeeds, so a failed later Source leaves the file untouched.
+    if (pending) {
+      yield* writeSkillset(set, pending);
+      for (const added of additions)
+        yield* Console.log(`Added ${added.map((entry) => entry.name).join(", ")} to ${set}`);
+    }
+    // Issue #11: offer to Install the Skillset only in an interactive terminal.
+    if (
+      pending &&
+      interactive &&
+      (yield* cancelOnQuit(Prompt.Confirm({ message: "Install skillset?", initial: false })))
+    )
+      yield* installSkillset(set, {
+        selected: [],
+        agents: [],
+        global: false,
+        copy: false,
+        yes: false,
+      });
   }),
 ).pipe(Command.withDescription("Add skills from a Source"));

@@ -16,11 +16,13 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
     all,
     list,
     interactive,
+    base,
   }: {
     readonly selected: ReadonlyArray<string>;
     readonly all: boolean;
     readonly list: boolean;
     readonly interactive: boolean;
+    readonly base?: Skillset;
   },
 ) {
   const parsed = parseSource(input);
@@ -62,17 +64,19 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
     });
   const fs = yield* FileSystem.FileSystem;
   // Issue #11: adding Entries creates a missing Skillset file.
-  const exists = yield* fs.exists(set).pipe(
-    Effect.mapError(
-      (error) =>
-        new SkillsetFileError({
-          message: `Cannot read Skillset file ${set}: ${error.message}`,
-        }),
-    ),
-  );
-  const skillset: Skillset = exists
-    ? yield* readSkillset(set)
-    : { $schema: SCHEMA_URL, skills: [] };
+  // `base` carries Entries from earlier unwritten additions in the same session.
+  const exists =
+    base !== undefined ||
+    (yield* fs.exists(set).pipe(
+      Effect.mapError(
+        (error) =>
+          new SkillsetFileError({
+            message: `Cannot read Skillset file ${set}: ${error.message}`,
+          }),
+      ),
+    ));
+  const skillset: Skillset =
+    base ?? (exists ? yield* readSkillset(set) : { $schema: SCHEMA_URL, skills: [] });
   // Spec #1, User Story 16: re-adding an Entry from the same Source moves its Pin.
   // Spec #1, User Story 4: --all selects every skill at the resolved commit.
   const names = new Set(all ? skills : selection);

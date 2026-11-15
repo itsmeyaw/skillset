@@ -86,11 +86,13 @@ it.effect("interactive add asks for a Source and selects skills", () =>
         key("space"),
         key("enter"),
         key("n", "n"),
+        key("n", "n"),
       ],
       upstream,
     });
     assert.strictEqual(result.code, 0);
     assert.match(result.screen.join(""), /Source/);
+    assert.match(result.screen.join(""), /Add another source\?/);
     assert.match(result.screen.join(""), /Install skillset\?/);
     assert.notInclude(result.out.join("\n"), "Installed");
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
@@ -674,7 +676,12 @@ it.effect("accepting the install prompt after add installs the Skillset", () =>
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
-      keys: [key("y", "y"), ...Array.from({ length: 4 }, () => key("enter")), key("y", "y")],
+      keys: [
+        key("n", "n"),
+        key("y", "y"),
+        ...Array.from({ length: 4 }, () => key("enter")),
+        key("y", "y"),
+      ],
       upstream: {
         ...upstream,
         installDir: dir,
@@ -684,5 +691,51 @@ it.effect("accepting the install prompt after add installs the Skillset", () =>
     });
     assert.strictEqual(result.code, 0);
     assert.match(result.out.join("\n"), /Installed alpha/);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("interactive add repeats for another Source until declined", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+      tty: true,
+      keys: [
+        key("y", "y"),
+        ...Array.from("other/repo", (char) => key(char, char)),
+        key("enter"),
+        key("space"),
+        key("enter"),
+        key("n", "n"),
+        key("n", "n"),
+      ],
+      upstream: {
+        commits: { ...upstream.commits, [JSON.stringify(["other/repo", null])]: commit },
+        skills: { ...upstream.skills, [JSON.stringify(["other/repo", commit])]: ["beta"] },
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(
+      JSON.parse(yield* fs.readFileString(file)).skills.map(
+        (entry: { name: string }) => entry.name,
+      ),
+      ["alpha", "beta"],
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("interactive add writes nothing when a later Source fails", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+      tty: true,
+      keys: [key("y", "y"), ...Array.from("other/repo", (char) => key(char, char)), key("enter")],
+      upstream,
+    });
+    assert.strictEqual(result.code, 1);
+    assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

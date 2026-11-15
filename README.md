@@ -21,22 +21,43 @@ Or run without installing: `npx @itsmeyaw/skillset --help`.
 
 ## Quick start
 
-Create a Skillset:
+Build your own Skillset once, then reuse it in every project. Run commands without arguments and Skillset prompts you for everything.
+
+**1. Create your Skillset.** `--set my-set` names a Skillset that you can use in all your projects:
 
 ```sh
-skillset add mattpocock/skills --list       # see available skills
-skillset add mattpocock/skills -s grilling  # add a skill to ./skillset.json
-skillset update                             # refresh skills to the latest commits
+skillset add --set my-set
 ```
 
-Install it (from the project that should receive the skills):
+You are asked for:
+
+1. **Source?** Type a repo such as `mattpocock/skills`.
+2. **Which skills?** Search and tick the skills you want.
+3. **Install skillset?** Answer `n` for now.
+
+Run it again with another source to mix skills from several repos into the same Skillset. `skillset ls --set my-set` shows what is in it.
+
+**2. Use it in any project.** From each project that should receive the skills:
 
 ```sh
-skillset install                          # interactive: choose skills, agents, scope
-skillset install -y --set ./skillset.json   # no prompts, install everything
+cd ~/projects/some-project
+skillset install my-set
 ```
 
-Skills outside the Skillset are never removed. Installs are recorded in `skills-lock.json`.
+You are asked which skills, which agents, project or global scope, and symlink or copy, then to confirm.
+
+**3. Keep it fresh.** Skills are pinned to commits, so nothing changes until you update:
+
+```sh
+skillset update --set my-set   # move pins to the latest commits
+skillset rm --set my-set       # pick skills to drop
+```
+
+Re-run `skillset install my-set` in a project to pick up the changes.
+
+Skills outside the Skillset are never removed. Installs are recorded in `skills-lock.json`. Every prompt has a flag, so the same steps work in scripts; see [Commands](#commands).
+
+Prefer a Skillset that lives in a repo so teammates share it? Omit `--set` to use `./skillset.json` and commit it. See [User Skillsets](#user-skillsets).
 
 ## Commands
 
