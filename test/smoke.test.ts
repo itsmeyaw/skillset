@@ -23,11 +23,17 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
           Effect.all([
             upstream.resolveCommit("sindresorhus/is", "v7.0.0"),
             upstream.resolveCommit("mattpocock/skills.git"),
+            upstream.resolveCommit("mattpocock/skills", "main"),
+            upstream.resolveCommit("lodash/lodash", "4.17.21"),
+            upstream.resolveCommit("mattpocock/skills", commit),
           ]),
         ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
       );
       expect(commits[0]).toBe("ab85d9bca9564eb0f867ab45e3cbf45659d9ac4c");
       expect(commits[1]).toMatch(/^[a-f0-9]{40}$/u);
+      expect(commits[2]).toBe(commits[1]);
+      expect(commits[3]).toBe("f299b52f39486275a9e6483b60a410e06520c538");
+      expect(commits[4]).toBe(commit);
     }, 120_000);
 
     it("lists and installs a scoped source at a full SHA", async () => {
@@ -60,7 +66,7 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
       }
     }, 120_000);
 
-    it("install -y installs a pinned Entry and writes the skills lock", async () => {
+    it("install -y installs a tree-URL Entry at its Pin and writes the skills lock", async () => {
       const cwd = await mkdtemp(join(tmpdir(), "skillset-cli-smoke-"));
       const previous = process.cwd();
       try {
@@ -69,7 +75,13 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
           file,
           JSON.stringify({
             $schema: SCHEMA_URL,
-            skills: [{ name: "grilling", source, commit }],
+            skills: [
+              {
+                name: "grilling",
+                source: "https://github.com/mattpocock/skills/tree/main",
+                commit,
+              },
+            ],
           }),
         );
         process.chdir(cwd);
