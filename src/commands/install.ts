@@ -1,19 +1,13 @@
-import { Console, Effect, Schema, Stdio } from "effect";
-import { CliError, Command, Flag, Prompt } from "effect/cli";
+import { Console, Effect, Stdio } from "effect";
+import { Command, Flag, Prompt } from "effect/cli";
 import type { InstallMode } from "skills";
+import { CliMessageError as InstallError, missingSkillsMessage } from "../errors.ts";
 import { root } from "../root.ts";
 import { readSkillset } from "../skillset-file.ts";
 import type { Entry } from "../skillset-file.ts";
 import { Upstream } from "../upstream.ts";
 
-export class InstallError extends Schema.TaggedError<
-  InstallError,
-  { readonly brand: unique symbol }
->()("InstallError", { message: Schema.String }) {
-  override get [CliError.userMessage]() {
-    return this.message;
-  }
-}
+export { InstallError };
 
 type InstallPlan = {
   readonly entries: ReadonlyArray<Entry>;
@@ -27,6 +21,7 @@ const executeInstall = Effect.fn("executeInstall")(function* (plan: InstallPlan)
   const upstream = yield* Upstream;
   yield* Effect.scoped(
     Effect.gen(function* () {
+      // Spec #1, install: group by the complete Source and Pin pair.
       const groups = new Map<string, Array<Entry>>();
       for (const entry of plan.entries) {
         const key = JSON.stringify([entry.source, entry.commit]);
@@ -44,7 +39,10 @@ const executeInstall = Effect.fn("executeInstall")(function* (plan: InstallPlan)
         );
         if (missing.length > 0)
           return yield* new InstallError({
-            message: `Skills not found at ${first.commit}: ${missing.map((entry) => entry.name).join(", ")}`,
+            message: missingSkillsMessage(
+              first.commit,
+              missing.map((entry) => entry.name),
+            ),
           });
         checked.push({ source, entries });
       }

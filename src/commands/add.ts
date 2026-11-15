@@ -1,19 +1,13 @@
-import { Console, Effect, FileSystem, Schema } from "effect";
-import { Argument, CliError, Command, Flag } from "effect/cli";
+import { Console, Effect, FileSystem } from "effect";
+import { Argument, Command, Flag } from "effect/cli";
+import { CliMessageError as AddError, missingSkillsMessage } from "../errors.ts";
 import { root } from "../root.ts";
 import { readSkillset, SCHEMA_URL, SkillsetFileError, writeSkillset } from "../skillset-file.ts";
 import type { Skillset } from "../skillset-file.ts";
 import { parseSource } from "../source.ts";
 import { Upstream } from "../upstream.ts";
 
-export class AddError extends Schema.TaggedError<AddError, { readonly brand: unique symbol }>()(
-  "AddError",
-  { message: Schema.String },
-) {
-  override get [CliError.userMessage]() {
-    return this.message;
-  }
-}
+export { AddError };
 
 // Spec #1, add: list skills without changing the Skillset when no selection is given.
 export const add = Command.make(
@@ -41,7 +35,7 @@ export const add = Command.make(
     const missing = selection.filter((name) => !skills.includes(name));
     if (missing.length > 0)
       return yield* new AddError({
-        message: `Skills not found at ${commit}: ${missing.join(", ")}`,
+        message: missingSkillsMessage(commit, missing),
       });
     const { set } = yield* root;
     const fs = yield* FileSystem.FileSystem;

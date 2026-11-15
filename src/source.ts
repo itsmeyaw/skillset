@@ -1,3 +1,5 @@
+import { PIN_PATTERN } from "./pin.ts";
+
 export type ParsedSource = {
   readonly stored: string;
   readonly repository: string;
@@ -81,16 +83,19 @@ export const parseSource = (source: string): ParsedSource | { readonly error: st
     };
   }
   // skills@1.8.1 isVersionPin: only versions or full commit SHAs are fixed refs.
-  const pinned =
-    /^([a-zA-Z0-9][a-zA-Z0-9-]*\/[a-zA-Z0-9_.-]+)@(v?\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?|[a-fA-F0-9]{40})$/u.exec(
-      source,
-    );
-  if (pinned && !pinned[1]!.endsWith("/.") && !pinned[1]!.endsWith("/..")) {
+  const pinned = /^([a-zA-Z0-9][a-zA-Z0-9-]*\/[a-zA-Z0-9_.-]+)@([^@\s]+)$/u.exec(source);
+  if (
+    pinned &&
+    !pinned[1]!.endsWith("/.") &&
+    !pinned[1]!.endsWith("/..") &&
+    (/^v?\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u.test(pinned[2]!) ||
+      PIN_PATTERN.test(pinned[2]!.toLowerCase()))
+  ) {
     return {
       stored: source,
       repository: pinned[1]!,
       // Spec #1, Skillset file format: Pins use lowercase hexadecimal.
-      ref: /^[a-f0-9]{40}$/iu.test(pinned[2]!) ? pinned[2]!.toLowerCase() : pinned[2],
+      ref: PIN_PATTERN.test(pinned[2]!.toLowerCase()) ? pinned[2]!.toLowerCase() : pinned[2],
       fixed: true,
       skill: undefined,
     };

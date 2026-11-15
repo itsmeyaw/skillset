@@ -1,6 +1,6 @@
-import { Context, Effect, Schema } from "effect";
+import { Context, Effect } from "effect";
 import type { Scope } from "effect";
-import { CliError } from "effect/cli";
+import { CliMessageError as UpstreamError } from "./errors.ts";
 import type {
   AgentInfo,
   BaseOptions,
@@ -10,16 +10,7 @@ import type {
   SkillSource,
 } from "skills";
 
-export class UpstreamError extends Schema.TaggedError<
-  UpstreamError,
-  { readonly brand: unique symbol }
->()("UpstreamError", {
-  message: Schema.String,
-}) {
-  override get [CliError.userMessage]() {
-    return this.message;
-  }
-}
+export { UpstreamError };
 
 // Spec #1, Upstream service: this is the single swappable boundary to git and skills.
 export const ambiguousTreeMessage =

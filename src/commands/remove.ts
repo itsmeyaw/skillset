@@ -1,16 +1,10 @@
-import { Effect, Schema } from "effect";
-import { Argument, CliError, Command, Flag } from "effect/cli";
+import { Effect } from "effect";
+import { Argument, Command, Flag } from "effect/cli";
+import { CliMessageError as RemoveError } from "../errors.ts";
 import { root } from "../root.ts";
 import { readSkillset, writeSkillset } from "../skillset-file.ts";
 
-export class RemoveError extends Schema.TaggedError<
-  RemoveError,
-  { readonly brand: unique symbol }
->()("RemoveError", { message: Schema.String }) {
-  override get [CliError.userMessage]() {
-    return this.message;
-  }
-}
+export { RemoveError };
 
 // Spec #1, User Story 17: removing Entries changes only the Skillset file.
 export const remove = Command.make(
@@ -28,7 +22,7 @@ export const remove = Command.make(
     const skillset = yield* readSkillset(set);
     const unknown = skills.filter((name) => !skillset.skills.some((entry) => entry.name === name));
     const remaining = all ? [] : skillset.skills.filter((entry) => !skills.includes(entry.name));
-    // Ticket #6: remove known names even when unknown names make the command fail.
+    // Spec #1, User Story 20: report unknown names after removing known Entries.
     if (all || remaining.length !== skillset.skills.length) {
       yield* writeSkillset(set, { ...skillset, skills: remaining });
     }

@@ -1,18 +1,12 @@
-import { Console, Effect, Schema } from "effect";
-import { Argument, CliError, Command } from "effect/cli";
+import { Console, Effect } from "effect";
+import { Argument, Command } from "effect/cli";
+import { CliMessageError as UpdateError } from "../errors.ts";
 import { root } from "../root.ts";
 import { readSkillset, writeSkillset } from "../skillset-file.ts";
 import { parseSource } from "../source.ts";
 import { Upstream } from "../upstream.ts";
 
-export class UpdateError extends Schema.TaggedError<
-  UpdateError,
-  { readonly brand: unique symbol }
->()("UpdateError", { message: Schema.String }) {
-  override get [CliError.userMessage]() {
-    return this.message;
-  }
-}
+export { UpdateError };
 
 // Spec #1, update: move Pins without installing skills.
 export const update = Command.make(

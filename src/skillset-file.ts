@@ -1,5 +1,6 @@
 import { Effect, FileSystem, JsonSchema, Schema } from "effect";
-import { CliError } from "effect/cli";
+import { CliMessageError as SkillsetFileError } from "./errors.ts";
+import { PIN_PATTERN } from "./pin.ts";
 
 // Spec #1, Skillset file format: the schema URL is also the format version.
 export const SCHEMA_URL =
@@ -9,7 +10,7 @@ export const Entry = Schema.Struct({
   name: Schema.String.check(Schema.isNonEmpty()),
   source: Schema.String.check(Schema.isNonEmpty()),
   commit: Schema.String.check(
-    Schema.isPattern(/^[a-f0-9]{40}$/u, {
+    Schema.isPattern(PIN_PATTERN, {
       message: "Expected a full 40-character lowercase commit SHA",
     }),
   ),
@@ -53,16 +54,10 @@ export const skillsetJsonSchema = (): string => {
   );
 };
 
-export class SkillsetFileError extends Schema.TaggedError<
-  SkillsetFileError,
-  { readonly brand: unique symbol }
->()("SkillsetFileError", {
-  message: Schema.String,
-}) {
-  override get [CliError.userMessage]() {
-    return this.message;
-  }
-}
+export { SkillsetFileError };
+
+const invalidSkillset = (path: string) => (error: { readonly message: string }) =>
+  new SkillsetFileError({ message: `Invalid Skillset file ${path}: ${error.message}` });
 
 // Spec #1, Skillset file module: reject invalid content and unknown versions before acting.
 export const readSkillset = Effect.fn("readSkillset")(function* (path: string) {
@@ -77,12 +72,7 @@ export const readSkillset = Effect.fn("readSkillset")(function* (path: string) {
     );
   return yield* Schema.decodeEffect(Schema.fromJsonString(Skillset))(text, {
     onExcessProperty: "error",
-  }).pipe(
-    Effect.mapError(
-      (error) =>
-        new SkillsetFileError({ message: `Invalid Skillset file ${path}: ${error.message}` }),
-    ),
-  );
+  }).pipe(Effect.mapError(invalidSkillset(path)));
 });
 
 // Spec #1, Skillset file format: canonical order is independent of input order.
@@ -97,12 +87,7 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
   const fs = yield* FileSystem.FileSystem;
   const validated = yield* Schema.decodeEffect(Skillset)(skillset, {
     onExcessProperty: "error",
-  }).pipe(
-    Effect.mapError(
-      (error) =>
-        new SkillsetFileError({ message: `Invalid Skillset file ${path}: ${error.message}` }),
-    ),
-  );
+  }).pipe(Effect.mapError(invalidSkillset(path)));
   const content =
     JSON.stringify(
       { $schema: validated.$schema, skills: sortedEntries(validated.skills) },
