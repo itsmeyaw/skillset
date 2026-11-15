@@ -35,4 +35,4 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 AGENTS.local.md
 
 # rendered demo video (assets/linkedin/build.sh)
-assets/linkedin/*.mp4
+assets/*/*.mp4
