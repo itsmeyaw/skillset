@@ -10,6 +10,7 @@ import { root } from "../root.ts";
 import { readSkillset, writeSkillset } from "../skillset-file.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
 import { Upstream } from "../upstream.ts";
+import { isUserSkillsetName, resolveSet } from "../user-skillset.ts";
 
 export { InstallError };
 
@@ -200,14 +201,22 @@ export const install = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* (options) {
-    const { set } = yield* root;
+    const { set: setFlag } = yield* root;
+    // Issue #12: a bare name in the positional means --set <name>; paths stay Source errors.
+    const named = Option.filter(options.source, isUserSkillsetName);
+    if (Option.isSome(named) && Option.isSome(setFlag))
+      return yield* new InstallError({
+        message: `"${named.value}" is a Skillset name; it cannot be combined with --set.`,
+      });
+    const set = yield* resolveSet(Option.isSome(named) ? named : setFlag);
+    const source = Option.isSome(named) ? Option.none() : options.source;
     let addition:
       | Extract<Effect.Success<ReturnType<typeof prepareAddition>>, { _tag: "Addition" }>
       | undefined;
     // Issue #11: Source installs prepare Entries before preflight and confirmation.
-    if (Option.isSome(options.source)) {
+    if (Option.isSome(source)) {
       const interactive = yield* isInteractive(options.yes);
-      const result = yield* prepareAddition(options.source.value, set, {
+      const result = yield* prepareAddition(source.value, set, {
         ...options,
         list: false,
         interactive,

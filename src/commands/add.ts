@@ -4,7 +4,7 @@ import { prepareAddition } from "../addition.ts";
 import { CliMessageError as AddError } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
-import { root } from "../root.ts";
+import { skillsetPath } from "../root.ts";
 import { writeSkillset } from "../skillset-file.ts";
 
 export { AddError };
@@ -26,7 +26,7 @@ export const add = Command.make(
     const input = Option.isSome(source)
       ? source.value
       : yield* cancelOnQuit(Prompt.String({ message: "Source?" }));
-    const { set } = yield* root;
+    const set = yield* skillsetPath;
     const addition = yield* prepareAddition(input, set, { selected, all, list, interactive });
     if (addition._tag === "Addition") {
       yield* writeSkillset(set, addition.skillset);

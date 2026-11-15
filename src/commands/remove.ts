@@ -4,7 +4,7 @@ import { CliMessageError as RemoveError } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
-import { root } from "../root.ts";
+import { skillsetPath } from "../root.ts";
 import { readSkillset, writeSkillset } from "../skillset-file.ts";
 
 export { RemoveError };
@@ -23,7 +23,7 @@ export const remove = Command.make(
     if (!all && supplied.length === 0 && !interactive) {
       return yield* new RemoveError({ message: "Usage: skillset remove [skills...] [--all]" });
     }
-    const { set } = yield* root;
+    const set = yield* skillsetPath;
     const skillset = yield* readSkillset(set);
     let skills: ReadonlyArray<string> = supplied;
     // Issue #11: select Entries only when an interactive removal is ambiguous.

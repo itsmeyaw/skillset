@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import { Effect, FileSystem, JsonSchema, Schema } from "effect";
 import { CliMessageError as SkillsetFileError } from "./errors.ts";
 import { PIN_PATTERN } from "./pin.ts";
@@ -94,7 +95,9 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
       null,
       2,
     ) + "\n";
-  yield* fs.writeFileString(path, content).pipe(
+  // Issue #12: writing a User Skillset creates the user directory on first use.
+  yield* fs.makeDirectory(dirname(path), { recursive: true }).pipe(
+    Effect.andThen(fs.writeFileString(path, content)),
     Effect.mapError(
       (error) =>
         new SkillsetFileError({

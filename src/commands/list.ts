@@ -1,15 +1,26 @@
-import { Console, Effect } from "effect";
-import { Command } from "effect/cli";
+import { Console, Effect, Option } from "effect";
+import { Command, Flag } from "effect/cli";
+import { CliMessageError as ListError } from "../errors.ts";
 import { root } from "../root.ts";
 import { readSkillset, sortedEntries } from "../skillset-file.ts";
+import { listUserSkillsets, resolveSet } from "../user-skillset.ts";
+
+export { ListError };
 
 // Spec #1, User Story 27: show each Entry's name, Source, and short Pin.
 export const list = Command.make(
   "list",
-  {},
-  Effect.fn(function* () {
-    const { set } = yield* root;
-    const skillset = yield* readSkillset(set);
+  { global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)) },
+  Effect.fn(function* ({ global }) {
+    const { set: setFlag } = yield* root;
+    // Issue #12: -g lists User Skillset names instead of one Skillset's Entries.
+    if (global) {
+      if (Option.isSome(setFlag))
+        return yield* new ListError({ message: "-g cannot be used with --set." });
+      for (const name of yield* listUserSkillsets()) yield* Console.log(name);
+      return;
+    }
+    const skillset = yield* readSkillset(yield* resolveSet(setFlag));
     const entries = sortedEntries(skillset.skills);
     if (entries.length === 0) {
       yield* Console.log("This Skillset is empty.");

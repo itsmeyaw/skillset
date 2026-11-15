@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { CliMessageError as UpdateError } from "../errors.ts";
-import { root } from "../root.ts";
+import { skillsetPath } from "../root.ts";
 import { readSkillset, writeSkillset } from "../skillset-file.ts";
 import { parseSource } from "../source.ts";
 import { Upstream } from "../upstream.ts";
@@ -13,7 +13,7 @@ export const update = Command.make(
   "update",
   { skills: Argument.String("skills").pipe(Argument.variadic()) },
   Effect.fn(function* ({ skills }) {
-    const { set } = yield* root;
+    const set = yield* skillsetPath;
     const skillset = yield* readSkillset(set);
     const upstream = yield* Upstream;
     const entries = [...skillset.skills];
