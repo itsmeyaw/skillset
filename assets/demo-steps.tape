@@ -30,7 +30,9 @@ Enter
 Sleep 2s
 Type "n"
 Sleep 1s
-Type "y"
+Type "n"
+Sleep 1500ms
+Type "skillset install --set my-set" Enter
 Sleep 3s
 Enter
 Sleep 2s
@@ -41,7 +43,8 @@ Sleep 2s
 Enter
 Sleep 2s
 Enter
-Sleep 10s
+Wait@60s /\$\s*$/
+Sleep 1s
 
 Type "ls .agents/skills"
 Enter

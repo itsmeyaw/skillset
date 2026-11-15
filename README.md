@@ -24,7 +24,7 @@ Or run without installing: `npx @itsmeyaw/skillset --help`.
 Build your own Skillset once, then reuse it in every project. Run commands without arguments and Skillset prompts you for everything.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/demo.gif" alt="Terminal demo: create a Skillset, add skills from mattpocock/skills, and install them into a project in one go." width="720">
+  <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/demo.gif" alt="Terminal demo: create a Skillset with skills from mattpocock/skills, then install it into a project with skillset install --set my-set." width="720">
 </p>
 
 **1. Create your Skillset.** `--set my-set` names a Skillset that you can use in all your projects:
