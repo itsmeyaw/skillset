@@ -12,6 +12,14 @@ _Avoid_: Skill set, bundle, pack, collection
 The file on disk that holds one Skillset.
 _Avoid_: Manifest, index, lockfile
 
+**Project Skillset**:
+A Skillset file that lives in the project the user is working in.
+_Avoid_: Local skillset
+
+**User Skillset**:
+A Skillset the user keeps by name, outside any project, so it can be used from any project. A Skillset referred to by bare name is always a User Skillset.
+_Avoid_: Global skillset, saved skillset, profile
+
 **Entry**:
 One skill inside a Skillset, identified by the skill's name.
 _Avoid_: Item, record
