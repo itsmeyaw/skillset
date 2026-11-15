@@ -36,7 +36,7 @@ Or install globally with `npm install -g @itsmeyaw/skillset`. The examples below
 skillset add mattpocock/skills --list
 
 # Create ./skillset.json if needed and pin the selected skills.
-skillset add mattpocock/skills -s grilling
+skillset add mattpocock/skills -s grilling   # in a terminal, then asks "Install skillset?"
 skillset list
 
 # Refresh Pins, review the diff, then share the file.

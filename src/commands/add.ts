@@ -6,6 +6,7 @@ import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import { skillsetPath } from "../root.ts";
 import { writeSkillset } from "../skillset-file.ts";
+import { installSkillset } from "./install.ts";
 
 export { AddError };
 
@@ -31,6 +32,18 @@ export const add = Command.make(
     if (addition._tag === "Addition") {
       yield* writeSkillset(set, addition.skillset);
       yield* Console.log(`Added ${addition.added.map((entry) => entry.name).join(", ")} to ${set}`);
+      // Issue #11: offer to Install the Skillset only in an interactive terminal.
+      if (
+        interactive &&
+        (yield* cancelOnQuit(Prompt.Confirm({ message: "Install skillset?", initial: false })))
+      )
+        yield* installSkillset(set, {
+          selected: [],
+          agents: [],
+          global: false,
+          copy: false,
+          yes: false,
+        });
     }
   }),
 ).pipe(Command.withDescription("Add skills from a Source"));

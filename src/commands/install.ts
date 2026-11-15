@@ -188,6 +188,22 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   return plan;
 });
 
+type InstallOptions = Parameters<typeof buildInstallPlan>[1];
+
+// Issue #11: existing installs preflight after confirmation.
+export const installSkillset = Effect.fn("installSkillset")(function* (
+  set: string,
+  options: InstallOptions,
+) {
+  const plan = yield* buildInstallPlan(yield* readSkillset(set), options);
+  if (!plan) return;
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      yield* executeInstall(plan, yield* checkSources(plan.entries));
+    }),
+  );
+});
+
 // Spec #1, install -y: omitted agents use skills add -y defaults, project scope, and auto mode.
 export const install = Command.make(
   "install",
@@ -224,18 +240,19 @@ export const install = Command.make(
       if (result._tag === "NoSelection") return;
       addition = result;
     }
-    const skillset = addition ? addition.skillset : yield* readSkillset(set);
-    const existingPlan = addition ? undefined : yield* buildInstallPlan(skillset, options);
-    if (!addition && !existingPlan) return;
-    // Issue #11: Source preflight precedes confirmation; existing installs preflight after it.
+    if (!addition) return yield* installSkillset(set, options);
+    const { skillset } = addition;
+    // Issue #11: Source preflight precedes confirmation.
     yield* Effect.scoped(
       Effect.gen(function* () {
-        const checked = yield* checkSources(existingPlan?.entries ?? skillset.skills);
-        const plan = addition
-          ? yield* buildInstallPlan(skillset, { ...options, selected: [], added: addition.added })
-          : existingPlan;
+        const checked = yield* checkSources(skillset.skills);
+        const plan = yield* buildInstallPlan(skillset, {
+          ...options,
+          selected: [],
+          added: addition.added,
+        });
         if (!plan) return;
-        if (addition) yield* writeSkillset(set, skillset);
+        yield* writeSkillset(set, skillset);
         yield* executeInstall(plan, checked);
       }),
     );

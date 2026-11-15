@@ -3,6 +3,13 @@ import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
 import { key, runCli } from "./harness.ts";
 
+const cursor = {
+  id: "cursor",
+  name: "Cursor",
+  projectSkillsDir: ".cursor/skills",
+  globalSkillsDir: null,
+  universal: false,
+};
 const commit = "a".repeat(40);
 const upstream = {
   commits: { [JSON.stringify(["owner/repo", null])]: commit },
@@ -78,11 +85,14 @@ it.effect("interactive add asks for a Source and selects skills", () =>
         key("l", "l"),
         key("space"),
         key("enter"),
+        key("n", "n"),
       ],
       upstream,
     });
     assert.strictEqual(result.code, 0);
     assert.match(result.screen.join(""), /Source/);
+    assert.match(result.screen.join(""), /Install skillset\?/);
+    assert.notInclude(result.out.join("\n"), "Installed");
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { name: "alpha", source: "owner/repo", commit },
     ]);
@@ -656,3 +666,23 @@ for (const [source, message] of [
     }).pipe(Effect.provide(NodeFileSystem.layer)),
   );
 }
+
+it.effect("accepting the install prompt after add installs the Skillset", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+      tty: true,
+      keys: [key("y", "y"), ...Array.from({ length: 4 }, () => key("enter")), key("y", "y")],
+      upstream: {
+        ...upstream,
+        installDir: dir,
+        supportedAgents: [cursor],
+        detectedAgents: [cursor],
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.match(result.out.join("\n"), /Installed alpha/);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
