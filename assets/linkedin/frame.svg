@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <pattern id="tiles" x="68" y="28" width="80" height="80" patternUnits="userSpaceOnUse">
+      <rect x="8" y="8" width="64" height="64" rx="14" fill="#12275A"/>
+    </pattern>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#fff"/>
+    </linearGradient>
+    <mask id="fade-mask">
+      <rect x="600" width="1320" height="1080" fill="url(#fade)"/>
+    </mask>
+    <clipPath id="card">
+      <rect x="60" y="60" width="1800" height="960" rx="36"/>
+    </clipPath>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="16" stdDeviation="36" flood-color="#030817" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="1080" fill="#060E22"/>
+  <rect x="60" y="60" width="1800" height="960" rx="36" fill="#0A1838"/>
+  <g clip-path="url(#card)" mask="url(#fade-mask)">
+    <rect x="600" y="108" width="1220" height="872" fill="url(#tiles)"/>
+  </g>
+  <rect x="60.5" y="60.5" width="1799" height="959" rx="35.5" fill="none" stroke="#1E3A6E"/>
+
+  <!-- left column: same content as assets/skillset.svg -->
+  <g transform="translate(130 350)">
+    <rect width="36" height="36" rx="9" fill="#2A5BC9"/>
+    <rect x="44" width="36" height="36" rx="9" fill="#3B7BFF"/>
+    <rect y="44" width="36" height="36" rx="9" fill="#3B7BFF"/>
+    <rect x="52" y="36" width="36" height="36" rx="9" fill="#B5CEFF" transform="rotate(-12 70 54)"/>
+  </g>
+  <text x="246" y="418" fill="#F2F6FF" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="88" font-weight="700" letter-spacing="-2">Skillset</text>
+  <text fill="#9DB0D6" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="32">
+    <tspan x="130" y="510">Easily manage, install, and share</tspan>
+    <tspan x="130" y="555">multiple skills at once</tspan>
+  </text>
+  <rect x="130" y="610" width="596" height="64" rx="12" fill="#0D1E45" stroke="#24407D"/>
+  <text x="154" y="652" font-family="'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace" font-size="26"><tspan fill="#5C8DFF">$</tspan><tspan fill="#DCE6FF"> npm install -g @itsmeyaw/skillset</tspan></text>
+  <text x="130" y="730" fill="#8296BE" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="24">Based on Vercel&#8217;s Skill CLI</text>
+
+  <!-- terminal window; the recording is overlaid at (790, 178), 1010x754, leaving the window's rounded bottom corners visible -->
+  <g filter="url(#shadow)">
+    <rect x="790" y="130" width="1010" height="820" rx="18" fill="#0D1E45"/>
+  </g>
+  <path d="M808 130 H1782 A18 18 0 0 1 1800 148 V178 H790 V148 A18 18 0 0 1 808 130 Z" fill="#11275A"/>
+  <circle cx="822" cy="154" r="7" fill="#2A5BC9"/>
+  <circle cx="846" cy="154" r="7" fill="#3B7BFF"/>
+  <circle cx="870" cy="154" r="7" fill="#B5CEFF"/>
+  <text x="1295" y="161" text-anchor="middle" fill="#8296BE" font-family="'JetBrains Mono', ui-monospace, Menlo, monospace" font-size="18">~/projects/some-project</text>
+  <rect x="790.5" y="130.5" width="1009" height="819" rx="17.5" fill="none" stroke="#24407D"/>
+</svg>
