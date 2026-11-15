@@ -28,7 +28,7 @@ export const add = Command.make(
     const parsed = parseSource(source);
     if ("error" in parsed) return yield* new AddError({ message: parsed.error });
     const upstream = yield* Upstream;
-    const commit = yield* upstream.resolveCommit(parsed.repository, parsed.ref);
+    const commit = yield* upstream.resolveCommit(parsed.repository, parsed.ref, parsed.treeRefs);
     const skills = yield* upstream.listSkills(parsed.repository, commit);
     // Spec #1, Source parsing: -s or --all overrides an implied tree-path selection.
     const selection = selected.length > 0 ? selected : !all && parsed.skill ? [parsed.skill] : [];

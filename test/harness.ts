@@ -6,7 +6,7 @@ import { ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 import type { AgentInfo, SkillSource } from "skills";
 import { runArgv } from "../src/cli.ts";
-import { Upstream, UpstreamError } from "../src/upstream.ts";
+import { ambiguousTreeMessage, Upstream, UpstreamError } from "../src/upstream.ts";
 
 // Spec #1, Testing Decisions: the fake supplies Pins, available skills, and install failures.
 export const fakeUpstream = (
@@ -26,8 +26,11 @@ export const fakeUpstream = (
   return Layer.succeed(
     Upstream,
     Upstream.of({
-      resolveCommit: (source, ref) => {
+      resolveCommit: (source, ref, treeRefs = []) => {
         options.commitLookups?.push(JSON.stringify([source, ref ?? null]));
+        if (treeRefs.some((candidate) => options.commits?.[JSON.stringify([source, candidate])])) {
+          return Effect.fail(new UpstreamError({ message: ambiguousTreeMessage }));
+        }
         const commit = options.commits?.[JSON.stringify([source, ref ?? null])];
         return commit === undefined
           ? Effect.fail(new UpstreamError({ message: `Fake commit not configured for ${source}` }))

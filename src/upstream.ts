@@ -22,10 +22,17 @@ export class UpstreamError extends Schema.TaggedError<
 }
 
 // Spec #1, Upstream service: this is the single swappable boundary to git and skills.
+export const ambiguousTreeMessage =
+  "Ambiguous tree URL; use owner/repo#<branch-with-slashes> and -s <skill>.";
+
 export class Upstream extends Context.Service<
   Upstream,
   {
-    readonly resolveCommit: (source: string, ref?: string) => Effect.Effect<string, UpstreamError>;
+    readonly resolveCommit: (
+      source: string,
+      ref?: string,
+      treeRefs?: ReadonlyArray<string>,
+    ) => Effect.Effect<string, UpstreamError>;
     readonly listSkills: (
       source: string,
       commit: string,

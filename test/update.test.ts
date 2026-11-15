@@ -198,7 +198,7 @@ it.effect("update does not report or rewrite unchanged Pins", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("update follows a stored GitHub tree Source with an encoded branch", () =>
+it.effect("update retains encoded tree ref segments like skills", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -210,7 +210,7 @@ it.effect("update follows a stored GitHub tree Source with an encoded branch", (
     );
     const result = yield* runCli(["update", "alpha", "--set", file], {
       upstream: {
-        commits: { [JSON.stringify(["https://github.com/owner/repo", "feature/docs"])]: latest },
+        commits: { [JSON.stringify(["https://github.com/owner/repo", "feature%2Fdocs"])]: latest },
         skills: { [JSON.stringify(["https://github.com/owner/repo", latest])]: ["alpha"] },
       },
     });

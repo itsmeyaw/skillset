@@ -4,6 +4,7 @@ export type ParsedSource = {
   readonly ref: string | undefined;
   readonly fixed: boolean;
   readonly skill: string | undefined;
+  readonly treeRefs?: ReadonlyArray<string>;
 };
 
 // skills@1.8.1 decodeFragmentValue: retain malformed escapes as literal refs.
@@ -65,18 +66,19 @@ export const parseSource = (source: string): ParsedSource | { readonly error: st
       source,
     );
   if (tree) {
-    try {
-      // RFC 3986 §2.1: decode percent-encoded URL components for lookup.
-      return {
-        stored: `${tree[1]}/tree/${tree[2]}`,
-        repository: tree[1]!,
-        ref: decodeURIComponent(tree[2]!),
-        fixed: false,
-        skill: tree[3] ? decodeURIComponent(tree[3].split("/").at(-1)!) : undefined,
-      };
-    } catch {
-      return { error: `Invalid URL encoding in Source: ${source}` };
-    }
+    // skills@1.8.1 parseSource: tree URL path segments are not percent-decoded.
+    return {
+      stored: `${tree[1]}/tree/${tree[2]}`,
+      repository: tree[1]!,
+      ref: tree[2]!,
+      fixed: false,
+      skill: tree[3]?.split("/").at(-1),
+      treeRefs: tree[3]
+        ? tree[3]
+            .split("/")
+            .map((_, index, parts) => [tree[2]!, ...parts.slice(0, index + 1)].join("/"))
+        : [],
+    };
   }
   // skills@1.8.1 isVersionPin: only versions or full commit SHAs are fixed refs.
   const pinned =

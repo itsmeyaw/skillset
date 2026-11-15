@@ -2,7 +2,7 @@ import { Effect, Layer, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { detectAgents, getSupportedAgents, installSkills, resolveSource } from "skills";
 import { parseSource } from "./source.ts";
-import { Upstream, UpstreamError } from "./upstream.ts";
+import { ambiguousTreeMessage, Upstream, UpstreamError } from "./upstream.ts";
 
 // git-ls-remote(1): peeled tags use ^{}; prefer them to tag objects and branches.
 export const selectRemoteCommit = (output: string, ref?: string): string | undefined => {
@@ -72,17 +72,21 @@ export const UpstreamLive = Layer.effect(
         ),
       );
     return Upstream.of({
-      resolveCommit: Effect.fn("Upstream.resolveCommit")(function* (source, ref) {
+      resolveCommit: Effect.fn("Upstream.resolveCommit")(function* (source, ref, treeRefs = []) {
         // skills@1.8.1 cloneRepo: reject ext::, which executes an arbitrary helper command.
         if (/^ext::/iu.test(source)) {
           return yield* new UpstreamError({ message: "Unsupported Git transport: ext" });
         }
         // Spec #1, Upstream service: full commit Pins require no remote lookup.
-        if (ref !== undefined && /^[a-f0-9]{40}$/u.test(ref)) return ref;
+        if (ref !== undefined && /^[a-f0-9]{40}$/u.test(ref) && treeRefs.length === 0) return ref;
         const patterns =
           ref === undefined
             ? ["HEAD"]
-            : [`refs/tags/${ref}^{}`, `refs/tags/${ref}`, `refs/heads/${ref}`];
+            : [ref, ...treeRefs].flatMap((name) => [
+                `refs/tags/${name}^{}`,
+                `refs/tags/${name}`,
+                `refs/heads/${name}`,
+              ]);
         const result = yield* Effect.scoped(
           Effect.gen(function* () {
             const child = yield* spawner.spawn(
@@ -111,7 +115,12 @@ export const UpstreamLive = Layer.effect(
         if (code !== 0) {
           return yield* new UpstreamError({ message: `git ls-remote failed: ${stderr.trim()}` });
         }
-        const commit = selectRemoteCommit(stdout, ref);
+        // git-ls-remote(1): a longer matching ref makes a tree URL ambiguous.
+        if (treeRefs.some((candidate) => selectRemoteCommit(stdout, candidate) !== undefined)) {
+          return yield* new UpstreamError({ message: ambiguousTreeMessage });
+        }
+        const commit =
+          ref !== undefined && /^[a-f0-9]{40}$/u.test(ref) ? ref : selectRemoteCommit(stdout, ref);
         if (commit === undefined) {
           return yield* new UpstreamError({
             message: `Ref ${ref ?? "HEAD"} not found in ${source}`,
