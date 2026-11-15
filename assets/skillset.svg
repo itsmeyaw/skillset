@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="title desc">
+  <title id="title">Skillset</title>
+  <desc id="desc">Easily manage, install, and share multiple skills at once. Based on Vercel&#8217;s Skill CLI. npm install -g @itsmeyaw/skillset</desc>
+  <defs>
+    <pattern id="tiles" x="48" y="32" width="56" height="56" patternUnits="userSpaceOnUse">
+      <rect x="6" y="6" width="44" height="44" rx="10" fill="#12275A"/>
+    </pattern>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.45" stop-color="#fff" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#fff"/>
+    </linearGradient>
+    <mask id="fade-mask">
+      <rect x="720" width="480" height="400" fill="url(#fade)"/>
+    </mask>
+  </defs>
+  <rect width="1200" height="400" rx="24" fill="#0A1838"/>
+  <g mask="url(#fade-mask)">
+    <rect x="720" y="38" width="442" height="324" fill="url(#tiles)"/>
+    <rect x="1118" y="38" width="44" height="44" rx="10" fill="#2A5BC9"/>
+    <rect x="782" y="262" width="44" height="44" rx="10" fill="#2A5BC9"/>
+    <!-- the logo, echoed at grid scale -->
+    <rect x="950" y="150" width="44" height="44" rx="10" fill="#2A5BC9"/>
+    <rect x="1006" y="150" width="44" height="44" rx="10" fill="#3B7BFF"/>
+    <rect x="950" y="206" width="44" height="44" rx="10" fill="#3B7BFF"/>
+    <rect x="1016" y="196" width="44" height="44" rx="10" fill="#B5CEFF" transform="rotate(-12 1038 218)"/>
+  </g>
+  <rect x="0.5" y="0.5" width="1199" height="399" rx="23.5" fill="none" stroke="#1E3A6E"/>
+
+  <g transform="translate(80 56)">
+    <rect width="26" height="26" rx="7" fill="#2A5BC9"/>
+    <rect x="32" width="26" height="26" rx="7" fill="#3B7BFF"/>
+    <rect y="32" width="26" height="26" rx="7" fill="#3B7BFF"/>
+    <rect x="38" y="26" width="26" height="26" rx="7" fill="#B5CEFF" transform="rotate(-12 51 39)"/>
+  </g>
+  <text x="166" y="106" fill="#F2F6FF" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="64" font-weight="700" letter-spacing="-1.5">Skillset</text>
+  <text fill="#9DB0D6" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="27">
+    <tspan x="80" y="178">Easily manage, install, and share</tspan>
+    <tspan x="80" y="216">multiple skills at once</tspan>
+  </text>
+
+  <rect x="80" y="246" width="596" height="60" rx="12" fill="#0D1E45" stroke="#24407D"/>
+  <text x="104" y="285" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="26"><tspan fill="#5C8DFF">$</tspan><tspan fill="#DCE6FF"> npm install -g @itsmeyaw/skillset</tspan></text>
+  <text x="80" y="350" fill="#6F84AE" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21">Based on Vercel&#8217;s Skill CLI</text>
+</svg>
