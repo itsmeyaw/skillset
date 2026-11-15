@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/skillset.svg" alt="Skillset: Easily manage, install, and share multiple skills at once. Based on Vercel’s Skill CLI." width="640">
+  <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/skillset.svg" alt="Skillset: Easily manage, install, and share multiple skills at once. Based on Vercel’s Skill CLI." width="800">
 </p>
 
 <p align="center">
@@ -22,6 +22,10 @@ Or run without installing: `npx @itsmeyaw/skillset --help`.
 ## Quick start
 
 Build your own Skillset once, then reuse it in every project. Run commands without arguments and Skillset prompts you for everything.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/demo.gif" alt="Terminal demo: create a Skillset, add skills from mattpocock/skills, and install them into a project in one go." width="720">
+</p>
 
 **1. Create your Skillset.** `--set my-set` names a Skillset that you can use in all your projects:
 
