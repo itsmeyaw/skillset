@@ -133,7 +133,7 @@ export const UpstreamLive = Layer.effect(
       listSkills: (source, commit) =>
         Effect.scoped(
           resolvePinned(source, commit).pipe(
-            // Spec #11: preserve descriptions for interactive selection.
+            // Issue #11: preserve descriptions for interactive selection.
             Effect.map((handle) =>
               handle.skills.map(({ name, description }) => ({ name, description })),
             ),

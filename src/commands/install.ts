@@ -20,7 +20,7 @@ type InstallPlan = {
   readonly mode: InstallMode;
 };
 
-// Spec #11: check every Source before confirming or writing a Source-based install.
+// Issue #11: check every Source before confirming or writing a Source-based install.
 const checkSources = Effect.fn("checkSources")(function* (allEntries: ReadonlyArray<Entry>) {
   const upstream = yield* Upstream;
   // Spec #1, install: group by the complete Source and Pin pair.
@@ -72,7 +72,7 @@ const executeInstall = Effect.fn("executeInstall")(function* (
   }
 });
 
-// Spec #11: confirm the plan before writing the Skillset or installing skills.
+// Issue #11: confirm the plan before writing the Skillset or installing skills.
 const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   skillset: Skillset,
   {

@@ -26,7 +26,7 @@ export const remove = Command.make(
     const { set } = yield* root;
     const skillset = yield* readSkillset(set);
     let skills: ReadonlyArray<string> = supplied;
-    // Spec #11: select Entries only when an interactive removal is ambiguous.
+    // Issue #11: select Entries only when an interactive removal is ambiguous.
     if (!all && skills.length === 0) {
       if (skillset.skills.length === 0) {
         yield* Console.log("This Skillset is empty.");

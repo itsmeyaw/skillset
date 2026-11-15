@@ -8,7 +8,7 @@ import { remove } from "./commands/remove.ts";
 import { update } from "./commands/update.ts";
 import { root } from "./root.ts";
 
-// Spec #11: aliases share the same command handlers as their long names.
+// Issue #11: aliases share the same command handlers as their long names.
 export const cli = root.pipe(
   Command.withSubcommands([
     add.pipe(Command.withAlias("a")),
@@ -18,7 +18,7 @@ export const cli = root.pipe(
     update.pipe(Command.withAlias("up")),
   ]),
 );
-// Spec #11: the built-in wizard is not part of the CLI.
+// Issue #11: the built-in wizard is not part of the CLI.
 export const cliConfig = CliConfig.make({
   builtIns: GlobalFlag.BuiltIns.filter((flag) => flag !== GlobalFlag.Wizard),
 });

@@ -7,7 +7,7 @@ import type { Skillset } from "./skillset-file.ts";
 import { parseSource } from "./source.ts";
 import { Upstream } from "./upstream.ts";
 
-// Spec #11: add and install share Source resolution, conflicts, and Pin refresh.
+// Issue #11: add and install share Source resolution, conflicts, and Pin refresh.
 export const prepareAddition = Effect.fn("prepareAddition")(function* (
   input: string,
   set: string,
@@ -29,13 +29,14 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
   const commit = yield* upstream.resolveCommit(parsed.remote, parsed.ref, parsed.treeRefs);
   const available = yield* upstream.listSkills(parsed.remote, commit);
   const skills = available.map((skill) => skill.name);
-  // Spec #11: an empty Source cannot be added or selected interactively.
+  // Issue #11: an empty Source cannot be added or selected interactively.
   if (!list && skills.length === 0)
     return yield* new AddError({ message: `No skills found in ${input} at ${commit}` });
   // Spec #1, Source parsing: -s or --all overrides an implied tree-path selection.
   let selection: ReadonlyArray<string> =
     selected.length > 0 ? selected : !all && parsed.skill ? [parsed.skill] : [];
   if (list || (!interactive && !all && selection.length === 0)) {
+    // Issue #11: listing skills must not create or change a Skillset file.
     for (const skill of skills) yield* Console.log(skill);
     yield* Console.log("Use -s to select skills or --all to add every skill.");
     return { _tag: "NoSelection" as const };
@@ -60,7 +61,7 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
       message: missingSkillsMessage(commit, missing),
     });
   const fs = yield* FileSystem.FileSystem;
-  // Spec #11: adding Entries creates a missing Skillset file.
+  // Issue #11: adding Entries creates a missing Skillset file.
   const exists = yield* fs.exists(set).pipe(
     Effect.mapError(
       (error) =>

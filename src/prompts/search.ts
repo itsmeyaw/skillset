@@ -29,7 +29,7 @@ const safeText = (text: string) =>
     return code < 32 || (code >= 127 && code <= 159) ? " " : char;
   }).join("");
 
-// Spec #11: search names and IDs without discarding selections hidden by the filter.
+// Issue #11: search names and IDs without discarding selections hidden by the filter.
 const matches = (choices: ReadonlyArray<SearchChoice>, query: string) =>
   choices.filter((choice) =>
     `${choice.title}\n${choice.value}`.toLowerCase().includes(query.toLowerCase()),
@@ -39,6 +39,7 @@ const search = (
   options: SearchOptions,
   multiple: boolean,
 ): Prompt.Prompt<ReadonlyArray<string>> => {
+  // Issue #11: detected agents begin selected; skill choices begin unselected.
   const initial: SearchState = {
     query: "",
     index: 0,
@@ -47,6 +48,7 @@ const search = (
     ),
     error: "",
   };
+  // Issue #11: render a scrolling window, selection summary, and highlighted description.
   const frame = (state: SearchState, rows: number, columns: number) => {
     const filtered = matches(options.choices, state.query);
     const height = Math.max(1, Math.min(7, rows - 7));
@@ -72,7 +74,7 @@ const search = (
     const description = filtered[state.index]?.description;
     if (description) lines.push(`  ${safeText(description).replace(/\s+/gu, " ")}`);
     if (state.error) lines.push(state.error);
-    // Spec #11: keep the scrolling window visible when descriptions are long.
+    // Issue #11: keep the scrolling window visible when descriptions are long.
     return lines
       .map((line) => (line.length < columns ? line : `${line.slice(0, Math.max(0, columns - 2))}…`))
       .join("\n");
@@ -80,6 +82,7 @@ const search = (
   return Prompt.Custom<SearchState, ReadonlyArray<string>>(initial, {
     render: (state, action) =>
       Effect.gen(function* () {
+        // ECMA-48: BEL signals an unsupported key without redrawing the frame.
         if (action._tag === "Beep") return "\u0007";
         if (action._tag === "Submit") {
           const chosen = options.choices
@@ -98,8 +101,10 @@ const search = (
         const lines = text
           .split("\n")
           .reduce((count, line) => count + Math.max(1, Math.ceil(line.length / columns)), 0);
+        // ECMA-48: CR and CSI erase-line/cursor-up clear the previous frame.
         return "\r\x1b[2K" + "\x1b[1A\r\x1b[2K".repeat(lines - 1);
       }),
+    // Issue #11: navigation, filtering, selection, and submission respond to keypresses.
     process: (input, state) => {
       const filtered = matches(options.choices, state.query);
       const selected = new Set(state.selected);
@@ -153,7 +158,7 @@ const search = (
   });
 };
 
-// Spec #11: dropdowns and multiselects use the same searchable interaction.
+// Issue #11: dropdowns and multiselects use the same searchable interaction.
 export const searchMultiSelect = (options: SearchOptions) => search(options, true);
 export const searchSelect = (options: SearchOptions) =>
   Prompt.map(search(options, false), (values) => values[0]!);
