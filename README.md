@@ -1,33 +1,50 @@
 # Skillset
 
-Curate a shareable list of agent skills pinned to Git commits, then install them together with `skills`.
+**Curate a shareable list of agent skills pinned to Git commits, then install them together.**
 
-Requires Node.js **22.20.0 or later** and Git. This exceeds the original spec's Node 22.19 minimum because `skills@1.8.1` requires 22.20.0. After the package is published, run it without a global install:
+Skillset lets a *Curator* publish one `skillset.json` file. Anyone can install every skill in it at exactly the commits the Curator reviewed. Installation is handled by [`skills`](https://www.npmjs.com/package/skills).
+
+## Features
+
+- **Pinned** — every skill is locked to a full Git commit SHA.
+- **Shareable** — one JSON file with a published [JSON Schema](schemas/skillset/v1.json).
+- **Safe curation** — `add`, `remove`, and `update` only edit the file; nothing is installed.
+- **Flexible install** — pick skills, agents, scope (project or global), and symlink or copy mode, interactively or with flags.
+
+## Requirements
+
+- Node.js **22.20.0 or later** (required by `skills@1.8.1`)
+- Git
+
+## Usage
+
+Run without installing:
 
 ```sh
 pnpx @itsmeyaw/skillset --help
 ```
 
-The examples below use `skillset` for brevity. Replace it with `pnpx @itsmeyaw/skillset`, or install the package globally with `npm install -g @itsmeyaw/skillset` after publication.
+Or install globally with `npm install -g @itsmeyaw/skillset`. The examples below use `skillset` for brevity.
 
-## Curate a Skillset
+> [!NOTE]
+> The package may not be published yet. Until it is, build from source (see [Development](#development)).
+
+### Curate a Skillset
 
 ```sh
-# List available skills without changing the Skillset file.
+# List available skills without changing anything.
 skillset add mattpocock/skills --list
 
 # Create ./skillset.json if needed and pin the selected skills.
 skillset add mattpocock/skills -s grilling
 skillset list
 
-# Refresh Pins, inspect the changes, and share the file.
+# Refresh Pins, review the diff, then share the file.
 skillset update
 git diff -- skillset.json
 ```
 
-`add`, `remove`, and `update` change the Skillset file only; they do not install or remove skills. Commit and share the file with users. Use `--set <path>` on any command to choose a different file.
-
-## Install a Skillset
+### Install a Skillset
 
 Run this from the project that should receive the skills:
 
@@ -36,55 +53,83 @@ skillset list --set ./skillset.json
 skillset install --set ./skillset.json
 ```
 
-Interactive installation asks for skills, agents, project or global scope, and symlink or copy mode, then shows a summary for confirmation. Declining exits successfully without installing. Flags can skip individual prompts; `-y` skips them all:
+Interactive mode asks for skills, agents, scope, and install mode, then shows a summary to confirm. Declining exits successfully without installing. Use flags to skip prompts, or `-y` to skip them all:
 
 ```sh
 skillset install -y -s grilling -a universal --copy --set ./skillset.json
 ```
 
-Without `-s`, `-y` selects all Entries. Without `-a`, it uses the `skills add -y` default agent choice. It defaults to project scope and automatic install mode. A non-interactive terminal uses the same defaults as `-y`. Install checks all selected Sources at their Pins before writing. If a write fails, it stops without rolling back earlier writes. Skills outside the Skillset are not removed; installs are recorded in `skills-lock.json`.
+- Without `-s`, `-y` selects all Entries.
+- Without `-a`, `-y` uses the `skills add -y` default agent choice.
+- Defaults are project scope and automatic install mode. A non-interactive terminal behaves like `-y`.
+- All selected Sources are checked at their Pins before anything is written. If a write fails, earlier writes are not rolled back.
+- Skills outside the Skillset are never removed. Installs are recorded in `skills-lock.json`.
 
-## Command reference
+## Commands
 
-Every command accepts `--set <path>` (default `./skillset.json`). Only `add` creates a missing file. Use `--help` on any command for its usage.
+Every command accepts `--set <path>` (default `./skillset.json`). Only `add` creates a missing file. Use `--help` on any command for usage.
+
+| Command | Description |
+| --- | --- |
+| `add <source>` | Resolve a Source to a commit and add selected Entries. |
+| `remove [skills...]` | Remove named Entries, or all with `--all`. |
+| `update [skills...]` | Refresh Pins for all or named Entries. |
+| `list` | Print each Entry's name, Source, and short Pin. |
+| `install` | Install Entries at their Pins into agent skill directories. |
+
+Global flags: `-h, --help`, `-v, --version`.
 
 ### `add <source>`
 
-Resolve a Source to a commit, check its skills, and add selected Entries. Re-adding a name from the same Source refreshes its Pin; a name already belonging to a different Source is rejected.
+Resolves the Source, checks its skills, and adds the selected Entries. Re-adding a name from the same Source refreshes its Pin. A name that already belongs to a different Source is rejected.
 
-- `-s, --skill <name>` selects skills; repeat the flag or supply multiple names, e.g. `-s one two`.
-- `--all` selects all skills from the Source.
-- `-l, --list` lists available skills without writing. With no selection, `add` also lists skills and gives a selection hint.
+| Flag | Description |
+| --- | --- |
+| `-s, --skill <name>` | Select skills. Repeat the flag or pass several names (`-s one two`). |
+| `--all` | Select all skills from the Source. |
+| `-l, --list` | List available skills without writing. With no selection, `add` also lists skills and hints how to select. |
 
-Sources include `owner/repo`, `owner/repo#branch`, `owner/repo@v1.2.3`, `owner/repo@<full-sha>`, GitHub tree URLs, and other remote Git URLs. Quote Sources containing `#` in shells. A GitHub tree URL with a skill path selects its last path component and stores the URL through its ref, without the skill path; `-s` or `--all` overrides that selection. `@` on shorthand Sources accepts versions or full SHAs, not skill names; use `-s` to select a skill. Local paths, well-known URLs, and direct downloads cannot be pinned. Private repositories use your existing Git credentials; GitHub is the tested host.
+Supported Sources:
 
-Tree URLs use the first segment after `tree/` as the ref, as `skills` does. If a longer matching ref exists or the ref contains an encoded slash, the URL is ambiguous and rejected; use `owner/repo#<branch-with-slashes> -s <skill>` instead. Tree URL segments are not percent-decoded.
+- `owner/repo`
+- `owner/repo#branch`
+- `owner/repo@v1.2.3` or `owner/repo@<full-sha>`
+- GitHub tree URLs
+- Other remote Git URLs
+
+Notes:
+
+- Quote Sources containing `#` in your shell.
+- On shorthand Sources, `@` takes a version or full SHA, not a skill name. Use `-s` for skills.
+- A GitHub tree URL with a skill path selects the last path component and stores the URL through its ref, without the skill path. `-s` or `--all` overrides that selection.
+- Local paths, well-known URLs, and direct downloads cannot be pinned.
+- Private repositories use your existing Git credentials. GitHub is the tested host.
+
+> [!WARNING]
+> Tree URLs use the first segment after `tree/` as the ref, as `skills` does. If a longer matching ref exists, or the ref contains an encoded slash, the URL is ambiguous and rejected. Use `owner/repo#<branch-with-slashes> -s <skill>` instead. Tree URL segments are not percent-decoded.
 
 ### `remove [skills...]`
 
-Remove named Entries from the file, or use `--all` to empty it. A name or `--all` is required. Unknown names cause exit code 1; known names are still removed.
+A name or `--all` is required. Unknown names cause exit code 1; known names are still removed.
 
 ### `update [skills...]`
 
-Refresh all Entries or only the named Entries. Unknown names are reported; known Entries still update, and the command exits 1. Version-pinned Sources remain unchanged. Each changed Pin is printed as `name  old → new` using short SHAs. If a skill disappeared at its Source, or the Source cannot be checked, its old Pin is retained, other Entries can still update, and the command exits 1.
-
-### `list`
-
-Print each Entry's name, Source, and short Pin.
+- Version-pinned Sources are left unchanged.
+- Each changed Pin is printed as `name  old → new` using short SHAs.
+- Unknown names are reported and the command exits 1; known Entries still update.
+- If a skill disappeared at its Source, or the Source cannot be checked, the old Pin is kept, other Entries still update, and the command exits 1.
 
 ### `install`
 
-- `-s, --skill <name>` selects Entries; repeat the flag or supply multiple names.
-- `-a, --agent <id>` selects agents; repeat the flag or supply multiple IDs.
-- `-g, --global` installs globally instead of asking for scope.
-- `--copy` copies files instead of asking for the install mode.
-- `-y, --yes` skips all prompts, including confirmation.
+| Flag | Description |
+| --- | --- |
+| `-s, --skill <name>` | Select Entries. An unknown name is an error. |
+| `-a, --agent <id>` | Select agents. |
+| `-g, --global` | Install globally instead of asking for scope. |
+| `--copy` | Copy files instead of asking for the install mode. |
+| `-y, --yes` | Skip all prompts, including confirmation. |
 
-An unknown selected skill is an error. Explicit selection, agent, scope, and mode flags skip their respective prompts.
-
-### Global flags
-
-- `-h, --help` shows help; `-v, --version` shows the version.
+Explicit selection, agent, scope, and mode flags skip their own prompts.
 
 ## Skillset file format
 
@@ -101,10 +146,21 @@ An unknown selected skill is an error. Explicit selection, agent, scope, and mod
 }
 ```
 
-Each Entry has a unique nonempty `name`, a nonempty Git `source`, and a `commit` Pin of exactly 40 lowercase hexadecimal characters. The `$schema` URL identifies the format version; unknown URLs and invalid files are rejected. Files are written with Entries sorted by name, two-space indentation, and a trailing newline. The CLI checks name uniqueness; the JSON Schema alone cannot express it.
+- Each Entry has a unique, nonempty `name`, a nonempty Git `source`, and a `commit` Pin of exactly 40 lowercase hex characters.
+- The `$schema` URL is the format version. Unknown URLs and invalid files are rejected.
+- Files are written with Entries sorted by name, two-space indentation, and a trailing newline.
+- The CLI enforces name uniqueness; the JSON Schema alone cannot.
 
-A Pin is the Git commit SHA: Git content-addresses the commit and its tree, so it identifies the files reviewed by the Curator. No separate artifact digest is stored. A Pin does not establish trust in the Curator or Source. See [ADR 0001](https://github.com/itsmeyaw/skillset/blob/main/docs/adr/0001-own-skillset-format-over-wellknown-index.md) for why Skillset uses its own format instead of a V2 well-known index.
+> [!IMPORTANT]
+> A Pin is a Git commit SHA. Git content-addresses the commit and its tree, so it identifies the exact files the Curator reviewed. No separate digest is stored. A Pin does **not** establish trust in the Curator or the Source.
+
+See [ADR 0001](docs/adr/0001-own-skillset-format-over-wellknown-index.md) for why Skillset uses its own format instead of a well-known index, and [GLOSSARY.md](GLOSSARY.md) for the terms used here (Skillset, Entry, Source, Pin, Curator).
 
 ## Development
 
-Install dependencies with `pnpm install`. Run `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, and `pnpm build` to verify changes. Run `pnpm schema:generate` after changing the Skillset file schema.
+```sh
+pnpm install
+pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
+```
+
+Run `pnpm schema:generate` after changing the Skillset file schema.
