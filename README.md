@@ -123,3 +123,15 @@ They are stored in the first of `$SKILLSET_HOME`, `$XDG_CONFIG_HOME/skillset`, o
 ```
 
 You can use the [JSON Schema](schemas/skillset/v1.json) for editor validation.
+
+## Telemetry
+
+Skillset collects no data itself. However, [Vercel's Skills CLI](https://github.com/vercel-labs/skills) library sends anonymous usage telemetry by default. See [what is collected](https://github.com/vercel-labs/skills/blob/main/docs/troubleshooting.md#telemetry). To turn it off, set `DISABLE_TELEMETRY=1` or `DO_NOT_TRACK=1`:
+
+```sh
+DISABLE_TELEMETRY=1 skillset install my-set
+```
+
+## License
+
+This project is licensed under the [MIT](LICENSE)

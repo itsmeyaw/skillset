@@ -3,6 +3,19 @@
   "version": "0.2.1",
   "description": "Curate and install agent skills pinned to Git commits",
   "license": "MIT",
+  "keywords": [
+    "cli",
+    "agent-skills",
+    "skills",
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "cursor",
+    "opencode",
+    "gemini-cli",
+    "github-copilot",
+    "universal"
+  ],
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/itsmeyaw/skillset.git"
