@@ -198,7 +198,7 @@ it.effect("update does not report or rewrite unchanged Pins", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("update retains encoded tree ref segments like skills", () =>
+it.effect("update rejects an encoded slash in a tree ref and keeps its Pin", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -214,9 +214,10 @@ it.effect("update retains encoded tree ref segments like skills", () =>
         skills: { [JSON.stringify(["https://github.com/owner/repo", latest])]: ["alpha"] },
       },
     });
-    assert.strictEqual(result.code, 0);
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /#.*branch.*-s/i);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
-      { name: "alpha", source, commit: latest },
+      { name: "alpha", source, commit: old },
     ]);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

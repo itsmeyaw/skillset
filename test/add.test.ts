@@ -411,7 +411,7 @@ it.effect("add --all ignores a missing tree-path skill", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("add retains percent-encoded GitHub tree URL segments like skills", () =>
+it.effect("add rejects an encoded slash in a tree ref", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -432,10 +432,9 @@ it.effect("add retains percent-encoded GitHub tree URL segments like skills", ()
         },
       },
     );
-    assert.strictEqual(result.code, 0);
-    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
-      { name: "alpha%2Ddocs", source: "https://github.com/owner/repo/tree/feature%2Fdocs", commit },
-    ]);
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /#.*branch.*-s/i);
+    assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 

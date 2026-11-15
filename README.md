@@ -58,7 +58,7 @@ Resolve a Source to a commit, check its skills, and add selected Entries. Re-add
 
 Sources include `owner/repo`, `owner/repo#branch`, `owner/repo@v1.2.3`, `owner/repo@<full-sha>`, GitHub tree URLs, and other remote Git URLs. Quote Sources containing `#` in shells. A GitHub tree URL with a skill path selects its last path component and stores the URL through its ref, without the skill path; `-s` or `--all` overrides that selection. `@` on shorthand Sources accepts versions or full SHAs, not skill names; use `-s` to select a skill. Local paths, well-known URLs, and direct downloads cannot be pinned. Private repositories use your existing Git credentials; GitHub is the tested host.
 
-Tree URLs use the first segment after `tree/` as the ref, as `skills` does. If a longer matching ref exists, the URL is ambiguous and rejected; use `owner/repo#<branch-with-slashes> -s <skill>` instead. Tree URL segments are not percent-decoded.
+Tree URLs use the first segment after `tree/` as the ref, as `skills` does. If a longer matching ref exists or the ref contains an encoded slash, the URL is ambiguous and rejected; use `owner/repo#<branch-with-slashes> -s <skill>` instead. Tree URL segments are not percent-decoded.
 
 ### `remove [skills...]`
 

@@ -1,6 +1,6 @@
 import { Context, Effect } from "effect";
 import type { Scope } from "effect";
-import { CliMessageError as UpstreamError } from "./errors.ts";
+import { ambiguousTreeMessage, CliMessageError as UpstreamError } from "./errors.ts";
 import type {
   AgentInfo,
   BaseOptions,
@@ -10,11 +10,7 @@ import type {
   SkillSource,
 } from "skills";
 
-export { UpstreamError };
-
-// git-ls-remote(1): multiple possible tree refs require an explicit branch.
-export const ambiguousTreeMessage =
-  "Ambiguous tree URL; use owner/repo#<branch-with-slashes> and -s <skill>.";
+export { ambiguousTreeMessage, UpstreamError };
 
 // Spec #1, Upstream service: this boundary represents Git and skills, not a Source.
 export class Upstream extends Context.Service<

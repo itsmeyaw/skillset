@@ -1,3 +1,4 @@
+import { ambiguousTreeMessage } from "./errors.ts";
 import { PIN_PATTERN } from "./pin.ts";
 
 export type ParsedSource = {
@@ -52,13 +53,15 @@ const validateHttpSource = (source: string): { readonly error: string } | undefi
   return undefined;
 };
 
-const parseTree = (source: string): ParsedSource | undefined => {
+const parseTree = (source: string): ParsedSource | { readonly error: string } | undefined => {
   // Spec #1, Source parsing: a tree path selects a skill, but is not part of the stored Source.
   const tree =
     /^(https?:\/\/github\.com\/[^/\s?#]+\/[^/\s?#]+)\/tree\/([^/\s?#]+)(?:\/([^\s?#]+?))?\/?$/u.exec(
       source,
     );
   if (tree) {
+    // RFC 3986 §2.2: an encoded slash cannot safely identify the tree ref boundary.
+    if (/%2f/iu.test(tree[2]!)) return { error: ambiguousTreeMessage };
     // skills@1.8.1 parseSource: tree URL path segments are not percent-decoded.
     return {
       stored: `${tree[1]}/tree/${tree[2]}`,
