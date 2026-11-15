@@ -8,6 +8,10 @@ import type { AgentInfo, SkillSource } from "skills";
 import { runArgv } from "../src/cli.ts";
 import { ambiguousTreeMessage, Upstream, UpstreamError } from "../src/upstream.ts";
 
+// Issue #11: fake Sources and listings expose the same skill descriptions.
+const toSkill = (skill: string | { readonly name: string; readonly description: string }) =>
+  typeof skill === "string" ? { name: skill, description: "" } : skill;
+
 // Spec #1, Testing Decisions: the fake supplies Pins, available skills, and install failures.
 export const fakeUpstream = (
   options: {
@@ -49,11 +53,7 @@ export const fakeUpstream = (
                 message: `Fake skills not configured for ${source} at ${commit}`,
               }),
             )
-          : Effect.succeed(
-              skills.map((skill) =>
-                typeof skill === "string" ? { name: skill, description: "" } : skill,
-              ),
-            );
+          : Effect.succeed(skills.map(toSkill));
       },
       resolveSource: (source, commit) => {
         const skills = options.skills?.[JSON.stringify([source, commit])];
@@ -64,9 +64,7 @@ export const fakeUpstream = (
         }
         const handle: SkillSource = {
           source: { input: source, type: "git", url: source, commit },
-          skills: skills.map((skill) =>
-            typeof skill === "string" ? { name: skill, description: "" } : skill,
-          ),
+          skills: skills.map(toSkill),
           dispose: async () => {
             disposed.add(handle);
             if (options.disposalLog !== undefined) {

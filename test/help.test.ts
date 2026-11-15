@@ -1,8 +1,7 @@
 import { createRequire } from "node:module";
 import { assert, it } from "@effect/vitest";
-import { Effect } from "effect";
 import { NodeFileSystem } from "@effect/platform-node";
-import { FileSystem } from "effect";
+import { Effect, FileSystem } from "effect";
 import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { runCli } from "./harness.ts";
 
