@@ -6,7 +6,7 @@ import type { Skillset } from "../skillset-file.ts";
 import { parseSource } from "../source.ts";
 import { Upstream } from "../upstream.ts";
 
-class AddError extends Schema.TaggedError<AddError, { readonly brand: unique symbol }>()(
+export class AddError extends Schema.TaggedError<AddError, { readonly brand: unique symbol }>()(
   "AddError",
   { message: Schema.String },
 ) {
