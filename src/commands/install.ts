@@ -71,7 +71,7 @@ const executeInstall = Effect.fn("executeInstall")(function* (
   }
 });
 
-// Spec #1, install: build and confirm the plan before fetching or writing any skills.
+// Spec #11: confirm the plan before writing the Skillset or installing skills.
 const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   skillset: Skillset,
   {

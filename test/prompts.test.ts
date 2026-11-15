@@ -114,3 +114,42 @@ it.effect("escape quits the prompt", () =>
       assert.isTrue(Terminal.isQuitError(Cause.squash(result.result.cause)));
   }),
 );
+
+it.effect("untrusted descriptions cannot emit terminal escape sequences", () =>
+  Effect.gen(function* () {
+    const result = yield* runPrompt(
+      searchSelect({
+        message: "Choose",
+        choices: [{ title: "Alpha", value: "a", description: "Details\u001b]0;unsafe\u0007" }],
+      }),
+      [key("enter")],
+    );
+    assert.notInclude(result.screen, "\u001b]0;unsafe");
+  }),
+);
+
+it.effect("backspace removes a full Unicode character", () =>
+  Effect.gen(function* () {
+    const result = yield* runPrompt(searchSelect({ message: "Choose", choices }), [
+      key("emoji", "😀"),
+      key("backspace"),
+      key("a", "a"),
+      key("enter"),
+    ]);
+    assert.strictEqual(result.result._tag, "Success");
+    if (result.result._tag === "Success") assert.strictEqual(result.result.value, "a");
+  }),
+);
+
+it.effect("long descriptions stay within the prompt window", () =>
+  Effect.gen(function* () {
+    const result = yield* runPrompt(
+      searchSelect({
+        message: "Choose",
+        choices: [{ title: "Alpha", value: "a", description: "x".repeat(300) }],
+      }),
+      [key("enter")],
+    );
+    assert.notInclude(result.screen, "x".repeat(100));
+  }),
+);

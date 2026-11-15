@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import { Effect, Option, Terminal } from "effect";
 import { Prompt } from "effect/cli";
 
@@ -21,6 +22,13 @@ type SearchState = {
   readonly error: string;
 };
 
+// ECMA-48: upstream text must not execute terminal control sequences.
+const safeText = (text: string) =>
+  Array.from(stripVTControlCharacters(text), (char) => {
+    const code = char.codePointAt(0)!;
+    return code < 32 || (code >= 127 && code <= 159) ? " " : char;
+  }).join("");
+
 // Spec #11: search names and IDs without discarding selections hidden by the filter.
 const matches = (choices: ReadonlyArray<SearchChoice>, query: string) =>
   choices.filter((choice) =>
@@ -39,13 +47,13 @@ const search = (
     ),
     error: "",
   };
-  const frame = (state: SearchState, rows: number) => {
+  const frame = (state: SearchState, rows: number, columns: number) => {
     const filtered = matches(options.choices, state.query);
     const height = Math.max(1, Math.min(7, rows - 7));
     const start = Math.max(0, Math.min(state.index - height + 1, filtered.length - height));
     const chosen = options.choices
       .filter((choice) => state.selected.has(choice.value))
-      .map((choice) => choice.title);
+      .map((choice) => safeText(choice.title));
     const summary =
       chosen.slice(0, 2).join(", ") + (chosen.length > 2 ? ` +${chosen.length - 2} more` : "");
     const lines = [
@@ -55,34 +63,38 @@ const search = (
     if (start > 0) lines.push(`  ↑ ${start} more`);
     for (const [index, choice] of filtered.slice(start, start + height).entries()) {
       lines.push(
-        `${start + index === state.index ? "❯" : " "} ${multiple ? (state.selected.has(choice.value) ? "[x] " : "[ ] ") : ""}${choice.title}`,
+        `${start + index === state.index ? "❯" : " "} ${multiple ? (state.selected.has(choice.value) ? "[x] " : "[ ] ") : ""}${safeText(choice.title)}`,
       );
     }
     if (start + height < filtered.length)
       lines.push(`  ↓ ${filtered.length - start - height} more`);
     if (filtered.length === 0) lines.push("  No matches");
     const description = filtered[state.index]?.description;
-    if (description) lines.push(`  ${description.replace(/\s+/gu, " ")}`);
+    if (description) lines.push(`  ${safeText(description).replace(/\s+/gu, " ")}`);
     if (state.error) lines.push(state.error);
-    return lines.join("\n");
+    // Spec #11: keep the scrolling window visible when descriptions are long.
+    return lines
+      .map((line) => (line.length < columns ? line : `${line.slice(0, Math.max(0, columns - 2))}…`))
+      .join("\n");
   };
   return Prompt.Custom<SearchState, ReadonlyArray<string>>(initial, {
     render: (state, action) =>
       Effect.gen(function* () {
+        if (action._tag === "Beep") return "\u0007";
         if (action._tag === "Submit") {
           const chosen = options.choices
             .filter((choice) => action.value.includes(choice.value))
-            .map((choice) => choice.title);
+            .map((choice) => safeText(choice.title));
           return `${options.message}: ${chosen.join(", ")}\n`;
         }
         const terminal = yield* Terminal.Terminal;
-        return frame(state, yield* terminal.rows);
+        return frame(state, yield* terminal.rows, Math.max(2, yield* terminal.columns));
       }),
     clear: (state) =>
       Effect.gen(function* () {
         const terminal = yield* Terminal.Terminal;
-        const text = frame(state, yield* terminal.rows);
         const columns = Math.max(1, yield* terminal.columns);
+        const text = frame(state, yield* terminal.rows, Math.max(2, columns));
         const lines = text
           .split("\n")
           .reduce((count, line) => count + Math.max(1, Math.ceil(line.length / columns)), 0);
@@ -125,7 +137,7 @@ const search = (
         return Effect.succeed({ _tag: "Submit" as const, value: values });
       }
       if (input.key.name === "backspace")
-        return next({ query: state.query.slice(0, -1), index: 0 });
+        return next({ query: Array.from(state.query).slice(0, -1).join(""), index: 0 });
       if (
         !input.key.ctrl &&
         !input.key.meta &&
