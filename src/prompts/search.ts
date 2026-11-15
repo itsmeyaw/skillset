@@ -53,9 +53,11 @@ const search = (
     const filtered = matches(options.choices, state.query);
     const height = Math.max(1, Math.min(7, rows - 7));
     const start = Math.max(0, Math.min(state.index - height + 1, filtered.length - height));
-    const chosen = options.choices
-      .filter((choice) => state.selected.has(choice.value))
-      .map((choice) => safeText(choice.title));
+    // Set iterates in insertion order, so reversing lists the most recently selected first.
+    const titles = new Map(options.choices.map((choice) => [choice.value, choice.title]));
+    const chosen = Array.from(state.selected)
+      .reverse()
+      .map((value) => safeText(titles.get(value) ?? value));
     const summary =
       chosen.slice(0, 2).join(", ") + (chosen.length > 2 ? ` +${chosen.length - 2} more` : "");
     const lines = [

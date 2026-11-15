@@ -69,7 +69,7 @@ it.effect("ctrl+a selects matches without losing hidden selections", () =>
     assert.strictEqual(result.result._tag, "Success");
     if (result.result._tag === "Success")
       assert.deepStrictEqual(result.result.value, ["a", "b", "c"]);
-    assert.include(result.screen, "Selected: Alpha, Beta +1 more");
+    assert.include(result.screen, "Selected: Gamma, Beta +1 more");
   }),
 );
 
