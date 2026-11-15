@@ -1,8 +1,9 @@
-import { Effect, Option, Stdio } from "effect";
+import { Effect, Option } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
 import { prepareAddition } from "../addition.ts";
 import { CliMessageError as AddError } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
+import { isInteractive } from "../prompts/interactive.ts";
 import { root } from "../root.ts";
 import { writeSkillset } from "../skillset-file.ts";
 
@@ -19,7 +20,7 @@ export const add = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* ({ source, selected, all, list, yes }) {
-    const interactive = !yes && (yield* Stdio.Stdio.use((stdio) => stdio.stdinIsTerminal));
+    const interactive = yield* isInteractive(yes);
     if (Option.isNone(source) && !interactive)
       return yield* new AddError({ message: "Usage: skillset add <source>" });
     const input = Option.isSome(source)

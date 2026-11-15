@@ -1,9 +1,10 @@
-import { Console, Effect, Option, Stdio } from "effect";
+import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
 import type { InstallMode, SkillSource } from "skills";
 import { prepareAddition } from "../addition.ts";
 import { CliMessageError as InstallError, missingSkillsMessage } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
+import { isInteractive } from "../prompts/interactive.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
 import { root } from "../root.ts";
 import { readSkillset, writeSkillset } from "../skillset-file.ts";
@@ -97,7 +98,7 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
       message: `Skills not found in Skillset: ${missing.join(", ")}`,
     });
   // Spec #1, User Stories 37–39: confirm the plan only in an interactive terminal.
-  const interactive = !yes && (yield* Stdio.Stdio.use((stdio) => stdio.stdinIsTerminal));
+  const interactive = yield* isInteractive(yes);
   let names: ReadonlyArray<string> = selected;
   let targets: ReadonlyArray<string> | undefined = agents.length === 0 ? undefined : agents;
   let scope = global;
@@ -199,38 +200,34 @@ export const install = Command.make(
   },
   Effect.fn(function* (options) {
     const { set } = yield* root;
+    let addition:
+      | Extract<Effect.Success<ReturnType<typeof prepareAddition>>, { _tag: "Addition" }>
+      | undefined;
+    // Issue #11: Source installs prepare Entries before preflight and confirmation.
     if (Option.isSome(options.source)) {
-      const interactive =
-        !options.yes && (yield* Stdio.Stdio.use((stdio) => stdio.stdinIsTerminal));
-      const addition = yield* prepareAddition(options.source.value, set, {
+      const interactive = yield* isInteractive(options.yes);
+      const result = yield* prepareAddition(options.source.value, set, {
         ...options,
         list: false,
         interactive,
       });
-      if (addition._tag === "NoSelection") return;
-      yield* Effect.scoped(
-        Effect.gen(function* () {
-          const checked = yield* checkSources(addition.skillset.skills);
-          const plan = yield* buildInstallPlan(addition.skillset, {
-            ...options,
-            selected: [],
-            added: addition.added,
-          });
-          if (!plan) return;
-          yield* writeSkillset(set, addition.skillset);
-          yield* executeInstall(plan, checked);
-        }),
-      );
-    } else {
-      const skillset = yield* readSkillset(set);
-      const plan = yield* buildInstallPlan(skillset, options);
-      if (plan)
-        yield* Effect.scoped(
-          Effect.gen(function* () {
-            const checked = yield* checkSources(plan.entries);
-            yield* executeInstall(plan, checked);
-          }),
-        );
+      if (result._tag === "NoSelection") return;
+      addition = result;
     }
+    const skillset = addition ? addition.skillset : yield* readSkillset(set);
+    const existingPlan = addition ? undefined : yield* buildInstallPlan(skillset, options);
+    if (!addition && !existingPlan) return;
+    // Issue #11: Source preflight precedes confirmation; existing installs preflight after it.
+    yield* Effect.scoped(
+      Effect.gen(function* () {
+        const checked = yield* checkSources(existingPlan?.entries ?? skillset.skills);
+        const plan = addition
+          ? yield* buildInstallPlan(skillset, { ...options, selected: [], added: addition.added })
+          : existingPlan;
+        if (!plan) return;
+        if (addition) yield* writeSkillset(set, skillset);
+        yield* executeInstall(plan, checked);
+      }),
+    );
   }),
 ).pipe(Command.withDescription("Install pinned Skillset Entries"));

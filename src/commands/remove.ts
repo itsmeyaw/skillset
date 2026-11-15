@@ -1,7 +1,8 @@
-import { Console, Effect, Stdio } from "effect";
+import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { CliMessageError as RemoveError } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
+import { isInteractive } from "../prompts/interactive.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
 import { root } from "../root.ts";
 import { readSkillset, writeSkillset } from "../skillset-file.ts";
@@ -17,7 +18,7 @@ export const remove = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* ({ skills: supplied, all, yes }) {
-    const interactive = !yes && (yield* Stdio.Stdio.use((stdio) => stdio.stdinIsTerminal));
+    const interactive = yield* isInteractive(yes);
     // Spec #1, User Story 19: an empty selection must not remove anything.
     if (!all && supplied.length === 0 && !interactive) {
       return yield* new RemoveError({ message: "Usage: skillset remove [skills...] [--all]" });

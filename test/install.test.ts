@@ -183,6 +183,33 @@ it.effect("install Source checks all Entries before writing the file", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("install Source checks existing Pins before asking for confirmation", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const original = JSON.stringify({
+      $schema: SCHEMA_URL,
+      skills: [{ name: "old", source: "other/repo", commit }],
+    });
+    yield* fs.writeFileString(file, original);
+    const result = yield* runCli(
+      ["install", "owner/repo", "-s", "alpha", "-a", "cursor", "-g", "--copy", "--set", file],
+      {
+        tty: true,
+        keys: [key("n", "n")],
+        upstream: {
+          commits: { [JSON.stringify(["owner/repo", null])]: commit },
+          skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 1);
+    assert.notInclude(result.screen.join(""), "Proceed with installation?");
+    assert.strictEqual(yield* fs.readFileString(file), original);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("install failure leaves newly added Entries in the file", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
