@@ -176,4 +176,4 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
 
 Run `pnpm schema:generate` after changing the Skillset file schema.
 
-Run `pnpm install:local` to build and link the `skillset` command globally for manual testing (`pnpm unlink --global @itsmeyaw/skillset` removes it).
+Run `pnpm install:local` to build and link the `skillset` command globally for manual testing. It uses `npm link` because pnpm 11 dropped `pnpm link --global`; rebuild with `pnpm build` after changes, and `npm unlink -g @itsmeyaw/skillset` removes it.

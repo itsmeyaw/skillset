@@ -23,7 +23,7 @@
     "format:check": "oxfmt --check",
     "test": "vitest run",
     "build": "tsc -p tsconfig.build.json",
-    "install:local": "pnpm build && pnpm link --global",
+    "install:local": "pnpm build && npm link",
     "schema:generate": "node scripts/generate-schema.ts"
   },
   "dependencies": {
