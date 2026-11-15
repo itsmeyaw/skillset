@@ -1,4 +1,4 @@
-// Spec #1, User Story 3: Effect CLI consumes one value per flag, so expand space-separated skills.
+// Spec #1, User Stories 3 and 47: expand space-separated skills and agents for Effect CLI.
 export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => {
   const result: Array<string> = [];
   let flag: string | undefined;
@@ -17,7 +17,8 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
     } else if (token.startsWith("-")) {
       flush();
       used = false;
-      if (token === "-s" || token === "--skill") flag = token;
+      if (token === "-s" || token === "--skill" || token === "-a" || token === "--agent")
+        flag = token;
       else result.push(token);
     } else if (flag !== undefined) {
       result.push(flag, token);

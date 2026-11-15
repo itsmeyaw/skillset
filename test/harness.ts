@@ -1,3 +1,5 @@
+import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { Cause, Effect, Layer, Option, Queue, Runtime, Stdio, Terminal } from "effect";
 import { ChildProcessSpawner } from "effect/process";
@@ -12,6 +14,9 @@ export const fakeUpstream = (
     readonly commits?: Readonly<Record<string, string>>;
     readonly skills?: Readonly<Record<string, ReadonlyArray<string>>>;
     readonly failedInstalls?: ReadonlyArray<string>;
+    readonly failedResults?: ReadonlyArray<string>;
+    readonly installDir?: string;
+    readonly disposalLog?: string;
     readonly detectedAgents?: ReadonlyArray<AgentInfo>;
     readonly supportedAgents?: ReadonlyArray<AgentInfo>;
   } = {},
@@ -46,23 +51,58 @@ export const fakeUpstream = (
         const handle: SkillSource = {
           source: { input: source, type: "git", url: source, commit },
           skills: skills.map((name) => ({ name, description: "" })),
-          dispose: () => {
+          dispose: async () => {
             disposed.add(handle);
-            return Promise.resolve();
+            if (options.disposalLog !== undefined) {
+              await appendFile(options.disposalLog, `${source} ${commit}\n`);
+            }
           },
         };
         return Effect.acquireRelease(Effect.succeed(handle), (handle) =>
           Effect.promise(() => handle.dispose()),
         );
       },
-      install: (source) =>
+      install: (source, installOptions) =>
         disposed.has(source)
           ? Effect.fail(new UpstreamError({ message: "Fake source was disposed" }))
           : options.failedInstalls?.includes(source.source.input)
             ? Effect.fail(
                 new UpstreamError({ message: `Fake install failed for ${source.source.input}` }),
               )
-            : Effect.succeed({ source: source.source, installed: [], skipped: [], failed: [] }),
+            : options.failedResults?.includes(source.source.input)
+              ? Effect.succeed({
+                  source: source.source,
+                  installed: [],
+                  skipped: [],
+                  failed: [
+                    {
+                      skill: "fake",
+                      agent: "fake",
+                      code: "SKILLS_INSTALL_FAILED" as const,
+                      message: `Fake install failed for ${source.source.input}`,
+                    },
+                  ],
+                })
+              : Effect.promise(async () => {
+                  if (options.installDir !== undefined) {
+                    for (const agent of installOptions.agents ?? ["default"]) {
+                      const dir = join(
+                        options.installDir,
+                        installOptions.scope ?? "project",
+                        agent,
+                      );
+                      await mkdir(dir, { recursive: true });
+                      for (const name of installOptions.skills ??
+                        source.skills.map((skill) => skill.name)) {
+                        await writeFile(
+                          join(dir, name),
+                          `${source.source.commit}:${installOptions.mode ?? "auto"}`,
+                        );
+                      }
+                    }
+                  }
+                  return { source: source.source, installed: [], skipped: [], failed: [] };
+                }),
       detectAgents: () => Effect.succeed({ agents: options.detectedAgents ?? [] }),
       getSupportedAgents: Effect.succeed(options.supportedAgents ?? []),
     }),
