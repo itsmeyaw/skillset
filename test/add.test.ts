@@ -234,6 +234,25 @@ for (const ref of ["v1.2.3", "1.2-beta+build", "b".repeat(40)]) {
   );
 }
 
+it.effect("add preserves an uppercase SHA while resolving its lowercase Pin", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const source = `owner/repo@${"A".repeat(40)}`;
+    const result = yield* runCli(["add", source, "-s", "alpha", "--set", file], {
+      upstream: {
+        commits: { [JSON.stringify(["owner/repo", commit])]: commit },
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source, commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 for (const source of [
   "owner/repo@grilling",
   "owner/repo#dev@grilling",

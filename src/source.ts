@@ -86,7 +86,8 @@ export const parseSource = (source: string): ParsedSource | { readonly error: st
     return {
       stored: source,
       repository: pinned[1]!,
-      ref: pinned[2],
+      // Spec #1, Skillset file format: Pins use lowercase hexadecimal.
+      ref: /^[a-f0-9]{40}$/iu.test(pinned[2]!) ? pinned[2]!.toLowerCase() : pinned[2],
       fixed: true,
       skill: undefined,
     };
