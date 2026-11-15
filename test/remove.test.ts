@@ -1,13 +1,55 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
-import { runCli } from "./harness.ts";
+import { key, runCli } from "./harness.ts";
 
 const schemaUrl =
   "https://raw.githubusercontent.com/itsmeyaw/skillset/main/schemas/skillset/v1.json";
 const alpha = { name: "alpha", source: "owner/a", commit: "a".repeat(40) };
 const beta = { name: "beta", source: "owner/b#dev", commit: "b".repeat(40) };
 const zeta = { name: "zeta", source: "owner/z", commit: "c".repeat(40) };
+
+it.effect("interactive remove selects Entries without touching others", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: [alpha, beta] }));
+    const result = yield* runCli(["remove", "--set", file], {
+      tty: true,
+      keys: [key("b", "b"), key("space"), key("enter")],
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [alpha]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("interactive remove on an empty Skillset skips the picker", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: [] }));
+    const result = yield* runCli(["remove", "--set", file], { tty: true });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), "This Skillset is empty.");
+    assert.deepStrictEqual(result.screen, []);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("cancelling interactive remove preserves the Skillset", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const original = JSON.stringify({ $schema: schemaUrl, skills: [alpha] });
+    yield* fs.writeFileString(file, original);
+    const result = yield* runCli(["remove", "--set", file], { tty: true, keys: [key("escape")] });
+    assert.strictEqual(result.code, 130);
+    assert.include(result.out.join("\n"), "Cancelled");
+    assert.strictEqual(yield* fs.readFileString(file), original);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
 
 it.effect("remove deletes named Entries and writes the remainder canonically", () =>
   Effect.gen(function* () {

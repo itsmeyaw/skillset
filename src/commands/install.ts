@@ -2,6 +2,7 @@ import { Console, Effect, Stdio } from "effect";
 import { Command, Flag, Prompt } from "effect/cli";
 import type { InstallMode } from "skills";
 import { CliMessageError as InstallError, missingSkillsMessage } from "../errors.ts";
+import { cancelOnQuit } from "../prompts/cancel.ts";
 import { root } from "../root.ts";
 import { readSkillset } from "../skillset-file.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
@@ -95,15 +96,17 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   if (interactive) {
     // Spec #1, User Stories 33–36: explicit flags skip their corresponding prompts.
     if (selected.length === 0 && skillset.skills.length > 0) {
-      names = yield* Prompt.MultiSelect({
-        message: "Which skills?",
-        choices: skillset.skills.map((entry) => ({
-          title: entry.name,
-          value: entry.name,
-          selected: true,
-        })),
-        min: 1,
-      });
+      names = yield* cancelOnQuit(
+        Prompt.MultiSelect({
+          message: "Which skills?",
+          choices: skillset.skills.map((entry) => ({
+            title: entry.name,
+            value: entry.name,
+            selected: true,
+          })),
+          min: 1,
+        }),
+      );
     }
     if (agents.length === 0 && skillset.skills.length > 0) {
       const upstream = yield* Upstream;
@@ -111,33 +114,39 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
       const detected = yield* upstream.detectAgents();
       if (supported.length === 0)
         return yield* new InstallError({ message: "No supported agents available" });
-      targets = yield* Prompt.MultiSelect({
-        message: "Which agents?",
-        choices: supported.map((agent) => ({
-          title: agent.name,
-          value: agent.id,
-          selected: detected.agents.some((found) => found.id === agent.id),
-        })),
-        min: 1,
-      });
+      targets = yield* cancelOnQuit(
+        Prompt.MultiSelect({
+          message: "Which agents?",
+          choices: supported.map((agent) => ({
+            title: agent.name,
+            value: agent.id,
+            selected: detected.agents.some((found) => found.id === agent.id),
+          })),
+          min: 1,
+        }),
+      );
     }
     if (!global) {
-      scope = yield* Prompt.Select({
-        message: "Installation scope?",
-        choices: [
-          { title: "Project", value: false },
-          { title: "Global", value: true },
-        ],
-      });
+      scope = yield* cancelOnQuit(
+        Prompt.Select({
+          message: "Installation scope?",
+          choices: [
+            { title: "Project", value: false },
+            { title: "Global", value: true },
+          ],
+        }),
+      );
     }
     if (!copy) {
-      mode = yield* Prompt.Select({
-        message: "Installation mode?",
-        choices: [
-          { title: "Symlink", value: "symlink" as const },
-          { title: "Copy", value: "copy" as const },
-        ],
-      });
+      mode = yield* cancelOnQuit(
+        Prompt.Select({
+          message: "Installation mode?",
+          choices: [
+            { title: "Symlink", value: "symlink" as const },
+            { title: "Copy", value: "copy" as const },
+          ],
+        }),
+      );
     }
   }
   const plan: InstallPlan = {
@@ -155,10 +164,12 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
         `Agents: ${plan.agents?.join(", ") ?? "default"}\n` +
         `Scope: ${plan.global ? "global" : "project"}\nMode: ${plan.mode}`,
     );
-    const proceed = yield* Prompt.Confirm({
-      message: "Proceed with installation?",
-      initial: true,
-    });
+    const proceed = yield* cancelOnQuit(
+      Prompt.Confirm({
+        message: "Proceed with installation?",
+        initial: true,
+      }),
+    );
     if (!proceed) return;
   }
   return plan;

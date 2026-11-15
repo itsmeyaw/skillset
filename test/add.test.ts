@@ -1,13 +1,65 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
-import { runCli } from "./harness.ts";
+import { key, runCli } from "./harness.ts";
 
 const commit = "a".repeat(40);
 const upstream = {
   commits: { [JSON.stringify(["owner/repo", null])]: commit },
   skills: { [JSON.stringify(["owner/repo", commit])]: ["zeta", "alpha"] },
 };
+
+it.effect("interactive add asks for a Source and selects skills", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "--set", file], {
+      tty: true,
+      keys: [
+        ...Array.from("owner/repo", (char) => key(char, char)),
+        key("enter"),
+        key("l", "l"),
+        key("space"),
+        key("enter"),
+      ],
+      upstream,
+    });
+    assert.strictEqual(result.code, 0);
+    assert.match(result.screen.join(""), /Source/);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("cancelling interactive add leaves the file absent", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "owner/repo", "--set", file], {
+      tty: true,
+      keys: [key("escape")],
+      upstream,
+    });
+    assert.strictEqual(result.code, 130);
+    assert.include(result.out.join("\n"), "Cancelled");
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add reports a Source with no skills", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const result = yield* runCli(["add", "owner/repo", "--all", "--set", `${dir}/set.json`], {
+      upstream: { ...upstream, skills: { [JSON.stringify(["owner/repo", commit])]: [] } },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /no skills/i);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
 
 it.effect("add without a selection lists skills without creating a Skillset file", () =>
   Effect.gen(function* () {

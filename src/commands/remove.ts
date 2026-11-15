@@ -1,6 +1,8 @@
-import { Effect } from "effect";
+import { Console, Effect, Stdio } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { CliMessageError as RemoveError } from "../errors.ts";
+import { cancelOnQuit } from "../prompts/cancel.ts";
+import { searchMultiSelect } from "../prompts/search.ts";
 import { root } from "../root.ts";
 import { readSkillset, writeSkillset } from "../skillset-file.ts";
 
@@ -12,14 +14,35 @@ export const remove = Command.make(
   {
     skills: Argument.String("skills").pipe(Argument.variadic()),
     all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
+    yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
-  Effect.fn(function* ({ skills, all }) {
+  Effect.fn(function* ({ skills: supplied, all, yes }) {
+    const interactive = !yes && (yield* Stdio.Stdio.use((stdio) => stdio.stdinIsTerminal));
     // Spec #1, User Story 19: an empty selection must not remove anything.
-    if (!all && skills.length === 0) {
+    if (!all && supplied.length === 0 && !interactive) {
       return yield* new RemoveError({ message: "Usage: skillset remove [skills...] [--all]" });
     }
     const { set } = yield* root;
     const skillset = yield* readSkillset(set);
+    let skills: ReadonlyArray<string> = supplied;
+    // Spec #11: select Entries only when an interactive removal is ambiguous.
+    if (!all && skills.length === 0) {
+      if (skillset.skills.length === 0) {
+        yield* Console.log("This Skillset is empty.");
+        return;
+      }
+      skills = yield* cancelOnQuit(
+        searchMultiSelect({
+          message: "Which skills?",
+          choices: skillset.skills.map((entry) => ({
+            title: entry.name,
+            value: entry.name,
+            description: entry.source,
+          })),
+        }),
+      );
+      if (skills.length === 0) return;
+    }
     const unknown = skills.filter((name) => !skillset.skills.some((entry) => entry.name === name));
     const remaining = all ? [] : skillset.skills.filter((entry) => !skills.includes(entry.name));
     // Spec #1, User Story 20: report unknown names after removing known Entries.

@@ -14,6 +14,27 @@ const cursor = {
 };
 const claude = { ...cursor, id: "claude-code", name: "Claude Code" };
 
+it.effect("cancelling an install prompt reports cancellation", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const original = JSON.stringify({
+      $schema: SCHEMA_URL,
+      skills: [{ name: "alpha", source: "owner/repo", commit }],
+    });
+    yield* fs.writeFileString(file, original);
+    const result = yield* runCli(
+      ["install", "-s", "alpha", "-a", "cursor", "-g", "--copy", "--set", file],
+      { tty: true, keys: [key("escape")] },
+    );
+    assert.strictEqual(result.code, 130);
+    assert.include(result.out.join("\n"), "Cancelled");
+    assert.strictEqual(yield* fs.readFileString(file), original);
+    assert.isFalse(yield* fs.exists(`${dir}/project`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("declining the installation plan exits successfully without writing", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
