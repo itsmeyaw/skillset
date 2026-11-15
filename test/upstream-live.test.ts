@@ -30,6 +30,12 @@ it("rejects the executable git ext transport", async () => {
       ),
     );
     expect(error.message).toContain("Unsupported Git transport");
+    const installError = await Effect.runPromise(
+      Upstream.use((upstream) =>
+        Effect.scoped(upstream.resolveSource(`ext::${script}`, "a".repeat(40))).pipe(Effect.flip),
+      ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
+    );
+    expect(installError.message).toContain("Unsupported Git transport");
     await expect(access(marker)).rejects.toThrow();
   } finally {
     if (previous === undefined) delete process.env.GIT_ALLOW_PROTOCOL;

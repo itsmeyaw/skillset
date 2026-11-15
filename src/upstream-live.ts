@@ -5,6 +5,9 @@ import { PIN_PATTERN } from "./pin.ts";
 import { parseSource } from "./source.ts";
 import { ambiguousTreeMessage, Upstream, UpstreamError } from "./upstream.ts";
 
+// git-remote-ext(1): ext:: executes an arbitrary helper command.
+const executableTransport = (source: string) => /^ext::/iu.test(source);
+
 // git-ls-remote(1): peeled tags use ^{}; prefer them to tag objects and branches.
 export const selectRemoteCommit = (output: string, ref?: string): string | undefined => {
   const refs = new Map<string, string>();
@@ -40,6 +43,7 @@ export const UpstreamLive = Layer.effect(
         // skills@1.8.1 parseSource: shorthand already ending in .git otherwise gains a second .git.
         Effect.tryPromise({
           try: async () => {
+            if (executableTransport(source)) throw new Error("Unsupported Git transport: ext");
             const input = source.replace(/^([\w.-]+\/[\w.-]+)\.git(?=#|@|$)/u, "$1");
             try {
               return await resolveSource(input, { ref: commit });
@@ -71,8 +75,7 @@ export const UpstreamLive = Layer.effect(
       );
     return Upstream.of({
       resolveCommit: Effect.fn("Upstream.resolveCommit")(function* (source, ref, treeRefs = []) {
-        // git-remote-ext(1): ext:: executes an arbitrary helper command.
-        if (/^ext::/iu.test(source)) {
+        if (executableTransport(source)) {
           return yield* new UpstreamError({ message: "Unsupported Git transport: ext" });
         }
         // Spec #1, Upstream service: full commit Pins require no remote lookup.
