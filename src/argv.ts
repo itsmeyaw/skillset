@@ -38,7 +38,7 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
       hasValue = true;
     } else {
       result.push(token);
-      if (token === "add" && !adding) adding = true;
+      if ((token === "add" || token === "a") && !adding) adding = true;
       else if (adding && !sourceSeen) sourceSeen = true;
     }
   }

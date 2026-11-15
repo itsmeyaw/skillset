@@ -1,5 +1,5 @@
 import { Effect, Stdio } from "effect";
-import { Command } from "effect/cli";
+import { CliConfig, Command, GlobalFlag } from "effect/cli";
 import { expandSkillFlags } from "./argv.ts";
 import { add } from "./commands/add.ts";
 import { install } from "./commands/install.ts";
@@ -8,9 +8,24 @@ import { remove } from "./commands/remove.ts";
 import { update } from "./commands/update.ts";
 import { root } from "./root.ts";
 
-export const cli = root.pipe(Command.withSubcommands([add, install, list, remove, update]));
+// Spec #11: aliases share the same command handlers as their long names.
+export const cli = root.pipe(
+  Command.withSubcommands([
+    add.pipe(Command.withAlias("a")),
+    install.pipe(Command.withAlias("i")),
+    list.pipe(Command.withAlias("ls")),
+    remove.pipe(Command.withAlias("rm")),
+    update.pipe(Command.withAlias("up")),
+  ]),
+);
+// Spec #11: the built-in wizard is not part of the CLI.
+export const cliConfig = CliConfig.make({
+  builtIns: GlobalFlag.BuiltIns.filter((flag) => flag !== GlobalFlag.Wizard),
+});
 const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
 export const runArgv = (argv: ReadonlyArray<string>) =>
-  Command.runWith(cli, { version })(expandSkillFlags(argv));
+  Command.runWith(cli, { version })(expandSkillFlags(argv)).pipe(
+    Effect.provideService(CliConfig.CliConfig, cliConfig),
+  );
 export const run = Stdio.Stdio.use((stdio) => Effect.flatMap(stdio.args, runArgv));
 import { createRequire } from "node:module";
