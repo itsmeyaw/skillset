@@ -72,7 +72,31 @@ skillset install -y -s grilling -a universal --copy --set ./skillset.json
 
 ## Commands
 
-Every command accepts `--set <path>` (default `./skillset.json`). `add` and `install <source>` create a missing file. Use `--help` on any command for usage.
+Every command accepts `--set <value>` (default `./skillset.json`). `add` and `install <source>` create a missing file. Use `--help` on any command for usage.
+
+### User Skillsets
+
+A User Skillset lives outside any project, so any project can use it by name.
+
+| `--set` value                  | Meaning                                    |
+| ------------------------------ | ------------------------------------------ |
+| omitted                        | `./skillset.json`                          |
+| ends in `.json` (any case)     | A path, relative to the working directory  |
+| a bare name, e.g. `my-set`     | The User Skillset `<user dir>/my-set.json` |
+| anything else (`./foo`, `a/b`) | An error                                   |
+
+```sh
+skillset add mattpocock/skills -s grilling --set my-set   # creates the User Skillset if missing
+skillset install my-set                                   # same as: install --set my-set
+skillset install my-set -s grilling                       # install only some Entries
+skillset ls -g                                            # list User Skillset names
+```
+
+- A bare name never reads `./my-set.json`; use `--set my-set.json` for that.
+- `install <name>` takes names only and cannot be combined with `--set`. `install x.json` is a Source error.
+- `ls -g` cannot be combined with `--set`. `-g` on `install` still means user-level agent directories.
+- The user directory is the first that applies: `$SKILLSET_HOME`, `$XDG_CONFIG_HOME/skillset`, `~/.skillset`. They are never merged.
+- `skills-lock.json` is still written in the working directory.
 
 | Command                    | Description                                                               |
 | -------------------------- | ------------------------------------------------------------------------- |
