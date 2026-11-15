@@ -38,7 +38,9 @@ export const update = Command.make(
         // Spec #1, User Story 26: a failed Source must not block other Sources.
         result = yield* Effect.gen(function* () {
           const commit = yield* upstream.resolveCommit(parsed.remote, parsed.ref, parsed.treeRefs);
-          const skills = yield* upstream.listSkills(parsed.remote, commit);
+          const skills = (yield* upstream.listSkills(parsed.remote, commit)).map(
+            (skill) => skill.name,
+          );
           return { commit, skills };
         }).pipe(
           Effect.catch((error) => {

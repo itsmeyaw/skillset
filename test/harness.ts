@@ -13,7 +13,12 @@ export const fakeUpstream = (
   options: {
     readonly commits?: Readonly<Record<string, string>>;
     readonly commitLookups?: Array<string>;
-    readonly skills?: Readonly<Record<string, ReadonlyArray<string>>>;
+    readonly skills?: Readonly<
+      Record<
+        string,
+        ReadonlyArray<string | { readonly name: string; readonly description: string }>
+      >
+    >;
     readonly failedInstalls?: ReadonlyArray<string>;
     readonly failedResults?: ReadonlyArray<string>;
     readonly installDir?: string;
@@ -44,7 +49,11 @@ export const fakeUpstream = (
                 message: `Fake skills not configured for ${source} at ${commit}`,
               }),
             )
-          : Effect.succeed(skills);
+          : Effect.succeed(
+              skills.map((skill) =>
+                typeof skill === "string" ? { name: skill, description: "" } : skill,
+              ),
+            );
       },
       resolveSource: (source, commit) => {
         const skills = options.skills?.[JSON.stringify([source, commit])];
@@ -55,7 +64,9 @@ export const fakeUpstream = (
         }
         const handle: SkillSource = {
           source: { input: source, type: "git", url: source, commit },
-          skills: skills.map((name) => ({ name, description: "" })),
+          skills: skills.map((skill) =>
+            typeof skill === "string" ? { name: skill, description: "" } : skill,
+          ),
           dispose: async () => {
             disposed.add(handle);
             if (options.disposalLog !== undefined) {

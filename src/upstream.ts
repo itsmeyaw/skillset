@@ -24,7 +24,10 @@ export class Upstream extends Context.Service<
     readonly listSkills: (
       source: string,
       commit: string,
-    ) => Effect.Effect<ReadonlyArray<string>, UpstreamError>;
+    ) => Effect.Effect<
+      ReadonlyArray<{ readonly name: string; readonly description: string }>,
+      UpstreamError
+    >;
     // skills API: resolve with the Pin once; the caller's scope disposes the fetched source.
     readonly resolveSource: (
       source: string,

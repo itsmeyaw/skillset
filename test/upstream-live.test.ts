@@ -95,14 +95,18 @@ it("keeps a pinned source for installation and disposes it at scope exit", async
     const result = await Effect.runPromise(
       Upstream.use((upstream) =>
         Effect.gen(function* () {
-          expect(yield* upstream.listSkills(source, commit)).toEqual(["example"]);
-          expect(yield* upstream.listSkills("local/repo.git", commit)).toEqual(["example"]);
+          expect(yield* upstream.listSkills(source, commit)).toEqual([
+            { name: "example", description: "An example skill" },
+          ]);
+          expect(yield* upstream.listSkills("local/repo.git", commit)).toEqual([
+            { name: "example", description: "An example skill" },
+          ]);
           // git-config(1): both remote spellings resolve to the local fixture without network access.
           expect(yield* upstream.resolveCommit("https://git.example.test/team/repo")).toBe(
             git("-C", "repo", "rev-parse", "HEAD"),
           );
           expect(yield* upstream.listSkills("https://git.example.test/team/repo", commit)).toEqual([
-            "example",
+            { name: "example", description: "An example skill" },
           ]);
           yield* Effect.scoped(
             Effect.gen(function* () {
