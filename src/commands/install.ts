@@ -70,6 +70,7 @@ const executeInstall = Effect.fn("executeInstall")(function* (
         message: result.failed.map((failure) => failure.message).join("; "),
       });
   }
+  yield* Console.log(`Installed ${plan.entries.map((entry) => entry.name).join(", ")}`);
 });
 
 // Issue #11: confirm the plan before writing the Skillset or installing skills.

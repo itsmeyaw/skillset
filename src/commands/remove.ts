@@ -49,6 +49,9 @@ export const remove = Command.make(
     // Spec #1, User Story 20: report unknown names after removing known Entries.
     if (all || remaining.length !== skillset.skills.length) {
       yield* writeSkillset(set, { ...skillset, skills: remaining });
+      const removed = skillset.skills.filter((entry) => !remaining.includes(entry));
+      if (removed.length > 0)
+        yield* Console.log(`Removed ${removed.map((entry) => entry.name).join(", ")} from ${set}`);
     }
     if (unknown.length > 0) {
       return yield* new RemoveError({ message: `Unknown skills: ${unknown.join(", ")}` });

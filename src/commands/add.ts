@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
 import { prepareAddition } from "../addition.ts";
 import { CliMessageError as AddError } from "../errors.ts";
@@ -28,6 +28,9 @@ export const add = Command.make(
       : yield* cancelOnQuit(Prompt.String({ message: "Source?" }));
     const { set } = yield* root;
     const addition = yield* prepareAddition(input, set, { selected, all, list, interactive });
-    if (addition._tag === "Addition") yield* writeSkillset(set, addition.skillset);
+    if (addition._tag === "Addition") {
+      yield* writeSkillset(set, addition.skillset);
+      yield* Console.log(`Added ${addition.added.map((entry) => entry.name).join(", ")} to ${set}`);
+    }
   }),
 ).pipe(Command.withDescription("Add skills from a Source"));
