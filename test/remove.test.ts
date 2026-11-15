@@ -29,6 +29,7 @@ it.effect("interactive remove selects Entries without touching others", () =>
       keys: [key("b", "b"), key("space"), key("enter")],
     });
     assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), `Removed beta from ${file}`);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [alpha]);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

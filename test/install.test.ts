@@ -499,6 +499,7 @@ it.effect("install -y installs only selected Entries at their Pins with requeste
       },
     );
     assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), "Installed alpha");
     assert.strictEqual(
       yield* fs.readFileString(`${dir}/global/claude-code/alpha`),
       `${commit}:copy`,

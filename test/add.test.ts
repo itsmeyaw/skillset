@@ -140,6 +140,7 @@ it.effect("add writes selected skills in canonical order to a new Skillset file"
       upstream,
     });
     assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), `Added zeta, alpha to ${file}`);
     assert.strictEqual(
       yield* fs.readFileString(file),
       `{
