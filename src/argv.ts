@@ -5,8 +5,9 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
   let hasValue = false;
   let rest = false;
   let adding = false;
+  let commandSeen = false;
   let sourceSeen = false;
-  let setValue = false;
+  let optionValue = false;
   const flush = () => {
     if (flag !== undefined && !hasValue) result.push(flag);
     flag = undefined;
@@ -21,13 +22,14 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
     } else if (token.startsWith("-")) {
       flush();
       hasValue = false;
-      setValue = token === "--set";
+      // Effect CLI: these shared/global flags consume the next token as their value.
+      optionValue = ["--set", "--log-level", "--completions"].includes(token);
       if (token === "-s" || token === "--skill" || token === "-a" || token === "--agent")
         flag = token;
       else result.push(token);
-    } else if (setValue) {
+    } else if (optionValue) {
       result.push(token);
-      setValue = false;
+      optionValue = false;
     } else if (flag !== undefined && adding && !sourceSeen && /[/:]/u.test(token)) {
       // Spec #1, User Story 3: a Source can follow space-separated skill names.
       flush();
@@ -38,9 +40,11 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
       hasValue = true;
     } else {
       result.push(token);
-      // Spec #11: Source arguments follow skill flags for both add and install.
-      if (["add", "a", "install", "i"].includes(token) && !adding) adding = true;
-      else if (adding && !sourceSeen) sourceSeen = true;
+      // Issue #11: only the subcommand enables Source detection after skill flags.
+      if (!commandSeen) {
+        commandSeen = true;
+        adding = ["add", "a", "install", "i"].includes(token);
+      } else if (adding && !sourceSeen) sourceSeen = true;
     }
   }
   flush();

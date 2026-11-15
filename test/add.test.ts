@@ -9,6 +9,22 @@ const upstream = {
   skills: { [JSON.stringify(["owner/repo", commit])]: ["zeta", "alpha"] },
 };
 
+it.effect("add alias accepts a Source after skills and a global option", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      ["--log-level", "info", "a", "-s", "alpha", "owner/repo", "--set", file],
+      { upstream },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("add -y keeps non-interactive listing behavior on a TTY", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
