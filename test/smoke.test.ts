@@ -1,10 +1,12 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
 import { installSkills } from "skills";
 import { describe, expect, it } from "vitest";
+import { runArgv } from "../src/cli.ts";
+import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { Upstream } from "../src/upstream.ts";
 import { UpstreamLive } from "../src/upstream-live.ts";
 
@@ -54,6 +56,35 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
           "grilling",
         );
       } finally {
+        await rm(cwd, { recursive: true, force: true });
+      }
+    }, 120_000);
+
+    it("install -y installs a pinned Entry and writes the skills lock", async () => {
+      const cwd = await mkdtemp(join(tmpdir(), "skillset-cli-smoke-"));
+      const previous = process.cwd();
+      try {
+        const file = join(cwd, "skillset.json");
+        await writeFile(
+          file,
+          JSON.stringify({
+            $schema: SCHEMA_URL,
+            skills: [{ name: "grilling", source, commit }],
+          }),
+        );
+        process.chdir(cwd);
+        await Effect.runPromise(
+          runArgv(["install", "-y", "-a", "universal", "--copy", "--set", file]).pipe(
+            Effect.provide(Layer.provideMerge(UpstreamLive, NodeServices.layer)),
+          ),
+        );
+        expect(await readFile(join(cwd, ".agents/skills/grilling/SKILL.md"), "utf8")).toContain(
+          "grilling",
+        );
+        const lock = JSON.parse(await readFile(join(cwd, "skills-lock.json"), "utf8"));
+        expect(lock.skills.grilling).toBeDefined();
+      } finally {
+        process.chdir(previous);
         await rm(cwd, { recursive: true, force: true });
       }
     }, 120_000);
