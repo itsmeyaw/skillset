@@ -213,13 +213,43 @@ it.effect("add rejects an invalid Skillset file without overwriting it", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-for (const source of [
-  "owner/repo@v1.2.3",
-  "https://github.com/owner/repo",
-  "../repo",
-  "owner/repo#",
-  "owner/repo\n",
-]) {
+for (const ref of ["v1.2.3", "1.2-beta+build", "b".repeat(40)]) {
+  it.effect(`add accepts fixed version ${ref} and preserves the typed Source`, () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const file = `${dir}/skillset.json`;
+      const source = `owner/repo@${ref}`;
+      const result = yield* runCli(["add", source, "-s", "alpha", "--set", file], {
+        upstream: {
+          commits: { [JSON.stringify(["owner/repo", ref])]: commit },
+          skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        },
+      });
+      assert.strictEqual(result.code, 0);
+      assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+        { name: "alpha", source, commit },
+      ]);
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+  );
+}
+
+for (const source of ["owner/repo@grilling", "owner/repo#dev@grilling"]) {
+  it.effect(`add suggests -s for ${source} without writing`, () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const file = `${dir}/skillset.json`;
+      yield* fs.writeFileString(file, "unchanged");
+      const result = yield* runCli(["add", source, "--all", "--set", file], { upstream });
+      assert.strictEqual(result.code, 1);
+      assert.match(result.err.join("\n"), /-s grilling/);
+      assert.strictEqual(yield* fs.readFileString(file), "unchanged");
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+  );
+}
+
+for (const source of ["../repo", "owner/repo#", "owner/repo\n"]) {
   it.effect(`add rejects unsupported Source ${source} without creating a file`, () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
