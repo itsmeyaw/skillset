@@ -2,7 +2,9 @@
   <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/skillset.svg" alt="Skillset: Easily manage, install, and share multiple skills at once. Based on Vercel’s Skill CLI." width="640">
 </p>
 
- Skillset is a wrapper around [Vercel's Skills CLI](https://github.com/vercel-labs/skills) that installs a predefined list of skills at once.
+<p align="center">
+  Skillset is a wrapper around <a href="https://github.com/vercel-labs/skills">Vercel's Skills CLI</a> that installs a predefined list of skills at once.
+</p>
 
 ## Requirements
 
