@@ -2,9 +2,7 @@
   <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/skillset.svg" alt="Skillset: Easily manage, install, and share multiple skills at once. Based on Vercel’s Skill CLI." width="640">
 </p>
 
-**Curate a shareable list of agent skills pinned to Git commits, then install them together.**
-
-A _Skillset_ is one `skillset.json` file listing skills and the exact commits they were reviewed at. Share the file, and anyone can install every skill in it. Skillset is built on [Vercel's Skills CLI](https://github.com/vercel-labs/skills), which handles the actual installation.
+ Skillset is a wrapper around [Vercel's Skills CLI](https://github.com/vercel-labs/skills) that installs a predefined list of skills at once.
 
 ## Requirements
 
