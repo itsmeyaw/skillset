@@ -92,6 +92,14 @@ it("keeps a pinned source for installation and disposes it at scope exit", async
             Effect.flip,
           );
           expect(missing.message).not.toBe("");
+          const failedHandle = yield* Effect.scoped(
+            Effect.gen(function* () {
+              const handle = yield* upstream.resolveSource(source, commit).pipe(Effect.orDie);
+              return yield* Effect.fail(handle);
+            }),
+          ).pipe(Effect.flip);
+          const afterFailure = yield* upstream.install(failedHandle, { cwd }).pipe(Effect.flip);
+          expect(afterFailure.message).toContain("disposed");
           return yield* upstream.install(resolved, { cwd }).pipe(Effect.flip);
         }),
       ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
@@ -100,6 +108,8 @@ it("keeps a pinned source for installation and disposes it at scope exit", async
     expect(await readFile(join(cwd, ".agents/skills/example/SKILL.md"), "utf8")).toContain(
       "Pinned content.",
     );
+    const lock = JSON.parse(await readFile(join(cwd, "skills-lock.json"), "utf8"));
+    expect(lock.skills.example).toBeDefined();
   } finally {
     for (const [index, key] of configKeys.entries()) {
       const previous = previousConfig[index];
