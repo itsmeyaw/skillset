@@ -38,7 +38,14 @@ export const UpstreamLive = Layer.effect(
     // skills API: installSkills cannot accept ref with a resolved source; scope owns disposal.
     const resolvePinned = (source: string, commit: string) =>
       Effect.acquireRelease(
-        Effect.tryPromise({ try: () => resolveSource(source, { ref: commit }), catch: toError }),
+        // skills@1.8.1 parseSource: shorthand already ending in .git otherwise gains a second .git.
+        Effect.tryPromise({
+          try: () =>
+            resolveSource(source.replace(/^([\w.-]+\/[\w.-]+)\.git(?=#|@|$)/u, "$1"), {
+              ref: commit,
+            }),
+          catch: toError,
+        }),
         (handle) => Effect.promise(() => handle.dispose()),
       ).pipe(
         Effect.filterOrFail(

@@ -35,7 +35,7 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
           Upstream.use((upstream) =>
             Effect.scoped(
               Effect.gen(function* () {
-                const resolved = yield* upstream.resolveSource(source, commit);
+                const resolved = yield* upstream.resolveSource(`${source}.git`, commit);
                 expect(resolved.source.commit).toBe(commit);
                 expect(resolved.skills.map((skill) => skill.name)).toContain("grilling");
                 const installed = yield* upstream.install(resolved, {
