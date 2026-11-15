@@ -3,5 +3,6 @@
   "extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
   "plugins": ["typescript", "unicorn", "oxc"],
   "categories": { "correctness": "error" },
+  "rules": { "effecttsgo/unstable-api-usage": "off" },
   "ignorePatterns": ["dist"]
 }

@@ -9,6 +9,7 @@
     "AGENTS.md",
     "opencode.json",
     "skills-lock.json",
-    "pnpm-lock.yaml"
+    "pnpm-lock.yaml",
+    "schemas/skillset/v1.json"
   ]
 }
