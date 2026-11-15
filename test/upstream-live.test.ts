@@ -39,6 +39,8 @@ it("rejects the executable git ext transport", async () => {
 it("keeps a pinned source for installation and disposes it at scope exit", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "skillset-source-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+  const configKeys = ["GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"] as const;
+  const previousConfig = configKeys.map((key) => process.env[key]);
   try {
     git("init", "-q", "-b", "main", "repo");
     git("-C", "repo", "config", "user.name", "Test");
@@ -57,10 +59,15 @@ it("keeps a pinned source for installation and disposes it at scope exit", async
     );
     git("-C", "repo", "commit", "-qam", "second");
     const source = pathToFileURL(join(cwd, "repo")).href;
+    // git-config(1): rewrite the shorthand clone URL to a local repository without network access.
+    process.env.GIT_CONFIG_COUNT = "1";
+    process.env.GIT_CONFIG_KEY_0 = `url.${source}.insteadOf`;
+    process.env.GIT_CONFIG_VALUE_0 = "https://github.com/local/repo.git";
     const result = await Effect.runPromise(
       Upstream.use((upstream) =>
         Effect.gen(function* () {
           expect(yield* upstream.listSkills(source, commit)).toEqual(["example"]);
+          expect(yield* upstream.listSkills("local/repo.git", commit)).toEqual(["example"]);
           expect((yield* upstream.getSupportedAgents).map((agent) => agent.id)).toContain(
             "universal",
           );
@@ -94,6 +101,11 @@ it("keeps a pinned source for installation and disposes it at scope exit", async
       "Pinned content.",
     );
   } finally {
+    for (const [index, key] of configKeys.entries()) {
+      const previous = previousConfig[index];
+      if (previous === undefined) delete process.env[key];
+      else process.env[key] = previous;
+    }
     await rm(cwd, { recursive: true, force: true });
   }
 });
