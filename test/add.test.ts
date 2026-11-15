@@ -483,6 +483,7 @@ for (const [source, message] of [
   ["https://github.com/owner/repo/archive/refs/heads/main.zip", /download/i],
   ["https://gitlab.com/owner/repo/-/raw/main/SKILL.md", /download/i],
   ["https://example.com/skill.tar.gz", /download/i],
+  ["https://example.com/skills/SKILL.md", /download/i],
   ["owner/repo#", /invalid|unsupported/i],
   ["owner/repo\n", /invalid|unsupported/i],
 ] as const) {

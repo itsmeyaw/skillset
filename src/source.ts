@@ -50,6 +50,7 @@ export const parseSource = (source: string): ParsedSource | { readonly error: st
           url.pathname,
         )) ||
       /\/-\/(?:archive|raw)\//u.test(url.pathname) ||
+      /\/SKILL\.md$/iu.test(url.pathname) ||
       /\.(?:zip|tar|tar\.gz|tgz)$/iu.test(url.pathname)
     )
       return { error: "Direct download URLs cannot be pinned; use a remote Git Source." };
