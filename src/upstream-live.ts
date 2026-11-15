@@ -21,14 +21,11 @@ export const selectRemoteCommit = (output: string, ref?: string): string | undef
         refs.get(`refs/heads/${ref}`));
 };
 
-// Spec #1, Source parsing: GitHub shorthand and tree URLs identify a repository.
+// skills@1.8.1 parseSource: GitHub shorthand resolves to a GitHub clone URL.
 const gitRemote = (source: string): string => {
-  const withoutRef = source.split("#")[0] ?? source;
-  const shorthand = /^([\w.-]+\/[\w.-]+)(?:@[^/]+)?$/u.exec(withoutRef);
-  if (shorthand?.[1] !== undefined)
-    return `https://github.com/${shorthand[1].replace(/\.git$/u, "")}.git`;
-  const tree = /^(https?:\/\/github\.com\/[^/]+\/[^/]+)\/tree\//u.exec(withoutRef);
-  return tree?.[1] ?? withoutRef;
+  if (/^[\w.-]+\/[\w.-]+$/u.test(source))
+    return `https://github.com/${source}${source.endsWith(".git") ? "" : ".git"}`;
+  return source;
 };
 
 export const UpstreamLive = Layer.effect(
