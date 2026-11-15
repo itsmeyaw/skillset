@@ -1,6 +1,14 @@
 import { Context, Effect, Schema } from "effect";
+import type { Scope } from "effect";
 import { CliError } from "effect/cli";
-import type { InstallOptions, InstallResult, SkillSource } from "skills";
+import type {
+  AgentInfo,
+  BaseOptions,
+  DetectAgentsResult,
+  InstallOptions,
+  InstallResult,
+  SkillSource,
+} from "skills";
 
 export class UpstreamError extends Schema.TaggedError<
   UpstreamError,
@@ -22,9 +30,18 @@ export class Upstream extends Context.Service<
       source: string,
       commit: string,
     ) => Effect.Effect<ReadonlyArray<string>, UpstreamError>;
+    // skills API: resolve with the Pin once; the caller's scope disposes the fetched source.
+    readonly resolveSource: (
+      source: string,
+      commit: string,
+    ) => Effect.Effect<SkillSource, UpstreamError, Scope.Scope>;
     readonly install: (
       source: SkillSource,
-      options: InstallOptions,
+      options: Omit<InstallOptions, "ref">,
     ) => Effect.Effect<InstallResult, UpstreamError>;
+    readonly detectAgents: (
+      options?: BaseOptions,
+    ) => Effect.Effect<DetectAgentsResult, UpstreamError>;
+    readonly getSupportedAgents: Effect.Effect<ReadonlyArray<AgentInfo>, UpstreamError>;
   }
 >()("skillset/Upstream") {}
