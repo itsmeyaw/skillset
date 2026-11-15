@@ -1,12 +1,14 @@
-import { Console, Effect, Stdio } from "effect";
-import { Command, Flag, Prompt } from "effect/cli";
-import type { InstallMode } from "skills";
+import { Console, Effect, Option, Stdio } from "effect";
+import { Argument, Command, Flag, Prompt } from "effect/cli";
+import type { InstallMode, SkillSource } from "skills";
 import { CliMessageError as InstallError, missingSkillsMessage } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
+import { searchMultiSelect } from "../prompts/search.ts";
 import { root } from "../root.ts";
-import { readSkillset } from "../skillset-file.ts";
+import { readSkillset, writeSkillset } from "../skillset-file.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
 import { Upstream } from "../upstream.ts";
+import { prepareAddition } from "./add.ts";
 
 export { InstallError };
 
@@ -17,51 +19,56 @@ type InstallPlan = {
   readonly mode: InstallMode;
 };
 
-// Spec #1, install: check all pinned sources before writing, and dispose them after execution.
-const executeInstall = Effect.fn("executeInstall")(function* (plan: InstallPlan) {
+// Spec #11: check every Source before confirming or writing a Source-based install.
+const checkSources = Effect.fn("checkSources")(function* (allEntries: ReadonlyArray<Entry>) {
   const upstream = yield* Upstream;
-  yield* Effect.scoped(
-    Effect.gen(function* () {
-      // Spec #1, install: group by the complete Source and Pin pair.
-      const groups = new Map<string, Array<Entry>>();
-      for (const entry of plan.entries) {
-        const key = JSON.stringify([entry.source, entry.commit]);
-        const group = groups.get(key) ?? [];
-        group.push(entry);
-        groups.set(key, group);
-      }
-      const checked = [];
-      for (const entries of groups.values()) {
-        const first = entries[0];
-        if (first === undefined) continue;
-        const source = yield* upstream.resolveSource(first.source, first.commit);
-        const missing = entries.filter(
-          (entry) => !source.skills.some((skill) => skill.name === entry.name),
-        );
-        if (missing.length > 0)
-          return yield* new InstallError({
-            message: missingSkillsMessage(
-              first.commit,
-              missing.map((entry) => entry.name),
-            ),
-          });
-        checked.push({ source, entries });
-      }
-      for (const { source, entries } of checked) {
-        const result = yield* upstream.install(source, {
-          skills: entries.map((entry) => entry.name),
-          agents: plan.agents,
-          scope: plan.global ? "global" : "project",
-          mode: plan.mode,
-        });
-        // Spec #1, User Story 41: stop on the first failed write without rollback.
-        if (result.failed.length > 0)
-          return yield* new InstallError({
-            message: result.failed.map((failure) => failure.message).join("; "),
-          });
-      }
-    }),
-  );
+  // Spec #1, install: group by the complete Source and Pin pair.
+  const groups = new Map<string, Array<Entry>>();
+  for (const entry of allEntries) {
+    const key = JSON.stringify([entry.source, entry.commit]);
+    const group = groups.get(key) ?? [];
+    group.push(entry);
+    groups.set(key, group);
+  }
+  const checked = [];
+  for (const entries of groups.values()) {
+    const first = entries[0];
+    if (first === undefined) continue;
+    const source = yield* upstream.resolveSource(first.source, first.commit);
+    const missing = entries.filter(
+      (entry) => !source.skills.some((skill) => skill.name === entry.name),
+    );
+    if (missing.length > 0)
+      return yield* new InstallError({
+        message: missingSkillsMessage(
+          first.commit,
+          missing.map((entry) => entry.name),
+        ),
+      });
+    checked.push({ source, entries });
+  }
+  return checked;
+});
+
+// Spec #1, install: checked Sources remain scoped until all installs complete.
+const executeInstall = Effect.fn("executeInstall")(function* (
+  plan: InstallPlan,
+  checked: ReadonlyArray<{ readonly source: SkillSource; readonly entries: ReadonlyArray<Entry> }>,
+) {
+  const upstream = yield* Upstream;
+  for (const { source, entries } of checked) {
+    const result = yield* upstream.install(source, {
+      skills: entries.map((entry) => entry.name),
+      agents: plan.agents,
+      scope: plan.global ? "global" : "project",
+      mode: plan.mode,
+    });
+    // Spec #1, User Story 41: stop on the first failed write without rollback.
+    if (result.failed.length > 0)
+      return yield* new InstallError({
+        message: result.failed.map((failure) => failure.message).join("; "),
+      });
+  }
 });
 
 // Spec #1, install: build and confirm the plan before fetching or writing any skills.
@@ -73,12 +80,14 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     global,
     copy,
     yes,
+    added,
   }: {
     readonly selected: ReadonlyArray<string>;
     readonly agents: ReadonlyArray<string>;
     readonly global: boolean;
     readonly copy: boolean;
     readonly yes: boolean;
+    readonly added?: ReadonlyArray<Entry>;
   },
 ) {
   // Spec #1, install: an explicit selection must name Entries in the Skillset.
@@ -95,7 +104,7 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   let mode: InstallMode = copy ? "copy" : "auto";
   if (interactive) {
     // Spec #1, User Stories 33–36: explicit flags skip their corresponding prompts.
-    if (selected.length === 0 && skillset.skills.length > 0) {
+    if (added === undefined && selected.length === 0 && skillset.skills.length > 0) {
       names = yield* cancelOnQuit(
         Prompt.MultiSelect({
           message: "Which skills?",
@@ -115,7 +124,7 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
       if (supported.length === 0)
         return yield* new InstallError({ message: "No supported agents available" });
       targets = yield* cancelOnQuit(
-        Prompt.MultiSelect({
+        searchMultiSelect({
           message: "Which agents?",
           choices: supported.map((agent) => ({
             title: agent.name,
@@ -160,7 +169,8 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   };
   if (interactive) {
     yield* Console.log(
-      `Skills: ${plan.entries.map((entry) => `${entry.name} (${entry.source}@${entry.commit})`).join(", ")}\n` +
+      (added ? `Adding: ${added.map((entry) => entry.name).join(", ")}\n` : "") +
+        `Skills: ${plan.entries.map((entry) => `${entry.name} (${entry.source}@${entry.commit})`).join(", ")}\n` +
         `Agents: ${plan.agents?.join(", ") ?? "default"}\n` +
         `Scope: ${plan.global ? "global" : "project"}\nMode: ${plan.mode}`,
     );
@@ -179,7 +189,9 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
 export const install = Command.make(
   "install",
   {
+    source: Argument.String("source").pipe(Argument.optional),
     selected: Flag.String("skill").pipe(Flag.withAlias("s"), Flag.atLeast(0)),
+    all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
     agents: Flag.String("agent").pipe(Flag.withAlias("a"), Flag.atLeast(0)),
     global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
     copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
@@ -187,8 +199,38 @@ export const install = Command.make(
   },
   Effect.fn(function* (options) {
     const { set } = yield* root;
-    const skillset = yield* readSkillset(set);
-    const plan = yield* buildInstallPlan(skillset, options);
-    if (plan) yield* executeInstall(plan);
+    if (Option.isSome(options.source)) {
+      const interactive =
+        !options.yes && (yield* Stdio.Stdio.use((stdio) => stdio.stdinIsTerminal));
+      const addition = yield* prepareAddition(options.source.value, set, {
+        ...options,
+        list: false,
+        interactive,
+      });
+      if (!addition) return;
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const checked = yield* checkSources(addition.skillset.skills);
+          const plan = yield* buildInstallPlan(addition.skillset, {
+            ...options,
+            selected: [],
+            added: addition.added,
+          });
+          if (!plan) return;
+          yield* writeSkillset(set, addition.skillset);
+          yield* executeInstall(plan, checked);
+        }),
+      );
+    } else {
+      const skillset = yield* readSkillset(set);
+      const plan = yield* buildInstallPlan(skillset, options);
+      if (plan)
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const checked = yield* checkSources(plan.entries);
+            yield* executeInstall(plan, checked);
+          }),
+        );
+    }
   }),
 ).pipe(Command.withDescription("Install pinned Skillset Entries"));

@@ -9,6 +9,15 @@ const alpha = { name: "alpha", source: "owner/a", commit: "a".repeat(40) };
 const beta = { name: "beta", source: "owner/b#dev", commit: "b".repeat(40) };
 const zeta = { name: "zeta", source: "owner/z", commit: "c".repeat(40) };
 
+it.effect("remove -y keeps non-interactive usage behavior on a TTY", () =>
+  Effect.gen(function* () {
+    const result = yield* runCli(["remove", "-y"], { tty: true });
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /Usage/);
+    assert.deepStrictEqual(result.screen, []);
+  }),
+);
+
 it.effect("interactive remove selects Entries without touching others", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

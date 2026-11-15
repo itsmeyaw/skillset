@@ -9,6 +9,31 @@ const upstream = {
   skills: { [JSON.stringify(["owner/repo", commit])]: ["zeta", "alpha"] },
 };
 
+it.effect("add -y keeps non-interactive listing behavior on a TTY", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const result = yield* runCli(["add", "owner/repo", "-y", "--set", file], {
+      tty: true,
+      upstream,
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(result.screen, []);
+    assert.match(result.out.join("\n"), /alpha/);
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("Ctrl+C cancels the Source prompt", () =>
+  Effect.gen(function* () {
+    const ctrlC = { ...key("c"), key: { ...key("c").key, ctrl: true } };
+    const result = yield* runCli(["add"], { tty: true, keys: [ctrlC] });
+    assert.strictEqual(result.code, 130);
+    assert.include(result.out.join("\n"), "Cancelled");
+  }),
+);
+
 it.effect("interactive add asks for a Source and selects skills", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

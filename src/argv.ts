@@ -38,7 +38,8 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
       hasValue = true;
     } else {
       result.push(token);
-      if ((token === "add" || token === "a") && !adding) adding = true;
+      // Spec #11: Source arguments follow skill flags for both add and install.
+      if (["add", "a", "install", "i"].includes(token) && !adding) adding = true;
       else if (adding && !sourceSeen) sourceSeen = true;
     }
   }

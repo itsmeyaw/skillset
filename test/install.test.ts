@@ -14,6 +14,197 @@ const cursor = {
 };
 const claude = { ...cursor, id: "claude-code", name: "Claude Code" };
 
+it.effect("interactive install Source selects skills, then all Entries and searchable agents", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const old = { name: "old", source: "other/repo", commit };
+    yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [old] }));
+    const result = yield* runCli(["install", "owner/repo", "-g", "--copy", "--set", file], {
+      tty: true,
+      keys: [
+        key("l", "l"),
+        key("space"),
+        key("enter"),
+        ...Array.from("claude-code", (char) => key(char, char)),
+        key("space"),
+        key("enter"),
+        key("enter"),
+      ],
+      upstream: {
+        commits: { [JSON.stringify(["owner/repo", null])]: commit },
+        skills: {
+          [JSON.stringify(["owner/repo", commit])]: [
+            { name: "alpha", description: "First skill" },
+            { name: "beta", description: "Second skill" },
+          ],
+          [JSON.stringify(["other/repo", commit])]: ["old"],
+        },
+        supportedAgents: [cursor, claude],
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.screen.join(""), "First skill");
+    assert.include(result.out.join("\n"), "Adding: alpha");
+    assert.isTrue(yield* fs.exists(`${dir}/global/claude-code/alpha`));
+    assert.isTrue(yield* fs.exists(`${dir}/global/claude-code/old`));
+    assert.isFalse(yield* fs.exists(`${dir}/global/cursor/alpha`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("install Source shares conflicts and Pin refresh with add", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const oldCommit = "b".repeat(40);
+    const original = JSON.stringify({
+      $schema: SCHEMA_URL,
+      skills: [{ name: "alpha", source: "other/repo", commit: oldCommit }],
+    });
+    yield* fs.writeFileString(file, original);
+    const upstream = {
+      commits: { [JSON.stringify(["owner/repo", null])]: commit },
+      skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+      installDir: dir,
+    };
+    const conflict = yield* runCli(["i", "-s", "alpha", "owner/repo", "-y", "--set", file], {
+      upstream,
+    });
+    assert.strictEqual(conflict.code, 1);
+    assert.match(conflict.err.join("\n"), /alpha.*other\/repo/);
+    assert.strictEqual(yield* fs.readFileString(file), original);
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit: oldCommit }],
+      }),
+    );
+    const refresh = yield* runCli(["i", "-s", "alpha", "owner/repo", "-y", "--set", file], {
+      upstream,
+    });
+    assert.strictEqual(refresh.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("install Source cancellation before confirmation writes nothing", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["install", "owner/repo", "--set", file], {
+      tty: true,
+      keys: [key("escape")],
+      upstream: {
+        commits: { [JSON.stringify(["owner/repo", null])]: commit },
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+      },
+    });
+    assert.strictEqual(result.code, 130);
+    assert.include(result.out.join("\n"), "Cancelled");
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("install Source adds selected skills and installs all Entries", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const old = { name: "old", source: "other/repo", commit };
+    yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [old] }));
+    const upstream = {
+      commits: { [JSON.stringify(["owner/repo", null])]: commit },
+      skills: {
+        [JSON.stringify(["owner/repo", commit])]: ["alpha", "beta"],
+        [JSON.stringify(["other/repo", commit])]: ["old"],
+      },
+      installDir: dir,
+    };
+    const result = yield* runCli(["install", "owner/repo", "-s", "alpha", "-y", "--set", file], {
+      upstream,
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit },
+      old,
+    ]);
+    assert.isTrue(yield* fs.exists(`${dir}/project/default/alpha`));
+    assert.isTrue(yield* fs.exists(`${dir}/project/default/old`));
+    assert.isFalse(yield* fs.exists(`${dir}/project/default/beta`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("install Source checks all Entries before writing the file", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const original = JSON.stringify({
+      $schema: SCHEMA_URL,
+      skills: [{ name: "old", source: "other/repo", commit }],
+    });
+    yield* fs.writeFileString(file, original);
+    const result = yield* runCli(["install", "owner/repo", "--all", "-y", "--set", file], {
+      upstream: {
+        commits: { [JSON.stringify(["owner/repo", null])]: commit },
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.strictEqual(yield* fs.readFileString(file), original);
+    assert.isFalse(yield* fs.exists(`${dir}/project`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("install failure leaves newly added Entries in the file", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["install", "owner/repo", "--all", "-y", "--set", file], {
+      upstream: {
+        commits: { [JSON.stringify(["owner/repo", null])]: commit },
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        failedInstalls: ["owner/repo"],
+      },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("declining install Source writes nothing", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      ["install", "owner/repo", "-s", "alpha", "-a", "cursor", "-g", "--copy", "--set", file],
+      {
+        tty: true,
+        keys: [key("n", "n")],
+        upstream: {
+          commits: { [JSON.stringify(["owner/repo", null])]: commit },
+          skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.match(result.out.join("\n"), /adding.*alpha/i);
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("cancelling an install prompt reports cancellation", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
