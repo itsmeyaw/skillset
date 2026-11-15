@@ -1,17 +1,40 @@
 {
   "name": "@itsmeyaw/skillset",
-  "private": true,
+  "version": "0.1.0",
+  "bin": {
+    "skillset": "dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "schemas"
+  ],
   "type": "module",
-  "module": "index.ts",
   "scripts": {
-    "typecheck": "bun check"
+    "prepare": "effect-tsgo patch --no-typescript --oxlint",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings",
+    "format": "oxfmt --write",
+    "format:check": "oxfmt --check",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json",
+    "schema:generate": "node scripts/generate-schema.ts"
   },
   "dependencies": {
-    "effect": "^4.1.4",
-    "skills": "^1.8.1"
+    "@effect/platform-node": "4.1.4",
+    "effect": "4.1.4",
+    "skills": "1.8.1"
   },
-  "devDependencies": {},
-  "peerDependencies": {
-    "typescript": "^7"
+  "devDependencies": {
+    "@effect/tsgo": "0.69.0",
+    "@effect/vitest": "4.1.4",
+    "@types/node": "^22.0.0",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
+    "oxlint-tsgolint": "7.0.2007",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  },
+  "engines": {
+    "node": ">=22.19"
   }
 }

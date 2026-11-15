@@ -1,23 +1,11 @@
 # skillset
 
-To install dependencies:
+Requires Node.js 22.19 or later and pnpm.
 
-```bash
-bun install
+```sh
+pnpm install
+pnpm build
+node dist/bin.js list --set ./skillset.json
 ```
 
-To run:
-
-```bash
-bun run index.ts
-```
-
-To type check:
-
-```bash
-bun check
-```
-
-Run `bun fmt` to format the code.
-
-This project was created using `bun init` in bun v1.4.4. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+Run `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, and `pnpm test` to verify changes. Run `pnpm schema:generate` after changing the Skillset file schema.
