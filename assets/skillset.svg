@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="title desc">
   <title id="title">Skillset</title>
-  <desc id="desc">Easily manage, install, and share multiple skills at once. Based on Vercel&#8217;s Skill CLI. npm install -g @itsmeyaw/skillset</desc>
+  <desc id="desc">Easily manage, install, and share multiple agent skills at once. Based on Vercel&#8217;s Skill CLI. npm install -g @itsmeyaw/skillset</desc>
   <defs>
     <pattern id="tiles" x="48" y="32" width="56" height="56" patternUnits="userSpaceOnUse">
       <rect x="6" y="6" width="44" height="44" rx="10" fill="#12275A"/>
@@ -36,7 +36,7 @@
   <text x="166" y="106" fill="#F2F6FF" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="64" font-weight="700" letter-spacing="-1.5">Skillset</text>
   <text fill="#9DB0D6" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="27">
     <tspan x="80" y="178">Easily manage, install, and share</tspan>
-    <tspan x="80" y="216">multiple skills at once</tspan>
+    <tspan x="80" y="216">multiple agent skills at once</tspan>
   </text>
 
   <rect x="80" y="246" width="596" height="60" rx="12" fill="#0D1E45" stroke="#24407D"/>

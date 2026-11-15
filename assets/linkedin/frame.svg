@@ -36,7 +36,7 @@
   <text x="246" y="418" fill="#F2F6FF" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="88" font-weight="700" letter-spacing="-2">Skillset</text>
   <text fill="#9DB0D6" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="32">
     <tspan x="130" y="510">Easily manage, install, and share</tspan>
-    <tspan x="130" y="555">multiple skills at once</tspan>
+    <tspan x="130" y="555">multiple agent skills at once</tspan>
   </text>
   <rect x="130" y="610" width="596" height="64" rx="12" fill="#0D1E45" stroke="#24407D"/>
   <text x="154" y="652" font-family="'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace" font-size="26"><tspan fill="#5C8DFF">$</tspan><tspan fill="#DCE6FF"> npm install -g @itsmeyaw/skillset</tspan></text>
