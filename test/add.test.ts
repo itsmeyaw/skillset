@@ -176,6 +176,24 @@ it.effect("add accepts --skill and --set before the command", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("add accepts the Source after multiple skill flag values", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "-s", "alpha", "zeta", "owner/repo", "--set", file], {
+      upstream,
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(
+      JSON.parse(yield* fs.readFileString(file)).skills.map(
+        (entry: { name: string }) => entry.name,
+      ),
+      ["alpha", "zeta"],
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("add leaves the file absent when Source lookup fails", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
