@@ -12,6 +12,7 @@ import { Upstream, UpstreamError } from "../src/upstream.ts";
 export const fakeUpstream = (
   options: {
     readonly commits?: Readonly<Record<string, string>>;
+    readonly commitLookups?: Array<string>;
     readonly skills?: Readonly<Record<string, ReadonlyArray<string>>>;
     readonly failedInstalls?: ReadonlyArray<string>;
     readonly failedResults?: ReadonlyArray<string>;
@@ -26,6 +27,7 @@ export const fakeUpstream = (
     Upstream,
     Upstream.of({
       resolveCommit: (source, ref) => {
+        options.commitLookups?.push(JSON.stringify([source, ref ?? null]));
         const commit = options.commits?.[JSON.stringify([source, ref ?? null])];
         return commit === undefined
           ? Effect.fail(new UpstreamError({ message: `Fake commit not configured for ${source}` }))
