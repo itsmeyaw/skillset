@@ -12,10 +12,11 @@ import type {
 
 export { UpstreamError };
 
-// Spec #1, Upstream service: this is the single swappable boundary to git and skills.
+// git-ls-remote(1): multiple possible tree refs require an explicit branch.
 export const ambiguousTreeMessage =
   "Ambiguous tree URL; use owner/repo#<branch-with-slashes> and -s <skill>.";
 
+// Spec #1, Upstream service: this boundary represents Git and skills, not a Source.
 export class Upstream extends Context.Service<
   Upstream,
   {

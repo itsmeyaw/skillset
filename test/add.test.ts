@@ -232,7 +232,7 @@ it.effect("add rejects an invalid Skillset file without overwriting it", () =>
 );
 
 for (const ref of ["v1.2.3", "1.2-beta+build", "b".repeat(40)]) {
-  it.effect(`add accepts fixed version ${ref} and preserves the typed Source`, () =>
+  it.effect(`add accepts version-pinned Source ${ref} and preserves it`, () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();

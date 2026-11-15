@@ -116,7 +116,7 @@ it.effect("update with names changes only selected Entries", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("update skips fixed versions without resolving or rewriting them", () =>
+it.effect("update skips version-pinned Sources without resolving or rewriting them", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
