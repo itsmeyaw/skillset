@@ -1,12 +1,18 @@
 {
   "name": "@itsmeyaw/skillset",
   "version": "0.1.0",
+  "description": "Curate and install agent skills pinned to Git commits",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/itsmeyaw/skillset.git"
+  },
   "bin": {
     "skillset": "dist/bin.js"
   },
   "files": [
-    "dist",
-    "schemas"
+    "dist/**/*.js",
+    "schemas/skillset/v1.json"
   ],
   "type": "module",
   "scripts": {
