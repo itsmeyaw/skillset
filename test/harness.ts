@@ -130,6 +130,33 @@ export const key = (name: string, input?: string): Terminal.UserInput => ({
   key: { name, ctrl: false, meta: false, shift: false },
 });
 
+// NodeTerminal: Esc and Ctrl+C close the input queue after earlier keys are consumed.
+export const fakeTerminal = Effect.fn("fakeTerminal")(function* (
+  keys: ReadonlyArray<Terminal.UserInput>,
+  screen: Array<string>,
+) {
+  const input = yield* Queue.unbounded<Terminal.UserInput, Cause.Done>();
+  const quit = keys.findIndex(
+    ({ key }) => key.name === "escape" || (key.ctrl && (key.name === "c" || key.name === "d")),
+  );
+  yield* Queue.offerAll(input, quit < 0 ? keys : keys.slice(0, quit));
+  if (quit >= 0) yield* Queue.end(input);
+  return Layer.succeed(
+    Terminal.Terminal,
+    Terminal.make({
+      columns: Effect.succeed(80),
+      rows: Effect.succeed(24),
+      size: Effect.die("unused"),
+      readInput: Effect.succeed(input),
+      readLine: Effect.die("unused"),
+      display: (text) =>
+        Effect.sync(() => {
+          screen.push(text);
+        }),
+    }),
+  );
+});
+
 export const runCli = Effect.fn("runCli")(function* (
   argv: ReadonlyArray<string>,
   options: {
@@ -139,26 +166,12 @@ export const runCli = Effect.fn("runCli")(function* (
   } = {},
 ) {
   const screen: Array<string> = [];
-  const input = yield* Queue.unbounded<Terminal.UserInput, Cause.Done>();
-  yield* Queue.offerAll(input, options.keys ?? []);
+  const terminal = yield* fakeTerminal(options.keys ?? [], screen);
   const services = Layer.mergeAll(
     NodeFileSystem.layer,
     NodePath.layer,
     Stdio.layerTest({ stdinIsTerminal: Effect.succeed(options.tty ?? false) }),
-    Layer.succeed(
-      Terminal.Terminal,
-      Terminal.make({
-        columns: Effect.succeed(80),
-        rows: Effect.succeed(24),
-        size: Effect.die("unused"),
-        readInput: Effect.succeed(input),
-        readLine: Effect.die("unused"),
-        display: (text) =>
-          Effect.sync(() => {
-            screen.push(text);
-          }),
-      }),
-    ),
+    terminal,
     Layer.succeed(
       ChildProcessSpawner.ChildProcessSpawner,
       ChildProcessSpawner.make(() => Effect.die("unused")),
