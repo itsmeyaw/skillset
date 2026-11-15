@@ -102,7 +102,7 @@ const parsePinned = (source: string): ParsedSource | undefined => {
 };
 
 const parseRemote = (source: string): ParsedSource | undefined => {
-  // Spec #1, User Story 11: pass remote Git URLs through to git ls-remote.
+  // RFC 3986 §3 and git-clone(1): accept URL and SCP-style remote Git Sources.
   const remote =
     /^((?:(?:https?|ssh|git|ftp|ftps):\/\/|(?:[^\s/@:]+@)?[^\s/:]+:)[^\s#]+)(?:#([^#@\s]+))?$/iu.exec(
       source,

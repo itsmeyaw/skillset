@@ -227,6 +227,7 @@ it("resolves branches, tags, HEAD and full SHAs in a local bare git repository",
     git("-C", "work", "tag", "-a", "v2.0.0", "-m", "annotated");
     git("-C", "work", "tag", "feature");
     git("-C", "work", "branch", "feature/docs");
+    git("-C", "work", "branch", "another/docs");
     await writeFile(join(cwd, "work", "file"), "second\n");
     git("-C", "work", "commit", "-qam", "second");
     const commit = git("-C", "work", "rev-parse", "HEAD");
@@ -244,6 +245,9 @@ it("resolves branches, tags, HEAD and full SHAs in a local bare git repository",
             .resolveCommit(join(cwd, "repo.git"), "feature", ["feature/docs", "feature/docs/skill"])
             .pipe(Effect.flip),
           upstream.resolveCommit(join(cwd, "repo.git"), "main", ["main/skill"]),
+          upstream
+            .resolveCommit(join(cwd, "repo.git"), "another", ["another/docs"])
+            .pipe(Effect.flip),
         ]),
       ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
     );
@@ -251,6 +255,7 @@ it("resolves branches, tags, HEAD and full SHAs in a local bare git repository",
     expect(result[5].message).toContain("missing");
     expect(result[6].message).toMatch(/ambiguous.*#.*-s/i);
     expect(result[7]).toBe(commit);
+    expect(result[8].message).toMatch(/ambiguous.*#.*-s/i);
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
