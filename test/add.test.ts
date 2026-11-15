@@ -249,6 +249,129 @@ for (const source of ["owner/repo@grilling", "owner/repo#dev@grilling"]) {
   );
 }
 
+it.effect("add selects the skill implied by a GitHub tree URL", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      ["add", "https://github.com/owner/repo/tree/dev/skills/alpha", "--set", file],
+      {
+        upstream: {
+          commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
+          skills: {
+            [JSON.stringify(["https://github.com/owner/repo", commit])]: ["alpha", "zeta"],
+          },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "https://github.com/owner/repo/tree/dev", commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+for (const [flags, expected] of [
+  [["-s", "zeta"], ["zeta"]],
+  [["--all"], ["alpha", "zeta"]],
+] as const) {
+  it.effect(`add tree URL honors ${flags.join(" ")}`, () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const file = `${dir}/skillset.json`;
+      const result = yield* runCli(
+        ["add", "https://github.com/owner/repo/tree/dev/skills/alpha/", ...flags, "--set", file],
+        {
+          upstream: {
+            commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
+            skills: {
+              [JSON.stringify(["https://github.com/owner/repo", commit])]: ["alpha", "zeta"],
+            },
+          },
+        },
+      );
+      assert.strictEqual(result.code, 0);
+      assert.deepStrictEqual(
+        JSON.parse(yield* fs.readFileString(file)).skills.map(
+          (entry: { name: string }) => entry.name,
+        ),
+        expected,
+      );
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+  );
+}
+
+it.effect("add -l lists a tree Source without writing", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      ["add", "https://github.com/owner/repo/tree/dev/skills/alpha", "-l", "--set", file],
+      {
+        upstream: {
+          commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
+          skills: {
+            [JSON.stringify(["https://github.com/owner/repo", commit])]: ["alpha", "zeta"],
+          },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.match(result.out.join("\n"), /zeta/);
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add --all ignores a missing tree-path skill", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      ["add", "https://github.com/owner/repo/tree/dev/skills/missing", "--all", "--set", file],
+      {
+        upstream: {
+          commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
+          skills: { [JSON.stringify(["https://github.com/owner/repo", commit])]: ["alpha"] },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "https://github.com/owner/repo/tree/dev", commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add decodes a GitHub tree URL ref and skill", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      [
+        "add",
+        "https://github.com/owner/repo/tree/feature%2Fdocs/skills/alpha%2Ddocs",
+        "--set",
+        file,
+      ],
+      {
+        upstream: {
+          commits: { [JSON.stringify(["https://github.com/owner/repo", "feature/docs"])]: commit },
+          skills: { [JSON.stringify(["https://github.com/owner/repo", commit])]: ["alpha-docs"] },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha-docs", source: "https://github.com/owner/repo/tree/feature%2Fdocs", commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 for (const source of ["../repo", "owner/repo#", "owner/repo\n"]) {
   it.effect(`add rejects unsupported Source ${source} without creating a file`, () =>
     Effect.gen(function* () {

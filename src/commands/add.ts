@@ -30,13 +30,15 @@ export const add = Command.make(
     const upstream = yield* Upstream;
     const commit = yield* upstream.resolveCommit(parsed.repository, parsed.ref);
     const skills = yield* upstream.listSkills(parsed.repository, commit);
-    if (list || (!all && selected.length === 0)) {
+    // Spec #1, Source parsing: -s or --all overrides an implied tree-path selection.
+    const selection = selected.length > 0 ? selected : !all && parsed.skill ? [parsed.skill] : [];
+    if (list || (!all && selection.length === 0)) {
       for (const skill of skills) yield* Console.log(skill);
       yield* Console.log("Use -s to select skills or --all to add every skill.");
       return;
     }
     // Spec #1, User Story 14: reject absent skills before writing anything.
-    const missing = selected.filter((name) => !skills.includes(name));
+    const missing = selection.filter((name) => !skills.includes(name));
     if (missing.length > 0)
       return yield* new AddError({
         message: `Skills not found at ${commit}: ${missing.join(", ")}`,
@@ -57,7 +59,7 @@ export const add = Command.make(
       : { $schema: SCHEMA_URL, skills: [] };
     // Spec #1, User Story 16: re-adding an Entry from the same Source moves its Pin.
     // Spec #1, User Story 4: --all selects every skill at the resolved commit.
-    const names = new Set(all ? skills : selected);
+    const names = new Set(all ? skills : selection);
     // Spec #1, User Story 15: a name from a different Source must never be overwritten.
     const conflict = skillset.skills.find(
       (entry) => names.has(entry.name) && entry.source !== parsed.stored,

@@ -8,6 +8,25 @@ export type ParsedSource = {
 
 // Spec #1, Source parsing module: retain the typed Source and separate the lookup ref.
 export const parseSource = (source: string): ParsedSource | { readonly error: string } => {
+  // Spec #1, Source parsing: a tree path selects a skill, but is not part of the stored Source.
+  const tree =
+    /^(https?:\/\/github\.com\/[^/\s?#]+\/[^/\s?#]+)\/tree\/([^/\s?#]+)(?:\/([^\s?#]+?))?\/?$/u.exec(
+      source,
+    );
+  if (tree) {
+    try {
+      // RFC 3986 §2.1: decode percent-encoded URL components for lookup.
+      return {
+        stored: `${tree[1]}/tree/${tree[2]}`,
+        repository: tree[1]!,
+        ref: decodeURIComponent(tree[2]!),
+        fixed: false,
+        skill: tree[3] ? decodeURIComponent(tree[3].split("/").at(-1)!) : undefined,
+      };
+    } catch {
+      return { error: `Invalid URL encoding in Source: ${source}` };
+    }
+  }
   // skills@1.8.1 isVersionPin: only versions or full commit SHAs are fixed refs.
   const pinned =
     /^([a-zA-Z0-9][a-zA-Z0-9-]*\/[a-zA-Z0-9_.-]+)@(v?\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?|[a-fA-F0-9]{40})$/u.exec(
