@@ -175,3 +175,5 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm build
 ```
 
 Run `pnpm schema:generate` after changing the Skillset file schema.
+
+Run `pnpm install:local` to build and link the `skillset` command globally for manual testing (`pnpm unlink --global @itsmeyaw/skillset` removes it).
