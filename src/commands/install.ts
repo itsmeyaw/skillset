@@ -4,7 +4,7 @@ import type { InstallMode } from "skills";
 import { CliMessageError as InstallError, missingSkillsMessage } from "../errors.ts";
 import { root } from "../root.ts";
 import { readSkillset } from "../skillset-file.ts";
-import type { Entry } from "../skillset-file.ts";
+import type { Entry, Skillset } from "../skillset-file.ts";
 import { Upstream } from "../upstream.ts";
 
 export { InstallError };
@@ -63,6 +63,107 @@ const executeInstall = Effect.fn("executeInstall")(function* (plan: InstallPlan)
   );
 });
 
+// Spec #1, install: build and confirm the plan before fetching or writing any skills.
+const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
+  skillset: Skillset,
+  {
+    selected,
+    agents,
+    global,
+    copy,
+    yes,
+  }: {
+    readonly selected: ReadonlyArray<string>;
+    readonly agents: ReadonlyArray<string>;
+    readonly global: boolean;
+    readonly copy: boolean;
+    readonly yes: boolean;
+  },
+) {
+  // Spec #1, install: an explicit selection must name Entries in the Skillset.
+  const missing = selected.filter((name) => !skillset.skills.some((entry) => entry.name === name));
+  if (missing.length > 0)
+    return yield* new InstallError({
+      message: `Skills not found in Skillset: ${missing.join(", ")}`,
+    });
+  // Spec #1, User Stories 37–39: confirm the plan only in an interactive terminal.
+  const interactive = !yes && (yield* Stdio.Stdio.use((stdio) => stdio.stdinIsTerminal));
+  let names: ReadonlyArray<string> = selected;
+  let targets: ReadonlyArray<string> | undefined = agents.length === 0 ? undefined : agents;
+  let scope = global;
+  let mode: InstallMode = copy ? "copy" : "auto";
+  if (interactive) {
+    // Spec #1, User Stories 33–36: explicit flags skip their corresponding prompts.
+    if (selected.length === 0 && skillset.skills.length > 0) {
+      names = yield* Prompt.MultiSelect({
+        message: "Which skills?",
+        choices: skillset.skills.map((entry) => ({
+          title: entry.name,
+          value: entry.name,
+          selected: true,
+        })),
+        min: 1,
+      });
+    }
+    if (agents.length === 0 && skillset.skills.length > 0) {
+      const upstream = yield* Upstream;
+      const supported = yield* upstream.getSupportedAgents;
+      const detected = yield* upstream.detectAgents();
+      if (supported.length === 0)
+        return yield* new InstallError({ message: "No supported agents available" });
+      targets = yield* Prompt.MultiSelect({
+        message: "Which agents?",
+        choices: supported.map((agent) => ({
+          title: agent.name,
+          value: agent.id,
+          selected: detected.agents.some((found) => found.id === agent.id),
+        })),
+        min: 1,
+      });
+    }
+    if (!global) {
+      scope = yield* Prompt.Select({
+        message: "Installation scope?",
+        choices: [
+          { title: "Project", value: false },
+          { title: "Global", value: true },
+        ],
+      });
+    }
+    if (!copy) {
+      mode = yield* Prompt.Select({
+        message: "Installation mode?",
+        choices: [
+          { title: "Symlink", value: "symlink" as const },
+          { title: "Copy", value: "copy" as const },
+        ],
+      });
+    }
+  }
+  const plan: InstallPlan = {
+    entries:
+      names.length === 0
+        ? skillset.skills
+        : skillset.skills.filter((entry) => names.includes(entry.name)),
+    agents: targets,
+    global: scope,
+    mode,
+  };
+  if (interactive) {
+    yield* Console.log(
+      `Skills: ${plan.entries.map((entry) => `${entry.name} (${entry.source}@${entry.commit})`).join(", ")}\n` +
+        `Agents: ${plan.agents?.join(", ") ?? "default"}\n` +
+        `Scope: ${plan.global ? "global" : "project"}\nMode: ${plan.mode}`,
+    );
+    const proceed = yield* Prompt.Confirm({
+      message: "Proceed with installation?",
+      initial: true,
+    });
+    if (!proceed) return;
+  }
+  return plan;
+});
+
 // Spec #1, install -y: omitted agents use skills add -y defaults, project scope, and auto mode.
 export const install = Command.make(
   "install",
@@ -73,92 +174,10 @@ export const install = Command.make(
     copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
-  Effect.fn(function* ({ selected, agents, global, copy, yes }) {
+  Effect.fn(function* (options) {
     const { set } = yield* root;
     const skillset = yield* readSkillset(set);
-    // Spec #1, install: an explicit selection must name Entries in the Skillset.
-    const missing = selected.filter(
-      (name) => !skillset.skills.some((entry) => entry.name === name),
-    );
-    if (missing.length > 0)
-      return yield* new InstallError({
-        message: `Skills not found in Skillset: ${missing.join(", ")}`,
-      });
-    // Spec #1, User Stories 37–39: confirm the plan only in an interactive terminal.
-    const interactive = !yes && (yield* (yield* Stdio.Stdio).stdinIsTerminal);
-    let names: ReadonlyArray<string> = selected;
-    let targets: ReadonlyArray<string> | undefined = agents.length === 0 ? undefined : agents;
-    let scope = global;
-    let mode: InstallMode = copy ? "copy" : "auto";
-    if (interactive) {
-      // Spec #1, User Stories 33–36: explicit flags skip their corresponding prompts.
-      if (selected.length === 0 && skillset.skills.length > 0) {
-        names = yield* Prompt.MultiSelect({
-          message: "Which skills?",
-          choices: skillset.skills.map((entry) => ({
-            title: entry.name,
-            value: entry.name,
-            selected: true,
-          })),
-          min: 1,
-        });
-      }
-      if (agents.length === 0 && skillset.skills.length > 0) {
-        const upstream = yield* Upstream;
-        const supported = yield* upstream.getSupportedAgents;
-        const detected = yield* upstream.detectAgents();
-        if (supported.length === 0)
-          return yield* new InstallError({ message: "No supported agents available" });
-        targets = yield* Prompt.MultiSelect({
-          message: "Which agents?",
-          choices: supported.map((agent) => ({
-            title: agent.name,
-            value: agent.id,
-            selected: detected.agents.some((found) => found.id === agent.id),
-          })),
-          min: 1,
-        });
-      }
-      if (!global) {
-        scope = yield* Prompt.Select({
-          message: "Installation scope?",
-          choices: [
-            { title: "Project", value: false },
-            { title: "Global", value: true },
-          ],
-        });
-      }
-      if (!copy) {
-        mode = yield* Prompt.Select({
-          message: "Installation mode?",
-          choices: [
-            { title: "Symlink", value: "symlink" as const },
-            { title: "Copy", value: "copy" as const },
-          ],
-        });
-      }
-    }
-    const plan: InstallPlan = {
-      entries:
-        names.length === 0
-          ? skillset.skills
-          : skillset.skills.filter((entry) => names.includes(entry.name)),
-      agents: targets,
-      global: scope,
-      mode,
-    };
-    if (interactive) {
-      yield* Console.log(
-        `Skills: ${plan.entries.map((entry) => `${entry.name} (${entry.source}@${entry.commit})`).join(", ")}\n` +
-          `Agents: ${plan.agents?.join(", ") ?? "default"}\n` +
-          `Scope: ${plan.global ? "global" : "project"}\nMode: ${plan.mode}`,
-      );
-      const proceed = yield* Prompt.Confirm({
-        message: "Proceed with installation?",
-        initial: true,
-      });
-      if (!proceed) return;
-    }
-    yield* executeInstall(plan);
+    const plan = yield* buildInstallPlan(skillset, options);
+    if (plan) yield* executeInstall(plan);
   }),
 ).pipe(Command.withDescription("Install pinned Skillset Entries"));
