@@ -234,7 +234,12 @@ for (const ref of ["v1.2.3", "1.2-beta+build", "b".repeat(40)]) {
   );
 }
 
-for (const source of ["owner/repo@grilling", "owner/repo#dev@grilling"]) {
+for (const source of [
+  "owner/repo@grilling",
+  "owner/repo#dev@grilling",
+  "https://gitlab.com/owner/repo#dev@grilling",
+  "git@gitlab.com:owner/repo.git#dev@grilling",
+]) {
   it.effect(`add suggests -s for ${source} without writing`, () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -372,15 +377,104 @@ it.effect("add decodes a GitHub tree URL ref and skill", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-for (const source of ["../repo", "owner/repo#", "owner/repo\n"]) {
-  it.effect(`add rejects unsupported Source ${source} without creating a file`, () =>
+it.effect("add rejects a missing tree-path skill without writing", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      ["add", "https://github.com/owner/repo/tree/dev/skills/missing", "--set", file],
+      {
+        upstream: {
+          commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
+          skills: { [JSON.stringify(["https://github.com/owner/repo", commit])]: ["alpha"] },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /missing/i);
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+for (const [source, repository, ref] of [
+  ["github:owner/repo#dev", "owner/repo", "dev"],
+  ["gitlab:team/repo", "https://gitlab.com/team/repo", undefined],
+  ["https://github.com/owner/repo", "https://github.com/owner/repo", undefined],
+  [
+    "https://gitlab.example.com/team/repo.git#dev",
+    "https://gitlab.example.com/team/repo.git",
+    "dev",
+  ],
+  ["https://gitlab.com/team/repo", "https://gitlab.com/team/repo", undefined],
+  ["git@gitlab.com:team/repo.git#dev", "git@gitlab.com:team/repo.git", "dev"],
+  ["git.example.com:team/repo.git", "git.example.com:team/repo.git", undefined],
+  ["git@gitlab.com:team/repo.git#feature%2Fdocs", "git@gitlab.com:team/repo.git", "feature/docs"],
+  ["ssh://git@example.com/team/repo", "ssh://git@example.com/team/repo", undefined],
+  ["git://example.com/team/repo", "git://example.com/team/repo", undefined],
+] as const) {
+  it.effect(`add accepts remote Git Source ${source}`, () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const file = `${dir}/skillset.json`;
+      const result = yield* runCli(["add", source, "-s", "alpha", "--set", file], {
+        upstream: {
+          commits: { [JSON.stringify([repository, ref ?? null])]: commit },
+          skills: { [JSON.stringify([repository, commit])]: ["alpha"] },
+        },
+      });
+      assert.strictEqual(result.code, 0);
+      assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+        { name: "alpha", source, commit },
+      ]);
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+  );
+}
+
+it.effect("add decodes a percent-encoded shorthand branch", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const source = "owner/repo#feature%2Fdocs";
+    const result = yield* runCli(["add", source, "--all", "--set", file], {
+      upstream: {
+        commits: { [JSON.stringify(["owner/repo", "feature/docs"])]: commit },
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source, commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+for (const [source, message] of [
+  ["../repo", /local/i],
+  ["./repo", /local/i],
+  ["/tmp/repo", /local/i],
+  ["~/repo", /local/i],
+  ["file:///tmp/repo", /local/i],
+  ["C:\\repo", /local/i],
+  ["https://example.com", /well-known/i],
+  ["https://example.com/.well-known/agent-skills/index.json", /well-known/i],
+  ["https://raw.githubusercontent.com/owner/repo/main/SKILL.md", /download/i],
+  ["https://github.com/owner/repo/archive/refs/heads/main.zip", /download/i],
+  ["https://gitlab.com/owner/repo/-/raw/main/SKILL.md", /download/i],
+  ["https://example.com/skill.tar.gz", /download/i],
+  ["owner/repo#", /invalid|unsupported/i],
+  ["owner/repo\n", /invalid|unsupported/i],
+] as const) {
+  it.effect(`add rejects non-pinnable Source ${source} without creating a file`, () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/skillset.json`;
       const result = yield* runCli(["add", source, "--all", "--set", file], { upstream });
       assert.strictEqual(result.code, 1);
-      assert.match(result.err.join("\n"), /not supported yet/i);
+      assert.match(result.err.join("\n"), message);
       assert.isFalse(yield* fs.exists(file));
     }).pipe(Effect.provide(NodeFileSystem.layer)),
   );
