@@ -2,9 +2,207 @@ import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
 import { SCHEMA_URL } from "../src/skillset-file.ts";
-import { runCli } from "./harness.ts";
+import { key, runCli } from "./harness.ts";
 
 const commit = "a".repeat(40);
+const cursor = {
+  id: "cursor",
+  name: "Cursor",
+  projectSkillsDir: ".cursor/skills",
+  globalSkillsDir: null,
+  universal: false,
+};
+const claude = { ...cursor, id: "claude-code", name: "Claude Code" };
+
+it.effect("declining the installation plan exits successfully without writing", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const original = JSON.stringify({
+      $schema: SCHEMA_URL,
+      skills: [{ name: "alpha", source: "owner/repo", commit }],
+    });
+    yield* fs.writeFileString(file, original);
+    const result = yield* runCli(
+      ["install", "-s", "alpha", "-a", "cursor", "-g", "--copy", "--set", file],
+      { tty: true, keys: [key("n", "n")], upstream: { installDir: dir } },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.match(result.screen.join(""), /Proceed with installation\?/);
+    assert.match(result.out.join("\n"), /alpha/);
+    assert.match(result.out.join("\n"), /cursor/);
+    assert.match(result.out.join("\n"), /global/i);
+    assert.match(result.out.join("\n"), /copy/i);
+    assert.strictEqual(yield* fs.readFileString(file), original);
+    assert.deepStrictEqual(yield* fs.readDirectory(dir), ["skillset.json"]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("interactive install prompts in order and uses selected options", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [
+          { name: "alpha", source: "owner/repo", commit },
+          { name: "beta", source: "owner/repo", commit },
+        ],
+      }),
+    );
+    const result = yield* runCli(["install", "--set", file], {
+      tty: true,
+      keys: [
+        key("down"),
+        key("down"),
+        key("down"),
+        key("space"),
+        key("enter"),
+        key("enter"),
+        key("down"),
+        key("enter"),
+        key("down"),
+        key("enter"),
+        key("enter"),
+      ],
+      upstream: {
+        supportedAgents: [cursor, claude],
+        detectedAgents: [claude],
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha", "beta"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    const screen = result.screen.join("");
+    const prompts = [
+      "Which skills?",
+      "Which agents?",
+      "Installation scope?",
+      "Installation mode?",
+      "Proceed with installation?",
+    ];
+    const positions = prompts.map((prompt) => screen.indexOf(prompt));
+    assert.isTrue(positions.every((position) => position >= 0));
+    assert.deepStrictEqual(
+      positions,
+      [...positions].sort((a, b) => a - b),
+    );
+    assert.strictEqual(
+      yield* fs.readFileString(`${dir}/global/claude-code/alpha`),
+      `${commit}:copy`,
+    );
+    assert.isFalse(yield* fs.exists(`${dir}/global/claude-code/beta`));
+    assert.isFalse(yield* fs.exists(`${dir}/global/cursor/alpha`));
+    assert.match(result.out.join("\n"), /alpha.*owner\/repo/s);
+    assert.notMatch(result.out.join("\n"), /beta|cursor/i);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("interactive install requires an agent when none are detected", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-s", "alpha", "-g", "--copy", "--set", file], {
+      tty: true,
+      keys: [key("enter"), key("down"), key("down"), key("space"), key("enter"), key("enter")],
+      upstream: {
+        supportedAgents: [cursor],
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.match(result.screen.join(""), /At least 1 are required/);
+    assert.strictEqual(yield* fs.readFileString(`${dir}/global/cursor/alpha`), `${commit}:copy`);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect.each([
+  { flags: ["-s", "alpha"], skipped: "Which skills?" },
+  { flags: ["-a", "cursor"], skipped: "Which agents?" },
+  { flags: ["-g"], skipped: "Installation scope?" },
+  { flags: ["--copy"], skipped: "Installation mode?" },
+])("$skipped is skipped only when its flag is supplied", ({ flags, skipped }) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", ...flags, "--set", file], {
+      tty: true,
+      keys: Array.from({ length: 4 }, () => key("enter")),
+      upstream: {
+        supportedAgents: [cursor],
+        detectedAgents: [cursor],
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    const screen = result.screen.join("");
+    for (const prompt of [
+      "Which skills?",
+      "Which agents?",
+      "Installation scope?",
+      "Installation mode?",
+      "Proceed with installation?",
+    ]) {
+      assert.strictEqual(screen.includes(prompt), prompt !== skipped);
+    }
+    const scope = flags.includes("-g") ? "global" : "project";
+    const mode = flags.includes("--copy") ? "copy" : "symlink";
+    assert.strictEqual(
+      yield* fs.readFileString(`${dir}/${scope}/cursor/alpha`),
+      `${commit}:${mode}`,
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect.each([
+  { tty: true, flags: ["-y"] },
+  { tty: false, flags: [] },
+])("non-interactive install skips every prompt", ({ tty, flags }) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", ...flags, "--set", file], {
+      tty,
+      upstream: {
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(result.screen, []);
+    assert.strictEqual(yield* fs.readFileString(`${dir}/project/default/alpha`), `${commit}:auto`);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
 
 it.effect("install -y installs only selected Entries at their Pins with requested options", () =>
   Effect.gen(function* () {
