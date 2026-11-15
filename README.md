@@ -64,7 +64,7 @@ Remove named Entries from the file, or use `--all` to empty it. A name or `--all
 
 ### `update [skills...]`
 
-Refresh all Entries or only the named Entries. Unknown names are ignored. Fixed version and SHA Sources remain unchanged. Each changed Pin is printed as `name  old → new` using short SHAs. If a skill disappeared upstream, its old Pin is retained, other Entries can still update, and the command exits 1.
+Refresh all Entries or only the named Entries. Unknown names are reported; known Entries still update, and the command exits 1. Version-pinned Sources remain unchanged. Each changed Pin is printed as `name  old → new` using short SHAs. If a skill disappeared at its Source, or the Source cannot be checked, its old Pin is retained, other Entries can still update, and the command exits 1.
 
 ### `list`
 

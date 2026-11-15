@@ -221,7 +221,7 @@ it.effect("update follows a stored GitHub tree Source with an encoded branch", (
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("update leaves the file unchanged when a Source lookup fails", () =>
+it.effect("update keeps failed Source Pins and updates other Sources", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -229,21 +229,58 @@ it.effect("update leaves the file unchanged when a Source lookup fails", () =>
     const original = JSON.stringify({
       $schema: schemaUrl,
       skills: [
-        { name: "alpha", source: "owner/repo", commit: old },
-        { name: "beta", source: "other/repo", commit: old },
+        { name: "alpha", source: "broken/repo", commit: old },
+        { name: "beta", source: "missing/repo", commit: old },
+        { name: "gamma", source: "owner/repo", commit: old },
+        { name: "zeta", source: "broken/repo", commit: old },
       ],
     });
     yield* fs.writeFileString(file, original);
     const result = yield* runCli(["update", "--set", file], {
+      upstream: {
+        commits: {
+          [JSON.stringify(["owner/repo", null])]: latest,
+          [JSON.stringify(["missing/repo", null])]: latest,
+        },
+        skills: { [JSON.stringify(["owner/repo", latest])]: ["gamma"] },
+      },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /Fake commit not configured/);
+    assert.match(result.err.join("\n"), /Fake skills not configured/);
+    assert.deepStrictEqual(result.out, ["gamma  aaaaaaa → bbbbbbb"]);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "broken/repo", commit: old },
+      { name: "beta", source: "missing/repo", commit: old },
+      { name: "gamma", source: "owner/repo", commit: latest },
+      { name: "zeta", source: "broken/repo", commit: old },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("update reports unknown names while updating known Entries", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: schemaUrl,
+        skills: [{ name: "alpha", source: "owner/repo", commit: old }],
+      }),
+    );
+    const result = yield* runCli(["update", "alpha", "unknown", "absent", "--set", file], {
       upstream: {
         commits: { [JSON.stringify(["owner/repo", null])]: latest },
         skills: { [JSON.stringify(["owner/repo", latest])]: ["alpha"] },
       },
     });
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Fake commit not configured/);
-    assert.deepStrictEqual(result.out, []);
-    assert.strictEqual(yield* fs.readFileString(file), original);
+    assert.match(result.err.join("\n"), /unknown.*absent/i);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit: latest },
+    ]);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 

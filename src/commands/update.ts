@@ -25,29 +25,43 @@ export const update = Command.make(
     const entries = [...skillset.skills];
     const changes: Array<string> = [];
     const warnings: Array<string> = [];
+    const unknown = skills.filter((name) => !entries.some((entry) => entry.name === name));
+    if (unknown.length > 0) warnings.push(`Unknown skills: ${unknown.join(", ")}`);
     // Spec #1, User Story 24: resolve each distinct Source only once.
-    const resolved = new Map<string, { commit: string; skills: ReadonlyArray<string> }>();
+    const resolved = new Map<string, { commit: string; skills: ReadonlyArray<string> } | null>();
     for (const [index, entry] of entries.entries()) {
       // Spec #1, User Story 22: named updates leave all other Entries alone.
       if (skills.length > 0 && !skills.includes(entry.name)) continue;
       const parsed = parseSource(entry.source);
-      if ("error" in parsed) return yield* new UpdateError({ message: parsed.error });
+      if ("error" in parsed) {
+        warnings.push(`Warning: ${entry.source}: ${parsed.error}`);
+        continue;
+      }
       // Spec #1, User Story 25: tagged and SHA Sources stay fixed.
       if (parsed.fixed) continue;
       let result = resolved.get(entry.source);
-      if (!result) {
-        const commit = yield* upstream.resolveCommit(parsed.repository, parsed.ref);
-        const skills = yield* upstream.listSkills(parsed.repository, commit);
-        result = { commit, skills };
+      if (result === undefined) {
+        // Spec #1, User Story 26: a failed Source must not block other Sources.
+        result = yield* Effect.gen(function* () {
+          const commit = yield* upstream.resolveCommit(parsed.repository, parsed.ref);
+          const skills = yield* upstream.listSkills(parsed.repository, commit);
+          return { commit, skills };
+        }).pipe(
+          Effect.catch((error) => {
+            warnings.push(`Warning: ${entry.source}: ${error.message}`);
+            return Effect.succeed(null);
+          }),
+        );
         resolved.set(entry.source, result);
       }
+      if (result === null) continue;
       const { commit } = result;
       // Spec #1, User Story 26: retain missing Entries and continue updating others.
       if (!result.skills.includes(entry.name)) {
         warnings.push(`Warning: ${entry.name} not found in ${entry.source} at ${commit}`);
         continue;
       }
-      // Ticket #7: unchanged Pins are not reported as changes.
+      // Spec #1, User Story 23: report only changed Pins.
       if (entry.commit === commit) continue;
       entries[index] = { ...entry, commit };
       changes.push(`${entry.name}  ${entry.commit.slice(0, 7)} → ${commit.slice(0, 7)}`);
