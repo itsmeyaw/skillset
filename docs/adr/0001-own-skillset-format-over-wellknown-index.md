@@ -6,3 +6,4 @@ We first planned to emit `WellKnownSkillEntryV2` entries (sha256 digest per arti
 
 - Consumers install with `skillset install`, not `skills add`.
 - Only git sources (GitHub for now) can be pinned; well-known and download sources are out of scope.
+- `skills@1.8.1` requires Node 22.20.0+, rather than the spec's Node 22.19 minimum.

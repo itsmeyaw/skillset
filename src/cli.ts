@@ -9,6 +9,8 @@ import { update } from "./commands/update.ts";
 import { root } from "./root.ts";
 
 export const cli = root.pipe(Command.withSubcommands([add, install, list, remove, update]));
+const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
 export const runArgv = (argv: ReadonlyArray<string>) =>
-  Command.runWith(cli, { version: "0.1.0" })(expandSkillFlags(argv));
+  Command.runWith(cli, { version })(expandSkillFlags(argv));
 export const run = Stdio.Stdio.use((stdio) => Effect.flatMap(stdio.args, runArgv));
+import { createRequire } from "node:module";

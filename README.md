@@ -2,7 +2,7 @@
 
 Curate a shareable list of agent skills pinned to Git commits, then install them together with `skills`.
 
-Requires Node.js **22.20.0 or later** and Git. After the package is published, run it without a global install:
+Requires Node.js **22.20.0 or later** and Git. This exceeds the original spec's Node 22.19 minimum because `skills@1.8.1` requires 22.20.0. After the package is published, run it without a global install:
 
 ```sh
 pnpx @itsmeyaw/skillset --help
@@ -85,9 +85,6 @@ An unknown selected skill is an error. Explicit selection, agent, scope, and mod
 ### Global flags
 
 - `-h, --help` shows help; `-v, --version` shows the version.
-- `--wizard` starts interactive command wizard mode.
-- `--completions <bash|zsh|fish|powershell|sh|pwsh>` prints shell completions.
-- `--log-level <all|trace|debug|info|warn|warning|error|fatal|none>` sets the minimum log level.
 
 ## Skillset file format
 
