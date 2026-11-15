@@ -1,6 +1,7 @@
 import { Effect, Layer, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { detectAgents, getSupportedAgents, installSkills, resolveSource } from "skills";
+import { parseSource } from "./source.ts";
 import { Upstream, UpstreamError } from "./upstream.ts";
 
 // git-ls-remote(1): peeled tags use ^{}; prefer them to tag objects and branches.
@@ -40,10 +41,27 @@ export const UpstreamLive = Layer.effect(
       Effect.acquireRelease(
         // skills@1.8.1 parseSource: shorthand already ending in .git otherwise gains a second .git.
         Effect.tryPromise({
-          try: () =>
-            resolveSource(source.replace(/^([\w.-]+\/[\w.-]+)\.git(?=#|@|$)/u, "$1"), {
-              ref: commit,
-            }),
+          try: async () => {
+            const input = source.replace(/^([\w.-]+\/[\w.-]+)\.git(?=#|@|$)/u, "$1");
+            try {
+              return await resolveSource(input, { ref: commit });
+            } catch (error) {
+              // gitremote-helpers(7): force the HTTP helper without changing the repository URL.
+              if (
+                !(error instanceof Error) ||
+                error.name !== "SKILLS_INVALID_OPTION_VALUE" ||
+                error.message !== "ref must be used only with git sources" ||
+                !/^https?:\/\//iu.test(input)
+              )
+                throw error;
+              // Spec #1, User Story 12: never reinterpret rejected Sources as Git repositories.
+              const parsed = parseSource(input);
+              if ("error" in parsed) throw new Error(parsed.error);
+              const url = new URL(input);
+              url.hash = "";
+              return resolveSource(`${url.protocol.slice(0, -1)}::${url.href}`, { ref: commit });
+            }
+          },
           catch: toError,
         }),
         (handle) => Effect.promise(() => handle.dispose()),
