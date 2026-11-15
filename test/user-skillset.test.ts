@@ -112,6 +112,7 @@ it.effect("install <name> --set x is an error", () =>
     Effect.gen(function* () {
       const result = yield* runCli(["install", "my-set", "--set", "other", "-y"]);
       assert.notStrictEqual(result.code, 0);
+      assert.include(result.err.join("\n"), "cannot be combined with --set");
     }),
   ),
 );
@@ -156,6 +157,27 @@ it.effect("ls -g --set x is an error", () =>
       const result = yield* runCli(["ls", "-g", "--set", "x"]);
       assert.notStrictEqual(result.code, 0);
       assert.include(result.err.join("\n"), "-g cannot be used with --set.");
+    }),
+  ),
+);
+
+it.effect("ls -g uses $XDG_CONFIG_HOME/skillset when SKILLSET_HOME is unset", () =>
+  withHome(() =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const xdg = yield* fs.makeTempDirectoryScoped();
+      yield* fs.makeDirectory(`${xdg}/skillset`);
+      yield* fs.writeFileString(`${xdg}/skillset/via-xdg.json`, "{}");
+      const previous = process.env.SKILLSET_HOME;
+      delete process.env.SKILLSET_HOME;
+      process.env.XDG_CONFIG_HOME = xdg;
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          delete process.env.XDG_CONFIG_HOME;
+          if (previous !== undefined) process.env.SKILLSET_HOME = previous;
+        }),
+      );
+      assert.deepStrictEqual((yield* runCli(["ls", "-g"])).out, ["via-xdg"]);
     }),
   ),
 );

@@ -5,6 +5,8 @@ import { CliMessageError } from "./errors.ts";
 
 // Issue #12: a bare name starts alphanumeric; ADR 0002 keeps `.json` values as paths.
 const NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/u;
+// ADR 0002: names resolve to lowercase `.json` files, so ls -g lists only those.
+const EXT = ".json";
 const isJsonPath = (value: string) => /\.json$/iu.test(value);
 
 export const isUserSkillsetName = (value: string) => NAME_PATTERN.test(value) && !isJsonPath(value);
@@ -28,7 +30,7 @@ export const resolveSet = (value: Option.Option<string>, env: Env = process.env)
   if (Option.isNone(value)) return Effect.succeed("./skillset.json");
   if (isJsonPath(value.value)) return Effect.succeed(value.value);
   if (NAME_PATTERN.test(value.value))
-    return Effect.succeed(join(userDir(env), `${value.value}.json`));
+    return Effect.succeed(join(userDir(env), `${value.value}${EXT}`));
   return Effect.fail(
     new CliMessageError({ message: `"${value.value}" is not a Skillset name or .json path.` }),
   );
@@ -43,8 +45,8 @@ export const listUserSkillsets = Effect.fn("listUserSkillsets")(function* (env: 
   if (!(yield* fs.exists(dir).pipe(Effect.mapError(failure)))) return [];
   const files = yield* fs.readDirectory(dir).pipe(Effect.mapError(failure));
   return files
-    .filter((file) => file.endsWith(".json"))
-    .map((file) => file.slice(0, -".json".length))
+    .filter((file) => file.endsWith(EXT))
+    .map((file) => file.slice(0, -EXT.length))
     .filter(isUserSkillsetName)
     .sort();
 });

@@ -95,7 +95,7 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
       null,
       2,
     ) + "\n";
-  // Issue #12: writing a User Skillset creates the user directory on first use.
+  // Issue #12: create missing parent directories so a first write to the user directory works.
   yield* fs.makeDirectory(dirname(path), { recursive: true }).pipe(
     Effect.andThen(fs.writeFileString(path, content)),
     Effect.mapError(
