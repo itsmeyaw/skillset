@@ -35,5 +35,5 @@ Putting an Entry into a Skillset; it changes only the Skillset file.
 _Avoid_: Install (when meaning this)
 
 **Install**:
-Placing a Skillset's Entries, at their Pins, into agent skill directories.
-_Avoid_: Add, sync, restore
+Placing a Skillset's Entries, at their Pins, into agent skill directories. When given a Source, it first Adds Entries from that Source, then Installs every Entry in the Skillset.
+_Avoid_: Add (as a synonym), sync, restore
