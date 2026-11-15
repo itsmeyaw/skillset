@@ -14,6 +14,25 @@ const cursor = {
 };
 const claude = { ...cursor, id: "claude-code", name: "Claude Code" };
 
+it.effect("install Source without a non-interactive selection only lists skills", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["install", "owner/repo", "-y", "--set", file], {
+      upstream: {
+        commits: { [JSON.stringify(["owner/repo", null])]: commit },
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), "alpha");
+    assert.isFalse(yield* fs.exists(file));
+    assert.isFalse(yield* fs.exists(`${dir}/project`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("interactive install Source selects skills, then all Entries and searchable agents", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

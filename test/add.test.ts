@@ -41,6 +41,21 @@ it.effect("add -y keeps non-interactive listing behavior on a TTY", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("submitting an empty interactive selection does not create a Skillset", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const result = yield* runCli(["add", "owner/repo", "--set", file], {
+      tty: true,
+      keys: [key("enter")],
+      upstream,
+    });
+    assert.strictEqual(result.code, 0);
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("Ctrl+C cancels the Source prompt", () =>
   Effect.gen(function* () {
     const ctrlC = { ...key("c"), key: { ...key("c").key, ctrl: true } };

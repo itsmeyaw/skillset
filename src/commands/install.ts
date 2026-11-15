@@ -1,6 +1,7 @@
 import { Console, Effect, Option, Stdio } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
 import type { InstallMode, SkillSource } from "skills";
+import { prepareAddition } from "../addition.ts";
 import { CliMessageError as InstallError, missingSkillsMessage } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
@@ -8,7 +9,6 @@ import { root } from "../root.ts";
 import { readSkillset, writeSkillset } from "../skillset-file.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
 import { Upstream } from "../upstream.ts";
-import { prepareAddition } from "./add.ts";
 
 export { InstallError };
 
@@ -207,7 +207,7 @@ export const install = Command.make(
         list: false,
         interactive,
       });
-      if (!addition) return;
+      if (addition._tag === "NoSelection") return;
       yield* Effect.scoped(
         Effect.gen(function* () {
           const checked = yield* checkSources(addition.skillset.skills);
