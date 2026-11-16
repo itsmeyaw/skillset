@@ -29,6 +29,10 @@ const safeText = (text: string) =>
     return code < 32 || (code >= 127 && code <= 159) ? " " : char;
   }).join("");
 
+// Unicode UAX #11: conservatively count non-ASCII code points as two columns.
+const width = (text: string) =>
+  Array.from(text).reduce((columns, char) => columns + (char.codePointAt(0)! < 128 ? 1 : 2), 0);
+
 // Issue #11: search names and IDs without discarding selections hidden by the filter.
 const matches = (choices: ReadonlyArray<SearchChoice>, query: string) =>
   choices.filter((choice) =>
@@ -78,7 +82,17 @@ const search = (
     if (state.error) lines.push(state.error);
     // Issue #11: keep the scrolling window visible when descriptions are long.
     return lines
-      .map((line) => (line.length < columns ? line : `${line.slice(0, Math.max(0, columns - 2))}…`))
+      .map((line) => {
+        if (width(line) < columns) return line;
+        let prefix = "";
+        let used = 0;
+        for (const char of line) {
+          used += width(char);
+          if (used > columns - 2) break;
+          prefix += char;
+        }
+        return `${prefix}…`;
+      })
       .join("\n");
   };
   return Prompt.Custom<SearchState, ReadonlyArray<string>>(initial, {
@@ -102,7 +116,7 @@ const search = (
         const text = frame(state, yield* terminal.rows, Math.max(2, columns));
         const lines = text
           .split("\n")
-          .reduce((count, line) => count + Math.max(1, Math.ceil(line.length / columns)), 0);
+          .reduce((count, line) => count + Math.max(1, Math.ceil(width(line) / columns)), 0);
         // ECMA-48: CR and CSI erase-line/cursor-up clear the previous frame.
         return "\r\x1b[2K" + "\x1b[1A\r\x1b[2K".repeat(lines - 1);
       }),

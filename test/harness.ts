@@ -135,6 +135,7 @@ export const key = (name: string, input?: string): Terminal.UserInput => ({
 export const fakeTerminal = Effect.fn("fakeTerminal")(function* (
   keys: ReadonlyArray<Terminal.UserInput>,
   screen: Array<string>,
+  columns = 80,
 ) {
   const input = yield* Queue.unbounded<Terminal.UserInput, Cause.Done>();
   const quit = keys.findIndex(
@@ -145,7 +146,7 @@ export const fakeTerminal = Effect.fn("fakeTerminal")(function* (
   return Layer.succeed(
     Terminal.Terminal,
     Terminal.make({
-      columns: Effect.succeed(80),
+      columns: Effect.succeed(columns),
       rows: Effect.succeed(24),
       size: Effect.die("unused"),
       readInput: Effect.succeed(input),

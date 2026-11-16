@@ -17,9 +17,10 @@ const runPrompt = Effect.fn("runPrompt")(function* <A>(
     Terminal.Terminal | import("effect").FileSystem.FileSystem | import("effect").Path.Path
   >,
   keys: ReadonlyArray<Terminal.UserInput>,
+  columns = 80,
 ) {
   const screen: Array<string> = [];
-  const terminal = yield* fakeTerminal(keys, screen);
+  const terminal = yield* fakeTerminal(keys, screen, columns);
   const result = yield* prompt.pipe(
     Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, terminal)),
     Effect.exit,
@@ -151,5 +152,51 @@ it.effect("long descriptions stay within the prompt window", () =>
       [key("enter")],
     );
     assert.notInclude(result.screen, "x".repeat(100));
+  }),
+);
+
+it.effect("wide descriptions stay within terminal columns", () =>
+  Effect.gen(function* () {
+    const result = yield* runPrompt(
+      searchSelect({
+        message: "Choose",
+        choices: [{ title: "Alpha", value: "a", description: "中".repeat(60) }],
+      }),
+      [key("enter")],
+    );
+    assert.include(result.screen, `  ${"中".repeat(38)}…`);
+    assert.notInclude(result.screen, "中".repeat(39));
+  }),
+);
+
+it.effect("redraw clears exactly the previous narrow frame", () =>
+  Effect.gen(function* () {
+    const result = yield* runPrompt(
+      searchSelect({
+        message: "Choose",
+        choices: [{ title: "Alpha", value: "a", description: "中".repeat(30) }],
+      }),
+      [key("down"), key("enter")],
+      20,
+    );
+    const frame = `Choose  Search: \n❯ Alpha\n  ${"中".repeat(8)}…`;
+    const clear = "\r\x1b[2K" + "\x1b[1A\r\x1b[2K".repeat(2);
+    assert.include(result.screen, frame + clear + frame + clear);
+  }),
+);
+
+it.effect("truncation never splits an emoji surrogate pair", () =>
+  Effect.gen(function* () {
+    const result = yield* runPrompt(
+      searchSelect({
+        message: "Choose",
+        choices: [{ title: "Alpha", value: "a", description: `${"x".repeat(75)}😀more` }],
+      }),
+      [key("enter")],
+    );
+    assert.notMatch(
+      result.screen,
+      /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u,
+    );
   }),
 );
