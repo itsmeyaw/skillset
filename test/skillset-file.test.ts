@@ -85,6 +85,19 @@ it.effect("successful Skillset write replaces the file without leaving a tempora
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("successful Skillset write preserves existing file permissions", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const path = `${dir}/skillset.json`;
+    yield* fs.writeFileString(path, "original");
+    yield* fs.chmod(path, 0o600);
+
+    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] });
+    assert.strictEqual((yield* fs.stat(path)).mode & 0o777, 0o600);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("failed Skillset rename preserves the original file", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
