@@ -136,7 +136,7 @@ it.effect("install <name> --set x is an error", () =>
     Effect.gen(function* () {
       const result = yield* runCli(["install", "my-set", "--set", "other", "-y"]);
       assert.notStrictEqual(result.code, 0);
-      assert.include(result.err.join("\n"), "cannot be combined with --set");
+      assert.include(result.err.join("\n"), '"my-set" cannot be combined with --set.');
     }),
   ),
 );
@@ -162,6 +162,16 @@ it.effect("install rejects non-Skillset and missing references without writing",
             `Cannot find Skillset "${arg}" in ${location}. To install a skill, use \`skillset add\`.`,
           );
         }
+        // Issue #22: --set and positional references report the same missing-file error.
+        const flagged = yield* runCli(["install", "--set", "missing-set", "-y"]);
+        assert.strictEqual(flagged.code, 1);
+        assert.include(
+          flagged.err.join("\n"),
+          `Cannot find Skillset "missing-set" in ${home}/missing-set.json. To install a skill, use \`skillset add\`.`,
+        );
+        const defaultSet = yield* runCli(["install", "-y"]);
+        assert.strictEqual(defaultSet.code, 1);
+        assert.include(defaultSet.err.join("\n"), "Cannot read Skillset file ./skillset.json:");
         assert.deepStrictEqual(yield* fs.readDirectory(dir), []);
         assert.isFalse(yield* fs.exists(home));
       } finally {
@@ -196,7 +206,7 @@ it.effect("install accepts a positional JSON path and preserves invalid-file err
       const badFlag = yield* runCli(["install", "--set", "owner/repo", "-y"]);
       assert.include(badFlag.err.join("\n"), '"owner/repo" is not a Skillset name or .json path.');
       const both = yield* runCli(["install", file, "--set", "other", "-y"]);
-      assert.include(both.err.join("\n"), "cannot be combined with --set");
+      assert.include(both.err.join("\n"), `"${file}" cannot be combined with --set.`);
     }),
   ),
 );

@@ -222,34 +222,34 @@ export const install = Command.make(
   },
   Effect.fn(function* (options) {
     const { set: setFlag } = yield* root;
+    const ref = Option.getOrUndefined(options.set);
+    const given = ref ?? Option.getOrUndefined(setFlag);
     // ADR 0003: positional Skillset references cannot be combined with --set.
-    if (Option.isSome(options.set) && Option.isSome(setFlag))
+    if (ref !== undefined && Option.isSome(setFlag))
       return yield* new InstallError({
-        message: `"${options.set.value}" is a Skillset reference; it cannot be combined with --set.`,
+        message: `"${ref}" cannot be combined with --set.`,
       });
     // ADR 0003: invalid positional references use the User Skillset directory in the error.
-    const set = Option.isSome(options.set)
-      ? yield* resolveSet(options.set).pipe(
-          Effect.mapError(
-            () =>
-              new InstallError({ message: missingSet(Option.getOrThrow(options.set), userDir()) }),
-          ),
-        )
-      : yield* resolveSet(setFlag);
-    // Issue #22: only a missing positional file gets the Skillset-not-found message.
-    if (Option.isSome(options.set)) {
+    const path =
+      ref === undefined
+        ? yield* resolveSet(setFlag)
+        : yield* resolveSet(options.set).pipe(
+            Effect.mapError(() => new InstallError({ message: missingSet(ref, userDir()) })),
+          );
+    // Issue #22: explicit missing Skillsets use the same error for positional and --set references.
+    if (given !== undefined) {
       const fs = yield* FileSystem.FileSystem;
       const exists = yield* fs
-        .exists(set)
+        .exists(path)
         .pipe(
           Effect.mapError(
             (error) =>
-              new InstallError({ message: `Cannot read Skillset file ${set}: ${error.message}` }),
+              new InstallError({ message: `Cannot read Skillset file ${path}: ${error.message}` }),
           ),
         );
-      if (!exists) return yield* new InstallError({ message: missingSet(options.set.value, set) });
+      if (!exists) return yield* new InstallError({ message: missingSet(given, path) });
     }
-    return yield* installSkillset(set, options);
+    return yield* installSkillset(path, options);
   }),
 ).pipe(Command.withDescription("Install pinned Skillset Entries"));
 
