@@ -8,7 +8,13 @@ export const SCHEMA_URL =
   "https://raw.githubusercontent.com/itsmeyaw/skillset/main/schemas/skillset/v1.json";
 
 // ECMA-48 §4.1: control characters can introduce terminal control functions.
-const entryText = Schema.String.check(Schema.isNonEmpty(), Schema.isPattern(/^\P{Cc}+$/u));
+const entryText = Schema.String.check(
+  Schema.isNonEmpty(),
+  Schema.isPattern(/^\P{Cc}+$/u, {
+    // JSON Schema 2020-12 §6.4: use portable ranges for Unicode control characters.
+    toJsonSchema: () => ({ not: { pattern: "[\\u0000-\\u001f\\u007f-\\u009f]" } }),
+  }),
+);
 
 export const Entry = Schema.Struct({
   name: entryText,

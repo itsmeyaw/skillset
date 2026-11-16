@@ -16,12 +16,24 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "pattern": "^\\P{Cc}+$"
+            "allOf": [
+              {
+                "not": {
+                  "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]"
+                }
+              }
+            ]
           },
           "source": {
             "type": "string",
             "minLength": 1,
-            "pattern": "^\\P{Cc}+$"
+            "allOf": [
+              {
+                "not": {
+                  "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]"
+                }
+              }
+            ]
           },
           "commit": {
             "type": "string",
