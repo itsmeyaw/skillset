@@ -23,6 +23,12 @@ Or run without installing: `npx @itsmeyaw/skillset --help`.
 
 Build your own Skillset once, then reuse it in every project. Run commands without arguments and Skillset prompts you for everything.
 
+For a quick single-Source flow, add skills and install the whole Skillset in one command:
+
+```sh
+skillset add owner/repo --install
+```
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/demo.gif" alt="Terminal demo: create a Skillset with skills from mattpocock/skills, then install it into a project with skillset install --set my-set." width="720">
 </p>
@@ -37,7 +43,8 @@ You are asked for:
 
 1. **Source?** Type a repo such as `mattpocock/skills`.
 2. **Which skills?** Search and tick the skills you want.
-3. **Install skillset?** Answer `n` for now.
+3. **Add another source?** Answer `n` when finished.
+4. **Install skillset?** Answer `n` for now.
 
 Run it again with another source to mix skills from several repos into the same Skillset. `skillset ls --set my-set` shows what is in it.
 
@@ -67,23 +74,27 @@ Prefer a Skillset that lives in a repo so teammates share it? Omit `--set` to us
 
 | Command                    | Description                                                          |
 | -------------------------- | -------------------------------------------------------------------- |
-| `add [source]`, `a`        | Pin skills from a source to the Skillset.                            |
+| `add [source]`, `a`        | Pin skills from a Source to the Skillset; `--install` also installs. |
 | `remove [skills...]`, `rm` | Remove skills from the Skillset (`--all` removes everything).        |
 | `update [skills...]`, `up` | Refresh pins to the latest commits. Version-pinned sources are kept. |
-| `list`, `ls`               | Show each skill's name, source, and short commit.                    |
-| `install [source]`, `i`    | Install the Skillset, optionally adding skills from a source first.  |
+| `list`, `ls`               | Show Entries, or User Skillset names with `--user`.                  |
+| `install [set]`, `i`       | Install the Skillset at its Pins.                                    |
 
-Every command accepts `--set <value>` (default `./skillset.json`) and `--help`. `add` and `install <source>` create the file if it is missing.
+Every command accepts `--set <value>` (default `./skillset.json`) and `--help`. `add` creates the file if it is missing. `install [set]` accepts the same name or `.json` path as `--set`, but cannot be combined with `--set`.
 
-| Flag                 | Used by          | Description                                  |
-| -------------------- | ---------------- | -------------------------------------------- |
-| `-s, --skill <name>` | `add`, `install` | Select skills. Repeat or pass several names. |
-| `--all`              | `add`, `install` | Select all skills from the source.           |
-| `-l, --list`         | `add`            | List available skills without writing.       |
-| `-a, --agent <id>`   | `install`        | Select agents.                               |
-| `-g, --global`       | `install`        | Install globally instead of per project.     |
-| `--copy`             | `install`        | Copy files instead of symlinking.            |
-| `-y, --yes`          | `add`, `install` | Skip all prompts.                            |
+| Flag                 | Used by          | Description                                                             |
+| -------------------- | ---------------- | ----------------------------------------------------------------------- |
+| `-s, --skill <name>` | `add`, `install` | Select Source skills for `add` or Entries for `install`.                |
+| `--all`              | `add`            | Select all skills from the Source.                                      |
+| `-l, --list`         | `add`            | List available skills without writing.                                  |
+| `--install`          | `add`            | After adding, install the whole Skillset.                               |
+| `-a, --agent <id>`   | `add`, `install` | Select agents; on `add`, requires `--install`.                          |
+| `-g, --global`       | `add`, `install` | Install globally instead of per project; requires `--install` on `add`. |
+| `--copy`             | `add`, `install` | Copy instead of symlinking; requires `--install` on `add`.              |
+| `-y, --yes`          | `add`, `install` | Skip prompts in both steps.                                             |
+| `--user`             | `list`           | List User Skillset names; cannot be combined with `--set`.              |
+
+Repeat `-s` or pass several names. On `add`, `-s` and `--all` select Source skills only; `--install` installs the entire Skillset. Declining or failing installation leaves the added Entries in the file.
 
 ### Sources
 
@@ -102,14 +113,14 @@ Pass a bare name to `--set` to keep a Skillset outside any project, so every pro
 ```sh
 skillset add mattpocock/skills -s grilling --set my-set
 skillset install my-set
-skillset ls -g                            # list your User Skillsets
+skillset ls --user                        # list your User Skillsets
 ```
 
 When selecting skills, put the User Skillset name before `-s` (for example,
 `skillset install my-set -s grilling`); otherwise it is treated as another skill name.
 Likewise, put the name before `-a` if it matches a supported agent ID.
 
-They are stored in the first of `$SKILLSET_HOME`, `$XDG_CONFIG_HOME/skillset`, or `~/.skillset`. To use a file in the current directory, give a path ending in `.json`.
+They are stored in the first of `$SKILLSET_HOME`, `$XDG_CONFIG_HOME/skillset`, or `~/.skillset`. To use a file in the current directory, give a path ending in `.json`, such as `skillset install ./team.json`.
 
 ## Skillset file format
 
