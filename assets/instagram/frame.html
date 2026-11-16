@@ -1,68 +1,163 @@
 <!doctype html>
 <!-- 1080x1920 story frame; build.sh overlays the recording at (61, 669), 958x694. -->
 <html>
-<head>
-<meta charset="utf-8">
-<style>
-  * { margin: 0; box-sizing: border-box; }
-  body {
-    width: 1080px; height: 1920px; overflow: hidden; position: relative;
-    background: #0A1838; color: #F2F6FF;
-    font-family: Inter, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-    text-align: center;
-  }
-  .tiles {
-    position: absolute; inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect x='8' y='8' width='64' height='64' rx='14' fill='%2312275A'/%3E%3C/svg%3E");
-    background-position: 20px 0;
-    -webkit-mask-image: linear-gradient(#000 0, transparent 34%, transparent 66%, #000 100%);
-    mask-image: linear-gradient(#000 0, transparent 34%, transparent 66%, #000 100%);
-    opacity: .5;
-  }
-  .abs { position: absolute; left: 0; right: 0; }
-  .eyebrow { top: 222px; font-size: 26px; font-weight: 600; letter-spacing: .32em; color: #8FB0FF; padding-left: .32em; }
-  .title { top: 300px; height: 130px; display: flex; align-items: center; justify-content: center; gap: 30px; }
-  .title h1 { font-size: 120px; font-weight: 700; letter-spacing: -3px; line-height: 1; }
-  .tagline { top: 462px; font-size: 40px; line-height: 1.35; color: #9DB0D6; }
-  .term {
-    left: 60px; right: 60px; top: 620px; height: 760px;
-    background: #0D1E45; border: 1px solid #24407D; border-radius: 22px; overflow: hidden;
-    box-shadow: 0 16px 72px rgba(3, 8, 23, .5);
-  }
-  .bar { height: 48px; background: #11275A; display: flex; align-items: center; padding: 0 22px; gap: 10px; position: relative; }
-  .bar i { width: 14px; height: 14px; border-radius: 50%; }
-  .bar span { position: absolute; inset: 0; font: 18px/48px "JetBrains Mono", ui-monospace, Menlo, monospace; color: #8296BE; }
-  .try { top: 1436px; font-size: 34px; color: #9DB0D6; }
-  .npm {
-    top: 1496px; left: 50%; right: auto; transform: translateX(-50%);
-    padding: 18px 34px; border-radius: 16px; background: #0D1E45; border: 1px solid #24407D;
-    font: 500 36px "JetBrains Mono", ui-monospace, Menlo, monospace; color: #DCE6FF; white-space: nowrap;
-  }
-  .based { top: 1640px; font-size: 28px; color: #8296BE; }
-  .npm b { color: #5C8DFF; font-weight: 500; }
-</style>
-</head>
-<body>
-  <div class="tiles"></div>
-  <p class="abs eyebrow">NEW PROJECT RELEASED</p>
-  <div class="abs title">
-    <svg width="104" height="104" viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="26" height="26" rx="7" fill="#2A5BC9"/>
-      <rect x="32" width="26" height="26" rx="7" fill="#3B7BFF"/>
-      <rect y="32" width="26" height="26" rx="7" fill="#3B7BFF"/>
-      <rect x="38" y="26" width="26" height="26" rx="7" fill="#B5CEFF" transform="rotate(-12 51 39)"/>
-    </svg>
-    <h1>Skillset</h1>
-  </div>
-  <p class="abs tagline">Easily manage, install, and share<br>multiple agent skills at once</p>
-  <div class="abs term">
-    <div class="bar">
-      <i style="background:#2A5BC9"></i><i style="background:#3B7BFF"></i><i style="background:#B5CEFF"></i>
-      <span>~/projects/some-project</span>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      body {
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        position: relative;
+        background: #0a1838;
+        color: #f2f6ff;
+        font-family: Inter, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+        text-align: center;
+      }
+      .tiles {
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect x='8' y='8' width='64' height='64' rx='14' fill='%2312275A'/%3E%3C/svg%3E");
+        background-position: 20px 0;
+        -webkit-mask-image: linear-gradient(#000 0, transparent 34%, transparent 66%, #000 100%);
+        mask-image: linear-gradient(#000 0, transparent 34%, transparent 66%, #000 100%);
+        opacity: 0.5;
+      }
+      .abs {
+        position: absolute;
+        left: 0;
+        right: 0;
+      }
+      .eyebrow {
+        top: 222px;
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: 0.32em;
+        color: #8fb0ff;
+        padding-left: 0.32em;
+      }
+      .title {
+        top: 300px;
+        height: 130px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 30px;
+      }
+      .title h1 {
+        font-size: 120px;
+        font-weight: 700;
+        letter-spacing: -3px;
+        line-height: 1;
+      }
+      .tagline {
+        top: 462px;
+        font-size: 40px;
+        line-height: 1.35;
+        color: #9db0d6;
+      }
+      .term {
+        left: 60px;
+        right: 60px;
+        top: 620px;
+        height: 760px;
+        background: #0d1e45;
+        border: 1px solid #24407d;
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: 0 16px 72px rgba(3, 8, 23, 0.5);
+      }
+      .bar {
+        height: 48px;
+        background: #11275a;
+        display: flex;
+        align-items: center;
+        padding: 0 22px;
+        gap: 10px;
+        position: relative;
+      }
+      .bar i {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+      }
+      .bar span {
+        position: absolute;
+        inset: 0;
+        font:
+          18px/48px "JetBrains Mono",
+          ui-monospace,
+          Menlo,
+          monospace;
+        color: #8296be;
+      }
+      .try {
+        top: 1436px;
+        font-size: 34px;
+        color: #9db0d6;
+      }
+      .npm {
+        top: 1496px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        padding: 18px 34px;
+        border-radius: 16px;
+        background: #0d1e45;
+        border: 1px solid #24407d;
+        font:
+          500 36px "JetBrains Mono",
+          ui-monospace,
+          Menlo,
+          monospace;
+        color: #dce6ff;
+        white-space: nowrap;
+      }
+      .based {
+        top: 1640px;
+        font-size: 28px;
+        color: #8296be;
+      }
+      .npm b {
+        color: #5c8dff;
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="tiles"></div>
+    <p class="abs eyebrow">NEW PROJECT RELEASED</p>
+    <div class="abs title">
+      <svg width="104" height="104" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="26" height="26" rx="7" fill="#2A5BC9" />
+        <rect x="32" width="26" height="26" rx="7" fill="#3B7BFF" />
+        <rect y="32" width="26" height="26" rx="7" fill="#3B7BFF" />
+        <rect
+          x="38"
+          y="26"
+          width="26"
+          height="26"
+          rx="7"
+          fill="#B5CEFF"
+          transform="rotate(-12 51 39)"
+        />
+      </svg>
+      <h1>Skillset</h1>
     </div>
-  </div>
-  <p class="abs try">Try it yourself:</p>
-  <p class="abs npm"><b>$</b> npm i -g @itsmeyaw/skillset</p>
-  <p class="abs based">Based on Vercel’s Skills CLI (skills.sh)</p>
-</body>
+    <p class="abs tagline">Easily manage, install, and share<br />multiple agent skills at once</p>
+    <div class="abs term">
+      <div class="bar">
+        <i style="background: #2a5bc9"></i><i style="background: #3b7bff"></i
+        ><i style="background: #b5ceff"></i>
+        <span>~/projects/some-project</span>
+      </div>
+    </div>
+    <p class="abs try">Try it yourself:</p>
+    <p class="abs npm"><b>$</b> npm i -g @itsmeyaw/skillset</p>
+    <p class="abs based">Based on Vercel’s Skills CLI (skills.sh)</p>
+  </body>
 </html>
