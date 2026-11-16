@@ -37,6 +37,14 @@ it("keeps a Source after an agent", () => {
   ]);
 });
 
+// Issue #22: add accepts multiple agent IDs before its Source.
+it("expands add agents without consuming the Source", () => {
+  assert.deepStrictEqual(
+    expandSkillFlags(["add", "--install", "-a", "opencode", "claude-code", "owner/repo"]),
+    ["add", "--install", "-a", "opencode", "-a", "claude-code", "owner/repo"],
+  );
+});
+
 it("keeps skills after a User Skillset name following an agent", () => {
   assert.deepStrictEqual(
     expandSkillFlags(["install", "-a", "opencode", "my-set", "-s", "alpha", "beta"]),

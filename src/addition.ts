@@ -7,7 +7,7 @@ import type { Skillset } from "./skillset-file.ts";
 import { parseSource } from "./source.ts";
 import { Upstream } from "./upstream.ts";
 
-// Issue #11: add and install share Source resolution, conflicts, and Pin refresh.
+// ADR 0003: adding resolves Sources, checks conflicts, and refreshes Pins.
 export const prepareAddition = Effect.fn("prepareAddition")(function* (
   input: string,
   set: string,

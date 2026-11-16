@@ -19,9 +19,16 @@ export const add = Command.make(
     selected: Flag.String("skill").pipe(Flag.withAlias("s"), Flag.atLeast(0)),
     all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
     list: Flag.Boolean("list").pipe(Flag.withAlias("l"), Flag.withDefault(false)),
+    install: Flag.Boolean("install").pipe(Flag.withDefault(false)),
+    agents: Flag.String("agent").pipe(Flag.withAlias("a"), Flag.atLeast(0)),
+    global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
+    copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
-  Effect.fn(function* ({ source, selected, all, list, yes }) {
+  Effect.fn(function* ({ source, selected, all, list, install, agents, global, copy, yes }) {
+    // ADR 0003: install options are meaningful only when --install chains an install.
+    if (!install && (agents.length > 0 || global || copy))
+      return yield* new AddError({ message: "--agent, --global and --copy require --install." });
     const interactive = yield* isInteractive(yes);
     if (Option.isNone(source) && !interactive)
       return yield* new AddError({ message: "Usage: skillset add <source>" });
@@ -71,18 +78,19 @@ export const add = Command.make(
       for (const added of additions)
         yield* Console.log(`Added ${added.map((entry) => entry.name).join(", ")} to ${set}`);
     }
-    // Issue #11: offer to Install the Skillset only in an interactive terminal.
+    // ADR 0003: write additions before either chained or prompted full-Skillset installation.
     if (
       pending &&
-      interactive &&
-      (yield* cancelOnQuit(Prompt.Confirm({ message: "Install skillset?", initial: false })))
+      (install ||
+        (interactive &&
+          (yield* cancelOnQuit(Prompt.Confirm({ message: "Install skillset?", initial: false })))))
     )
       yield* installSkillset(set, {
         selected: [],
-        agents: [],
-        global: false,
-        copy: false,
-        yes: false,
+        agents,
+        global,
+        copy,
+        yes,
       });
   }),
 ).pipe(Command.withDescription("Add skills from a Source"));

@@ -1,6 +1,7 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
+import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { key, runCli } from "./harness.ts";
 
 const cursor = {
@@ -15,6 +16,147 @@ const upstream = {
   commits: { [JSON.stringify(["owner/repo", null])]: commit },
   skills: { [JSON.stringify(["owner/repo", commit])]: ["zeta", "alpha"] },
 };
+
+// ADR 0003: add only edits the file unless installation is requested.
+it.effect("add -s writes without installing", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const calls: Array<string> = [];
+    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+      upstream: { ...upstream, installCalls: calls, installDir: dir },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit },
+    ]);
+    assert.deepStrictEqual(calls, []);
+    assert.isFalse(yield* fs.exists(`${dir}/project`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+// ADR 0003: Source selection does not narrow the chained install.
+it.effect.each([{ flags: ["-s", "alpha"] }, { flags: ["--all"] }])(
+  "add $flags --install forwards options and installs every Entry",
+  ({ flags }) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const file = `${dir}/set.json`;
+      const old = { name: "old", source: "other/repo", commit };
+      yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [old] }));
+      const result = yield* runCli(
+        [
+          "add",
+          "owner/repo",
+          ...flags,
+          "--install",
+          "-a",
+          "cursor",
+          "claude-code",
+          "-g",
+          "--copy",
+          "-y",
+          "--set",
+          file,
+        ],
+        {
+          tty: true,
+          upstream: {
+            ...upstream,
+            skills: { ...upstream.skills, [JSON.stringify(["other/repo", commit])]: ["old"] },
+            installDir: dir,
+          },
+        },
+      );
+      assert.strictEqual(result.code, 0);
+      assert.deepStrictEqual(result.screen, []);
+      assert.isBelow(
+        result.out.findIndex((line) => String(line).startsWith("Added ")),
+        result.out.findIndex((line) => String(line).startsWith("Installed ")),
+      );
+      for (const agent of ["cursor", "claude-code"]) {
+        for (const name of ["alpha", "old"])
+          assert.strictEqual(
+            yield* fs.readFileString(`${dir}/global/${agent}/${name}`),
+            `${commit}:copy`,
+          );
+      }
+      assert.strictEqual(yield* fs.exists(`${dir}/global/cursor/zeta`), flags[0] === "--all");
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+// ADR 0003: declining or failing install must retain additions already written.
+it.effect("add --install prompts for the full Skillset and retains Entries when declined", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const old = { name: "old", source: "other/repo", commit };
+    yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [old] }));
+    const result = yield* runCli(
+      [
+        "add",
+        "owner/repo",
+        "-s",
+        "alpha",
+        "--install",
+        "-a",
+        "cursor",
+        "-g",
+        "--copy",
+        "--set",
+        file,
+      ],
+      { tty: true, keys: [key("n", "n"), key("enter"), key("n", "n")], upstream },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.include(result.screen.join(""), "Which skills?");
+    assert.include(result.screen.join(""), "Proceed with installation?");
+    assert.notInclude(result.screen.join(""), "Install skillset?");
+    assert.include(result.out.join("\n"), "old (other/repo@");
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit },
+      old,
+    ]);
+    assert.isFalse(yield* fs.exists(`${dir}/global`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add --install keeps Entries when installation fails", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const result = yield* runCli(["add", "owner/repo", "--all", "--install", "-y", "--set", file], {
+      upstream: { ...upstream, failedInstalls: ["owner/repo"] },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.lengthOf(JSON.parse(yield* fs.readFileString(file)).skills, 2);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+// Issue #22: install-only flags cannot silently change add behavior.
+it.effect.each([
+  { flags: ["-a", "cursor"] },
+  { flags: ["--agent", "cursor"] },
+  { flags: ["-g"] },
+  { flags: ["--global"] },
+  { flags: ["--copy"] },
+])("add rejects $flags without --install", ({ flags }) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", ...flags, "--set", file], {
+      upstream,
+    });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), "--install");
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
 
 it.effect("add alias accepts a Source after skills and a global option", () =>
   Effect.gen(function* () {
