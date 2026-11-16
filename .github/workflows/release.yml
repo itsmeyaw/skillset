@@ -21,7 +21,7 @@ jobs:
       contents: write # push the version branch
       pull-requests: write # open the Version Packages PR
     outputs:
-      hasChangesets: ${{ steps.changesets.outputs.hasChangesets }}
+      hasChangesets: ${{ steps.changesets.outputs.has-changesets }}
       unpublished: ${{ steps.unpublished.outputs.unpublished }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,11 +35,9 @@ jobs:
       - id: changesets
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
-          version: pnpm run version
-          commit: "chore: version packages"
-          title: "chore: version packages"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          version-script: pnpm run version
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
       # True only after the Version Packages PR merged and its version is not on npm yet
       - id: unpublished
         run: |
@@ -73,6 +71,4 @@ jobs:
       - run: pnpm build
       - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
-          publish: pnpm run release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          publish-script: pnpm run release
