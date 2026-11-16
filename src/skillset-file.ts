@@ -105,8 +105,10 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
       2,
     ) + "\n";
   // Issue #12: create missing parent directories so a first write to the user directory works.
+  // POSIX rename(2): replacing a file atomically exposes either the old or new content.
   yield* fs.makeDirectory(dirname(path), { recursive: true }).pipe(
-    Effect.andThen(fs.writeFileString(path, content)),
+    Effect.andThen(fs.writeFileString(`${path}.tmp`, content)),
+    Effect.andThen(fs.rename(`${path}.tmp`, path)),
     Effect.mapError(
       (error) =>
         new SkillsetFileError({

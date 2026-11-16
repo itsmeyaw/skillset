@@ -1,7 +1,7 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
-import { Effect, FileSystem } from "effect";
-import { readSkillset, SCHEMA_URL } from "../src/skillset-file.ts";
+import { Effect, Exit, FileSystem } from "effect";
+import { readSkillset, SCHEMA_URL, writeSkillset } from "../src/skillset-file.ts";
 
 for (const field of ["name", "source"] as const) {
   for (const [description, value] of [
@@ -44,5 +44,65 @@ it.effect("readSkillset accepts ordinary Unicode Entry names and Sources", () =>
     yield* fs.writeFileString(path, JSON.stringify({ $schema: SCHEMA_URL, skills: [entry] }));
     const result = yield* readSkillset(path);
     assert.deepStrictEqual(result.skills, [entry]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("failed Skillset write preserves the original file", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const path = `${dir}/skillset.json`;
+    const original = "original Skillset content";
+    yield* fs.writeFileString(path, original);
+
+    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] }).pipe(
+      Effect.provideService(FileSystem.FileSystem, {
+        ...fs,
+        writeFileString: (target) =>
+          fs
+            .writeFileString(target, "partial")
+            .pipe(Effect.andThen(fs.writeFileString(`${dir}/missing/failure`, ""))),
+      }),
+      Effect.exit,
+    );
+
+    assert.isTrue(Exit.isFailure(result));
+    assert.include(JSON.stringify(result), `Cannot write Skillset file ${path}:`);
+    assert.strictEqual(yield* fs.readFileString(path), original);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("successful Skillset write replaces the file without leaving a temporary file", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const path = `${dir}/nested/skillset.json`;
+    const skillset = { $schema: SCHEMA_URL, skills: [] } as const;
+
+    yield* writeSkillset(path, skillset);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(path)), skillset);
+    assert.isFalse(yield* fs.exists(`${path}.tmp`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("failed Skillset rename preserves the original file", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const path = `${dir}/skillset.json`;
+    const original = "original Skillset content";
+    yield* fs.writeFileString(path, original);
+
+    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] }).pipe(
+      Effect.provideService(FileSystem.FileSystem, {
+        ...fs,
+        rename: () => fs.rename(`${dir}/missing`, path),
+      }),
+      Effect.exit,
+    );
+
+    assert.isTrue(Exit.isFailure(result));
+    assert.include(JSON.stringify(result), `Cannot write Skillset file ${path}:`);
+    assert.strictEqual(yield* fs.readFileString(path), original);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
