@@ -55,7 +55,7 @@ cd ~/projects/some-project
 skillset install my-set
 ```
 
-You are asked which skills, which agents, project or global scope, and symlink or copy, then to confirm.
+You are asked which skills, which agents, project or global scope, and symlink or copy, then to confirm. The default agents are Universal (`.agents/skills`), Claude Code, and detected agents. You can change the selection.
 
 **3. Keep it fresh.** Skills are pinned to commits, so nothing changes until you update:
 
@@ -95,6 +95,8 @@ Every command accepts `--set <value>` (default `./skillset.json`) and `--help`. 
 | `--user`             | `list`           | List User Skillset names; cannot be combined with `--set`.              |
 
 Repeat `-s` or pass several names. On `add`, `-s` and `--all` select Source skills only; `--install` installs the entire Skillset. Declining or failing installation leaves the added Entries in the file.
+
+Without `-a`, installs default to Universal (`.agents/skills`), Claude Code, and detected agents. `-y` and non-interactive installs use these defaults without prompting. Pass `-a` to select specific agents instead.
 
 ### Sources
 
