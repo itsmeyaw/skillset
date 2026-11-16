@@ -231,7 +231,7 @@ it.effect("ls rejects the removed -g flag", () =>
     Effect.gen(function* () {
       const result = yield* runCli(["ls", "-g"]);
       assert.strictEqual(result.code, 1);
-      assert.match(result.err.join("\n"), /-g/);
+      assert.include(result.err.join("\n"), "Unrecognized flag: -g in command skillset list");
     }),
   ),
 );
