@@ -1,6 +1,6 @@
 import { Console, Effect, Option } from "effect";
 import { Command, Flag } from "effect/cli";
-import { CliMessageError as ListError } from "../errors.ts";
+import { CliMessageError as ListError, emptySkillsetMessage } from "../errors.ts";
 import { root } from "../root.ts";
 import { readSkillset, sortedEntries } from "../skillset-file.ts";
 import { listUserSkillsets, resolveSet } from "../user-skillset.ts";
@@ -23,7 +23,7 @@ export const list = Command.make(
     const skillset = yield* readSkillset(yield* resolveSet(setFlag));
     const entries = sortedEntries(skillset.skills);
     if (entries.length === 0) {
-      yield* Console.log("This Skillset is empty.");
+      yield* Console.log(emptySkillsetMessage);
     } else {
       for (const entry of entries) {
         yield* Console.log(`${entry.name}  ${entry.source}  ${entry.commit.slice(0, 7)}`);

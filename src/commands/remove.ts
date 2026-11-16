@@ -1,6 +1,6 @@
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
-import { CliMessageError as RemoveError } from "../errors.ts";
+import { CliMessageError as RemoveError, emptySkillsetMessage } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
@@ -29,7 +29,7 @@ export const remove = Command.make(
     // Issue #11: select Entries only when an interactive removal is ambiguous.
     if (!all && skills.length === 0) {
       if (skillset.skills.length === 0) {
-        yield* Console.log("This Skillset is empty.");
+        yield* Console.log(emptySkillsetMessage);
         return;
       }
       skills = yield* cancelOnQuit(

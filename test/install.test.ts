@@ -17,6 +17,7 @@ const claude = { ...cursor, id: "claude-code", name: "Claude Code" };
 it.effect.each([
   { flags: ["-y"], tty: false },
   { flags: [], tty: true },
+  { flags: ["-y", "-s", "missing"], tty: false },
 ])("install empty Skillset skips installation and prompts", ({ flags, tty }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

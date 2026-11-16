@@ -11,6 +11,9 @@ export class CliMessageError extends Schema.TaggedError<
   }
 }
 
+// Issue #15: empty Skillsets share the same message across commands.
+export const emptySkillsetMessage = "This Skillset is empty.";
+
 // Spec #1, User Stories 14 and 40: report missing skills at the checked Pin.
 export const missingSkillsMessage = (commit: string, names: ReadonlyArray<string>) =>
   `Skills not found at ${commit}: ${names.join(", ")}`;

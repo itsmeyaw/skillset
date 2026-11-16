@@ -2,7 +2,11 @@ import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
 import type { InstallMode, SkillSource } from "skills";
 import { prepareAddition } from "../addition.ts";
-import { CliMessageError as InstallError, missingSkillsMessage } from "../errors.ts";
+import {
+  CliMessageError as InstallError,
+  emptySkillsetMessage,
+  missingSkillsMessage,
+} from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
@@ -95,7 +99,7 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
 ) {
   // Issue #15: an empty Skillset needs neither a plan nor prompts.
   if (skillset.skills.length === 0) {
-    yield* Console.log("This Skillset is empty.");
+    yield* Console.log(emptySkillsetMessage);
     return;
   }
   // Spec #1, install: an explicit selection must name Entries in the Skillset.
