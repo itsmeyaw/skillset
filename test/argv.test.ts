@@ -28,6 +28,22 @@ it("preserves an unknown first agent for validation", () => {
   ]);
 });
 
+it("keeps a Source after an agent", () => {
+  assert.deepStrictEqual(expandSkillFlags(["install", "-a", "opencode", "owner/repo"]), [
+    "install",
+    "-a",
+    "opencode",
+    "owner/repo",
+  ]);
+});
+
+it("keeps skills after a User Skillset name following an agent", () => {
+  assert.deepStrictEqual(
+    expandSkillFlags(["install", "-a", "opencode", "my-set", "-s", "alpha", "beta"]),
+    ["install", "-a", "opencode", "my-set", "-s", "alpha", "-s", "beta"],
+  );
+});
+
 it("keeps multiple skills before a Source", () => {
   assert.deepStrictEqual(expandSkillFlags(["add", "-s", "a", "b", "owner/repo"]), [
     "add",

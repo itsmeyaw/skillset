@@ -1,3 +1,5 @@
+import { getSupportedAgents } from "skills";
+
 // Spec #1, User Stories 3 and 47: expand space-separated skills and agents for Effect CLI.
 export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => {
   const result: Array<string> = [];
@@ -35,12 +37,12 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
       flush();
       result.push(token);
       sourceSeen = true;
-      // Issue #13: only supported agent IDs extend a space-separated agent flag.
     } else if (
       (flag === "-a" || flag === "--agent") &&
       hasValue &&
       !getSupportedAgents().some((agent) => agent.id === token)
     ) {
+      // Issue #13: only supported agent IDs extend a space-separated agent flag.
       flush();
       result.push(token);
       if (adding) sourceSeen = true;
@@ -59,4 +61,3 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
   flush();
   return result;
 };
-import { getSupportedAgents } from "skills";
