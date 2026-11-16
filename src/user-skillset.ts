@@ -5,7 +5,7 @@ import { CliMessageError } from "./errors.ts";
 
 // Issue #12: a bare name starts alphanumeric; ADR 0002 keeps `.json` values as paths.
 const NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/u;
-// ADR 0002: names resolve to lowercase `.json` files, so ls -g lists only those.
+// ADR 0002: names resolve to lowercase `.json` files, so ls --user lists only those.
 const EXT = ".json";
 const isJsonPath = (value: string) => /\.json$/iu.test(value);
 
@@ -39,7 +39,7 @@ export const resolveSet = (
   );
 };
 
-// Issue #12: ls -g shows names only; a missing user directory is not an error.
+// Issue #22: ls --user shows names only; a missing user directory is not an error.
 export const listUserSkillsets = Effect.fn("listUserSkillsets")(function* (env: Env = process.env) {
   const fs = yield* FileSystem.FileSystem;
   const dir = userDir(env);

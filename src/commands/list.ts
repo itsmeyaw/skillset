@@ -10,13 +10,13 @@ export { ListError };
 // Spec #1, User Story 27: show each Entry's name, Source, and short Pin.
 export const list = Command.make(
   "list",
-  { global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)) },
-  Effect.fn(function* ({ global }) {
+  { user: Flag.Boolean("user").pipe(Flag.withDefault(false)) },
+  Effect.fn(function* ({ user }) {
     const { set: setFlag } = yield* root;
-    // Issue #12: -g lists User Skillset names instead of one Skillset's Entries.
-    if (global) {
+    // Issue #22: --user lists User Skillsets; -g only means global install scope.
+    if (user) {
       if (Option.isSome(setFlag))
-        return yield* new ListError({ message: "-g cannot be used with --set." });
+        return yield* new ListError({ message: "--user cannot be used with --set." });
       for (const name of yield* listUserSkillsets()) yield* Console.log(name);
       return;
     }

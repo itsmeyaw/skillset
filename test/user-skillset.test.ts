@@ -195,41 +195,52 @@ it.effect("install accepts a positional JSON path and preserves invalid-file err
   ),
 );
 
-it.effect("ls -g lists User Skillset names sorted without .json", () =>
+it.effect("ls --user lists User Skillset names sorted without .json", () =>
   withHome((home) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       yield* fs.makeDirectory(home, { recursive: true });
       for (const file of ["b.json", "a.json", "notes.txt", "bad name.json"])
         yield* fs.writeFileString(`${home}/${file}`, "{}");
-      const result = yield* runCli(["ls", "-g"]);
+      const result = yield* runCli(["ls", "--user"]);
       assert.strictEqual(result.code, 0);
       assert.deepStrictEqual(result.out, ["a", "b"]);
     }),
   ),
 );
 
-it.effect("ls -g prints nothing when the user directory is missing", () =>
+// Issue #22: -g is reserved for global installation scope.
+it.effect("ls rejects the removed -g flag", () =>
   withHome(() =>
     Effect.gen(function* () {
-      const result = yield* runCli(["list", "-g"]);
+      const result = yield* runCli(["ls", "-g"]);
+      assert.strictEqual(result.code, 1);
+      assert.match(result.err.join("\n"), /-g/);
+    }),
+  ),
+);
+
+it.effect("ls --user prints nothing when the user directory is missing", () =>
+  withHome(() =>
+    Effect.gen(function* () {
+      const result = yield* runCli(["list", "--user"]);
       assert.strictEqual(result.code, 0);
       assert.deepStrictEqual(result.out, []);
     }),
   ),
 );
 
-it.effect("ls -g --set x is an error", () =>
+it.effect("ls --user --set x is an error", () =>
   withHome(() =>
     Effect.gen(function* () {
-      const result = yield* runCli(["ls", "-g", "--set", "x"]);
+      const result = yield* runCli(["ls", "--user", "--set", "x"]);
       assert.notStrictEqual(result.code, 0);
-      assert.include(result.err.join("\n"), "-g cannot be used with --set.");
+      assert.include(result.err.join("\n"), "--user cannot be used with --set.");
     }),
   ),
 );
 
-it.effect("ls -g uses $XDG_CONFIG_HOME/skillset when SKILLSET_HOME is unset", () =>
+it.effect("ls --user uses $XDG_CONFIG_HOME/skillset when SKILLSET_HOME is unset", () =>
   withHome(() =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -245,7 +256,7 @@ it.effect("ls -g uses $XDG_CONFIG_HOME/skillset when SKILLSET_HOME is unset", ()
           if (previous !== undefined) process.env.SKILLSET_HOME = previous;
         }),
       );
-      assert.deepStrictEqual((yield* runCli(["ls", "-g"])).out, ["via-xdg"]);
+      assert.deepStrictEqual((yield* runCli(["ls", "--user"])).out, ["via-xdg"]);
     }),
   ),
 );
