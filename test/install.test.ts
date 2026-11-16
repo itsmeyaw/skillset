@@ -14,6 +14,29 @@ const cursor = {
 };
 const claude = { ...cursor, id: "claude-code", name: "Claude Code" };
 
+it.effect.each([
+  { flags: ["-y"], tty: false },
+  { flags: [], tty: true },
+])("install empty Skillset skips installation and prompts", ({ flags, tty }) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const installCalls: Array<string> = [];
+    yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [] }));
+    const result = yield* runCli(["install", ...flags, "--set", file], {
+      tty,
+      keys: [key("escape")],
+      upstream: { installDir: dir, installCalls },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(result.out, ["This Skillset is empty."]);
+    assert.deepStrictEqual(result.screen, []);
+    assert.deepStrictEqual(installCalls, []);
+    assert.deepStrictEqual(yield* fs.readDirectory(dir), ["skillset.json"]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("install Source without a non-interactive selection only lists skills", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

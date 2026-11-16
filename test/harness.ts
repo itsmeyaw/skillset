@@ -25,6 +25,7 @@ export const fakeUpstream = (
     >;
     readonly failedInstalls?: ReadonlyArray<string>;
     readonly failedResults?: ReadonlyArray<string>;
+    readonly installCalls?: Array<string>;
     readonly installDir?: string;
     readonly disposalLog?: string;
     readonly detectedAgents?: ReadonlyArray<AgentInfo>;
@@ -76,8 +77,9 @@ export const fakeUpstream = (
           Effect.promise(() => handle.dispose()),
         );
       },
-      install: (source, installOptions) =>
-        disposed.has(source)
+      install: (source, installOptions) => {
+        options.installCalls?.push(source.source.input);
+        return disposed.has(source)
           ? Effect.fail(new UpstreamError({ message: "Fake source was disposed" }))
           : options.failedInstalls?.includes(source.source.input)
             ? Effect.fail(
@@ -116,7 +118,8 @@ export const fakeUpstream = (
                     }
                   }
                   return { source: source.source, installed: [], skipped: [], failed: [] };
-                }),
+                });
+      },
       detectAgents: () => Effect.succeed({ agents: options.detectedAgents ?? [] }),
       getSupportedAgents: Effect.succeed(options.supportedAgents ?? []),
     }),

@@ -93,6 +93,11 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     readonly added?: ReadonlyArray<Entry>;
   },
 ) {
+  // Issue #15: an empty Skillset needs neither a plan nor prompts.
+  if (skillset.skills.length === 0) {
+    yield* Console.log("This Skillset is empty.");
+    return;
+  }
   // Spec #1, install: an explicit selection must name Entries in the Skillset.
   const missing = selected.filter((name) => !skillset.skills.some((entry) => entry.name === name));
   if (missing.length > 0)
