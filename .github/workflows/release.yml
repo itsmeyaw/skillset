@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    tags: ["v*"]
 
 concurrency:
   group: release
@@ -15,51 +15,22 @@ env:
   HUSKY: "0"
 
 jobs:
-  version:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # push the version branch
-      pull-requests: write # open the Version Packages PR
-    outputs:
-      hasChangesets: ${{ steps.changesets.outputs.has-changesets }}
-      unpublished: ${{ steps.unpublished.outputs.unpublished }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # No `publish` input: this job only opens or updates the Version Packages PR
-      - id: changesets
-        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
-        with:
-          version-script: pnpm run version
-          commit-message: "chore: version packages"
-          pr-title: "chore: version packages"
-      # True only after the Version Packages PR merged and its version is not on npm yet
-      - id: unpublished
-        run: |
-          name=$(node -p "require('./package.json').name")
-          version=$(node -p "require('./package.json').version")
-          if npm view "$name@$version" version >/dev/null 2>&1; then
-            echo "unpublished=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "unpublished=true" >> "$GITHUB_OUTPUT"
-          fi
-
   publish:
-    needs: version
-    if: needs.version.outputs.hasChangesets == 'false' && needs.version.outputs.unpublished == 'true'
     runs-on: ubuntu-latest
     # Must match the trusted publisher registered on npmjs.com
     environment: npm
     permissions:
-      contents: write # push tags, create GitHub Releases
+      contents: write # create the GitHub Release
       id-token: write # npm OIDC trusted publishing
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      # Only commits already on main may be published
+      - name: Verify tag
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          test "$GITHUB_REF_NAME" = "v$(node -p "require('./package.json').version")"
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       # No registry-url: it writes an _authToken placeholder that blocks OIDC
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -69,6 +40,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
-      - uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
-        with:
-          publish-script: pnpm run release
+      - run: pnpm run release
+      - run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
