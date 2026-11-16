@@ -40,7 +40,7 @@
   </text>
   <rect x="130" y="610" width="596" height="64" rx="12" fill="#0D1E45" stroke="#24407D"/>
   <text x="154" y="652" font-family="'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace" font-size="26"><tspan fill="#5C8DFF">$</tspan><tspan fill="#DCE6FF"> npm install -g @itsmeyaw/skillset</tspan></text>
-  <text x="130" y="730" fill="#8296BE" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="24">Based on Vercel&#8217;s Skill CLI</text>
+  <text x="130" y="730" fill="#8296BE" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="24">Based on Vercel&#8217;s Skills CLI (skills.sh)</text>
 
   <!-- terminal window; the recording is overlaid at (790, 178), 1010x754, leaving the window's rounded bottom corners visible -->
   <g filter="url(#shadow)">

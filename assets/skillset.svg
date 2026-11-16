@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="title desc">
   <title id="title">Skillset</title>
-  <desc id="desc">Easily manage, install, and share multiple agent skills at once. Based on Vercel&#8217;s Skill CLI. npm install -g @itsmeyaw/skillset</desc>
+  <desc id="desc">Easily manage, install, and share multiple agent skills at once. Based on Vercel&#8217;s Skills CLI (skills.sh). npm install -g @itsmeyaw/skillset</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
       <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5C8DFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -55,5 +55,5 @@
 
   <rect x="80" y="246" width="596" height="60" rx="12" fill="#0D1E45" stroke="#24407D"/>
   <text x="104" y="285" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="26"><tspan fill="#5C8DFF">$</tspan><tspan fill="#DCE6FF"> npm install -g @itsmeyaw/skillset</tspan></text>
-  <text x="80" y="350" fill="#6F84AE" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21">Based on Vercel&#8217;s Skill CLI</text>
+  <text x="80" y="350" fill="#6F84AE" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21">Based on Vercel&#8217;s Skills CLI (skills.sh)</text>
 </svg>

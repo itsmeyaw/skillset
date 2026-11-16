@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/skillset.svg" alt="Skillset: Easily manage, install, and share multiple agent skills at once. Based on Vercel’s Skill CLI." width="800">
+  <img src="https://raw.githubusercontent.com/itsmeyaw/skillset/main/assets/skillset.svg" alt="Skillset: Easily manage, install, and share multiple agent skills at once. Based on Vercel’s Skills CLI (skills.sh)." width="800">
 </p>
 
 <p align="center">
-  Skillset is a wrapper around <a href="https://github.com/vercel-labs/skills">Vercel's Skills CLI</a> that installs a predefined list of skills at once.
+  Skillset is a wrapper around <a href="https://github.com/vercel-labs/skills">Vercel's Skills CLI</a> (<a href="https://skills.sh">skills.sh</a>) that installs a predefined list of skills at once.
 </p>
 
 ## Requirements
