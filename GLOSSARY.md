@@ -32,6 +32,10 @@ _Avoid_: Origin, upstream, repo
 The exact commit of the Source that an Entry was taken from.
 _Avoid_: Version, lock, hash
 
+**Universal agents**:
+The agents that read skills from the shared `.agents/skills` directory, so one install reaches all of them.
+_Avoid_: Generic agents, shared agents
+
 ## Roles and actions
 
 **Curator**:
