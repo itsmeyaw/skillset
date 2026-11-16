@@ -381,6 +381,31 @@ it.effect("unattended defaults exclude unavailable and unsupported agents", () =
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("-y without any default agent falls back to upstream defaults", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-y", "--set", file], {
+      upstream: {
+        supportedAgents: [cursor],
+        detectedAgents: [],
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.isTrue((yield* fs.readDirectory(`${dir}/project`)).length > 0);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("explicit Universal agent IDs stay unchanged", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

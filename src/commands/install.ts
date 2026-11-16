@@ -174,7 +174,10 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
           min: 1,
         }),
       );
-    } else targets = defaults;
+    } else {
+      // Spec #1, install -y: with no default agent, let skills choose; an empty list installs nothing.
+      targets = defaults.length === 0 ? undefined : defaults;
+    }
   }
   if (interactive) {
     if (!global) {
