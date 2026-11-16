@@ -187,6 +187,22 @@ it.effect("redraw clears exactly the previous narrow frame", () =>
   }),
 );
 
+it.effect("one-column redraw clears exactly the previous frame", () =>
+  Effect.gen(function* () {
+    const result = yield* runPrompt(
+      searchSelect({
+        message: "Choose",
+        choices: [{ title: "Alpha", value: "a", description: "中文" }],
+      }),
+      [key("down"), key("enter")],
+      1,
+    );
+    const frame = ".\n.\n.";
+    const clear = "\r\x1b[2K" + "\x1b[1A\r\x1b[2K".repeat(2);
+    assert.include(result.screen, frame + clear + frame + clear);
+  }),
+);
+
 it.effect("truncation never splits an emoji surrogate pair", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(

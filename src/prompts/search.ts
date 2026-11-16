@@ -85,6 +85,7 @@ const search = (
     return lines
       .map((line) => {
         if (width(line) < columns) return line;
+        if (columns === 1) return ".";
         let prefix = "";
         let used = 0;
         for (const char of line) {
@@ -108,13 +109,13 @@ const search = (
           return `${options.message}: ${chosen.join(", ")}\n`;
         }
         const terminal = yield* Terminal.Terminal;
-        return frame(state, yield* terminal.rows, Math.max(2, yield* terminal.columns));
+        return frame(state, yield* terminal.rows, Math.max(1, yield* terminal.columns));
       }),
     clear: (state) =>
       Effect.gen(function* () {
         const terminal = yield* Terminal.Terminal;
         const columns = Math.max(1, yield* terminal.columns);
-        const text = frame(state, yield* terminal.rows, Math.max(2, columns));
+        const text = frame(state, yield* terminal.rows, columns);
         const lines = text
           .split("\n")
           .reduce((count, line) => count + Math.max(1, Math.ceil(width(line) / columns)), 0);
