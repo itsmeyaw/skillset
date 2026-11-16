@@ -28,6 +28,16 @@ Space
 Sleep 1s
 Enter
 Sleep 2s
+Type "y"
+Sleep 1s
+Type "juliusbrussee/caveman" Enter
+Sleep 6s
+Type "caveman"
+Sleep 1s
+Space
+Sleep 1s
+Enter
+Sleep 2s
 Type "n"
 Sleep 1s
 Type "n"
