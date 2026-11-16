@@ -110,7 +110,9 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
     yield* fs.makeDirectory(dirname(path), { recursive: true });
     // POSIX chmod(2): retain existing access permissions when replacing the file.
     const mode = (yield* fs.exists(path)) ? (yield* fs.stat(path)).mode & 0o7777 : undefined;
-    yield* fs.writeFileString(tmp, content, { mode });
+    // POSIX open(2): O_EXCL prevents following or sharing an existing temporary file.
+    // shortcut: stale temporary files block saves; use unique names to allow retries.
+    yield* fs.writeFileString(tmp, content, { flag: "wx", mode });
     if (mode !== undefined) yield* fs.chmod(tmp, mode);
     // POSIX rename(2): replacing a file atomically exposes either the old or new content.
     yield* fs.rename(tmp, path);

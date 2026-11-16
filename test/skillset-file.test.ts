@@ -98,6 +98,25 @@ it.effect("successful Skillset write preserves existing file permissions", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("Skillset write does not follow a temporary-file symlink", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const path = `${dir}/skillset.json`;
+    const victim = `${dir}/other-file`;
+    yield* fs.writeFileString(path, "original");
+    yield* fs.writeFileString(victim, "untouched");
+    yield* fs.symlink(victim, `${path}.tmp`);
+
+    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] }).pipe(
+      Effect.exit,
+    );
+    assert.isTrue(Exit.isFailure(result));
+    assert.strictEqual(yield* fs.readFileString(path), "original");
+    assert.strictEqual(yield* fs.readFileString(victim), "untouched");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("failed Skillset rename preserves the original file", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
