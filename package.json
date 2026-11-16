@@ -101,8 +101,11 @@
     "schemas/skillset/v1.json"
   ],
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "prepare": "effect-tsgo patch --no-typescript --oxlint",
+    "prepare": "effect-tsgo patch --no-typescript --oxlint && husky",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings",
     "format": "oxfmt --write",
@@ -110,7 +113,10 @@
     "test": "vitest run",
     "build": "tsc -p tsconfig.build.json",
     "install:local": "pnpm build && npm link",
-    "schema:generate": "node scripts/generate-schema.ts"
+    "schema:generate": "node scripts/generate-schema.ts",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "changeset publish"
   },
   "dependencies": {
     "@effect/platform-node": "4.1.4",
@@ -118,16 +124,27 @@
     "skills": "1.8.1"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
     "@effect/tsgo": "0.69.0",
     "@effect/vitest": "4.1.4",
     "@types/node": "^22.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.1",
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "oxlint-tsgolint": "7.0.2007",
     "typescript": "7.0.2",
     "vitest": "5.1.0"
   },
+  "lint-staged": {
+    "*.{ts,js,mjs}": [
+      "oxlint --deny-warnings --fix",
+      "oxfmt --write"
+    ]
+  },
   "engines": {
     "node": ">=22.20.0"
-  }
+  },
+  "packageManager": "pnpm@11.20.0"
 }
