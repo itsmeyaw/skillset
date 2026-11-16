@@ -13,6 +13,9 @@ const cursor = {
   universal: false,
 };
 const claude = { ...cursor, id: "claude-code", name: "Claude Code" };
+const universal = { ...cursor, id: "universal", name: "Universal", universal: true };
+const universalCursor = { ...cursor, universal: true };
+const windsurf = { ...cursor, id: "windsurf", name: "Windsurf" };
 
 it.effect.each([
   { flags: ["-y"], tty: false },
@@ -147,6 +150,103 @@ it.effect("interactive install prompts in order and uses selected options", () =
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("interactive install collapses Universal agents and selects the defaults", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const members = Array.from({ length: 9 }, (_, index) => ({
+      ...universal,
+      id: `member${index + 1}`,
+      name: `Agent${index + 1}`,
+    }));
+    const result = yield* runCli(["install", "-s", "alpha", "-g", "--copy", "--set", file], {
+      tty: true,
+      keys: [key("enter"), key("enter"), key("escape")],
+      upstream: {
+        supportedAgents: [universal, claude, universalCursor, ...members, windsurf],
+        detectedAgents: [universalCursor, windsurf],
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    const screen = result.screen.join("");
+    assert.include(screen, "❯ [x] Universal (.agents/skills)");
+    assert.include(
+      screen,
+      "Cursor, Agent1, Agent2, Agent3, Agent4, Agent5, Agent6, Agent7 +2 more",
+    );
+    assert.notMatch(screen, /\[[ x]\] (Cursor|Agent[0-9])/);
+    assert.include(screen, "[x] Claude Code");
+    assert.include(screen, "[x] Windsurf");
+    assert.include(result.out.join("\n"), "Agents: universal, claude-code, windsurf");
+    for (const agent of ["universal", "claude-code", "windsurf"])
+      assert.strictEqual(
+        yield* fs.readFileString(`${dir}/global/${agent}/alpha`),
+        `${commit}:copy`,
+      );
+    assert.isFalse(yield* fs.exists(`${dir}/global/cursor/alpha`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("interactive install lets users deselect default agents", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-s", "alpha", "-g", "--copy", "--set", file], {
+      tty: true,
+      keys: [key("space"), key("enter"), key("enter"), key("escape")],
+      upstream: {
+        supportedAgents: [universal, claude, universalCursor],
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.screen.join(""), "\n  Cursor\r");
+    assert.include(result.out.join("\n"), "Agents: claude-code");
+    assert.isFalse(yield* fs.exists(`${dir}/global/universal/alpha`));
+    assert.isTrue(yield* fs.exists(`${dir}/global/claude-code/alpha`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("interactive install rejects an empty supported agent list", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-s", "alpha", "--set", file], {
+      tty: true,
+      upstream: { supportedAgents: [] },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), "No supported agents available");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("interactive install requires an agent when none are detected", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -239,13 +339,71 @@ it.effect.each([
     const result = yield* runCli(["install", ...flags, "--set", file], {
       tty,
       upstream: {
+        supportedAgents: [universal, claude, universalCursor, windsurf],
+        detectedAgents: [universalCursor, windsurf],
         skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
         installDir: dir,
       },
     });
     assert.strictEqual(result.code, 0);
     assert.deepStrictEqual(result.screen, []);
-    assert.strictEqual(yield* fs.readFileString(`${dir}/project/default/alpha`), `${commit}:auto`);
+    for (const agent of ["universal", "claude-code", "windsurf"])
+      assert.strictEqual(
+        yield* fs.readFileString(`${dir}/project/${agent}/alpha`),
+        `${commit}:auto`,
+      );
+    assert.isFalse(yield* fs.exists(`${dir}/project/cursor/alpha`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("unattended defaults exclude unavailable and unsupported agents", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-y", "--set", file], {
+      upstream: {
+        supportedAgents: [windsurf],
+        detectedAgents: [windsurf, claude, universalCursor],
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(yield* fs.readDirectory(`${dir}/project`), ["windsurf"]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("explicit Universal agent IDs stay unchanged", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-y", "-a", "cursor", "--set", file], {
+      upstream: {
+        supportedAgents: [universal, claude, universalCursor],
+        detectedAgents: [universalCursor],
+        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(yield* fs.readDirectory(`${dir}/project`), ["cursor"]);
+    assert.strictEqual(yield* fs.readFileString(`${dir}/project/cursor/alpha`), `${commit}:auto`);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
@@ -346,8 +504,8 @@ it.effect("install stops after an upstream install reports a failed target", () 
     });
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /failed.*second\/repo/i);
-    assert.isTrue(yield* fs.exists(`${dir}/project/default/alpha`));
-    assert.isFalse(yield* fs.exists(`${dir}/project/default/gamma`));
+    assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
+    assert.isFalse(yield* fs.exists(`${dir}/project/universal/gamma`));
     assert.deepStrictEqual(
       (yield* fs.readFileString(`${dir}/disposed`)).trim().split("\n").sort(),
       [`first/repo ${commit}`, `second/repo ${commit}`, `third/repo ${commit}`],
@@ -362,8 +520,8 @@ it.effect("install -y uses default targets and leaves unrelated skills untouched
     const file = `${dir}/skillset.json`;
     const log = `${dir}/disposed`;
     const second = "b".repeat(40);
-    yield* fs.makeDirectory(`${dir}/project/default`, { recursive: true });
-    yield* fs.writeFileString(`${dir}/project/default/custom`, "mine");
+    yield* fs.makeDirectory(`${dir}/project/universal`, { recursive: true });
+    yield* fs.writeFileString(`${dir}/project/universal/custom`, "mine");
     yield* fs.writeFileString(
       file,
       JSON.stringify({
@@ -386,11 +544,17 @@ it.effect("install -y uses default targets and leaves unrelated skills untouched
       },
     });
     assert.strictEqual(result.code, 0);
-    assert.strictEqual(yield* fs.readFileString(`${dir}/project/default/alpha`), `${commit}:auto`);
-    assert.strictEqual(yield* fs.readFileString(`${dir}/project/default/beta`), `${commit}:auto`);
-    assert.strictEqual(yield* fs.readFileString(`${dir}/project/default/gamma`), `${second}:auto`);
-    assert.strictEqual(yield* fs.readFileString(`${dir}/project/default/custom`), "mine");
-    assert.isFalse(yield* fs.exists(`${dir}/project/default/outside`));
+    assert.strictEqual(
+      yield* fs.readFileString(`${dir}/project/universal/alpha`),
+      `${commit}:auto`,
+    );
+    assert.strictEqual(yield* fs.readFileString(`${dir}/project/universal/beta`), `${commit}:auto`);
+    assert.strictEqual(
+      yield* fs.readFileString(`${dir}/project/universal/gamma`),
+      `${second}:auto`,
+    );
+    assert.strictEqual(yield* fs.readFileString(`${dir}/project/universal/custom`), "mine");
+    assert.isFalse(yield* fs.exists(`${dir}/project/universal/outside`));
     assert.deepStrictEqual((yield* fs.readFileString(log)).trim().split("\n").sort(), [
       `owner/repo ${commit}`,
       `owner/repo ${second}`,

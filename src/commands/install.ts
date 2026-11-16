@@ -1,6 +1,6 @@
 import { Console, Effect, FileSystem, Option } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
-import type { InstallMode, SkillSource } from "skills";
+import type { AgentInfo, InstallMode, SkillSource } from "skills";
 import {
   CliMessageError as InstallError,
   emptySkillsetMessage,
@@ -22,6 +22,37 @@ type InstallPlan = {
   readonly agents: ReadonlyArray<string> | undefined;
   readonly global: boolean;
   readonly mode: InstallMode;
+};
+
+// Spec #1, install: share the default agent selection across interactive and unattended installs.
+const agentChoices = (supported: ReadonlyArray<AgentInfo>, detected: ReadonlyArray<AgentInfo>) => {
+  const defaults = ["universal", "claude-code"].filter((id) =>
+    supported.some((agent) => agent.id === id),
+  );
+  for (const agent of supported) {
+    if (
+      !agent.universal &&
+      detected.some((found) => found.id === agent.id) &&
+      !defaults.includes(agent.id)
+    )
+      defaults.push(agent.id);
+  }
+  // Spec #1, install: one Universal choice represents agents sharing .agents/skills.
+  const members = supported.filter((agent) => agent.universal && agent.id !== "universal");
+  const description =
+    members
+      .slice(0, 8)
+      .map((agent) => agent.name)
+      .join(", ") + (members.length > 8 ? ` +${members.length - 8} more` : "");
+  const choices = supported
+    .filter((agent) => !agent.universal || agent.id === "universal")
+    .map((agent) => ({
+      title: agent.id === "universal" ? "Universal (.agents/skills)" : agent.name,
+      value: agent.id,
+      ...(agent.id === "universal" ? { description } : {}),
+      selected: defaults.includes(agent.id),
+    }));
+  return { defaults, choices };
 };
 
 // Issue #11: check every Source before confirming or writing a Source-based install.
@@ -111,39 +142,39 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   let targets: ReadonlyArray<string> | undefined = agents.length === 0 ? undefined : agents;
   let scope = global;
   let mode: InstallMode = copy ? "copy" : "auto";
-  if (interactive) {
-    // Spec #1, User Stories 33–36: explicit flags skip their corresponding prompts.
-    if (selected.length === 0 && skillset.skills.length > 0) {
-      names = yield* cancelOnQuit(
-        Prompt.MultiSelect({
-          message: "Which skills?",
-          choices: skillset.skills.map((entry) => ({
-            title: entry.name,
-            value: entry.name,
-            selected: true,
-          })),
-          min: 1,
-        }),
-      );
-    }
-    if (agents.length === 0 && skillset.skills.length > 0) {
-      const upstream = yield* Upstream;
-      const supported = yield* upstream.getSupportedAgents;
-      const detected = yield* upstream.detectAgents();
+  // Spec #1, User Stories 33–36: explicit flags skip their corresponding prompts.
+  if (interactive && selected.length === 0) {
+    names = yield* cancelOnQuit(
+      Prompt.MultiSelect({
+        message: "Which skills?",
+        choices: skillset.skills.map((entry) => ({
+          title: entry.name,
+          value: entry.name,
+          selected: true,
+        })),
+        min: 1,
+      }),
+    );
+  }
+  // Spec #1, install: explicit agent IDs bypass the shared default selection.
+  if (agents.length === 0) {
+    const upstream = yield* Upstream;
+    const supported = yield* upstream.getSupportedAgents;
+    const detected = yield* upstream.detectAgents();
+    const { defaults, choices } = agentChoices(supported, detected.agents);
+    if (interactive) {
       if (supported.length === 0)
         return yield* new InstallError({ message: "No supported agents available" });
       targets = yield* cancelOnQuit(
         searchMultiSelect({
           message: "Which agents?",
-          choices: supported.map((agent) => ({
-            title: agent.name,
-            value: agent.id,
-            selected: detected.agents.some((found) => found.id === agent.id),
-          })),
+          choices,
           min: 1,
         }),
       );
-    }
+    } else targets = defaults;
+  }
+  if (interactive) {
     if (!global) {
       scope = yield* cancelOnQuit(
         Prompt.Select({
@@ -209,7 +240,7 @@ export const installSkillset = Effect.fn("installSkillset")(function* (
   );
 });
 
-// Spec #1, install -y: omitted agents use skills add -y defaults, project scope, and auto mode.
+// Spec #1, install -y: omitted agents use shared defaults, project scope, and auto mode.
 export const install = Command.make(
   "install",
   {

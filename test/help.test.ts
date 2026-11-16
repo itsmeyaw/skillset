@@ -34,7 +34,7 @@ it.effect("aliases execute their commands", () =>
     assert.include(listed.out.join("\n"), "alpha");
     assert.strictEqual((yield* runCli(["up", "--set", file], { upstream })).code, 0);
     assert.strictEqual((yield* runCli(["i", "-y", "--set", file], { upstream })).code, 0);
-    assert.isTrue(yield* fs.exists(`${dir}/project/default/alpha`));
+    assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
     assert.strictEqual((yield* runCli(["rm", "alpha", "--set", file])).code, 0);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)), {
       $schema: SCHEMA_URL,

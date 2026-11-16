@@ -12,6 +12,24 @@ import { ambiguousTreeMessage, Upstream, UpstreamError } from "../src/upstream.t
 const toSkill = (skill: string | { readonly name: string; readonly description: string }) =>
   typeof skill === "string" ? { name: skill, description: "" } : skill;
 
+// Spec #1, install: the fake supports the standard default agents unless overridden.
+const defaultAgents: ReadonlyArray<AgentInfo> = [
+  {
+    id: "universal",
+    name: "Universal",
+    projectSkillsDir: ".agents/skills",
+    globalSkillsDir: null,
+    universal: true,
+  },
+  {
+    id: "claude-code",
+    name: "Claude Code",
+    projectSkillsDir: ".claude/skills",
+    globalSkillsDir: null,
+    universal: false,
+  },
+];
+
 // Spec #1, Testing Decisions: the fake supplies Pins, available skills, and install failures.
 export const fakeUpstream = (
   options: {
@@ -121,7 +139,7 @@ export const fakeUpstream = (
                 });
       },
       detectAgents: () => Effect.succeed({ agents: options.detectedAgents ?? [] }),
-      getSupportedAgents: Effect.succeed(options.supportedAgents ?? []),
+      getSupportedAgents: Effect.succeed(options.supportedAgents ?? defaultAgents),
     }),
   );
 };

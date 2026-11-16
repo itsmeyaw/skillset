@@ -100,8 +100,8 @@ it.effect("install <name> installs from the User Skillset and selects with -s", 
       yield* runCli(["add", "owner/repo", "--all", "--set", "my-set"], { upstream: up });
       const result = yield* runCli(["install", "my-set", "-s", "beta", "-y"], { upstream: up });
       assert.strictEqual(result.code, 0);
-      assert.isTrue(yield* fs.exists(`${dir}/project/default/beta`));
-      assert.isFalse(yield* fs.exists(`${dir}/project/default/alpha`));
+      assert.isTrue(yield* fs.exists(`${dir}/project/universal/beta`));
+      assert.isFalse(yield* fs.exists(`${dir}/project/universal/alpha`));
       assert.isTrue(yield* fs.exists(`${home}/my-set.json`));
     }),
   ),
@@ -195,7 +195,7 @@ it.effect("install accepts a positional JSON path and preserves invalid-file err
         process.chdir(dir);
         const result = yield* runCli(["install", "./team.json", "-y"], { upstream: up });
         assert.strictEqual(result.code, 0);
-        assert.isTrue(yield* fs.exists(`${dir}/project/default/alpha`));
+        assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
       } finally {
         process.chdir(previous);
       }
