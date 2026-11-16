@@ -180,9 +180,15 @@ it.effect("install accepts a positional JSON path and preserves invalid-file err
       const file = `${dir}/team.json`;
       const up = { ...upstream(), installDir: dir };
       yield* runCli(["add", "owner/repo", "--all", "--set", file], { upstream: up });
-      const result = yield* runCli(["install", file, "-y"], { upstream: up });
-      assert.strictEqual(result.code, 0);
-      assert.isTrue(yield* fs.exists(`${dir}/project/default/alpha`));
+      const previous = process.cwd();
+      try {
+        process.chdir(dir);
+        const result = yield* runCli(["install", "./team.json", "-y"], { upstream: up });
+        assert.strictEqual(result.code, 0);
+        assert.isTrue(yield* fs.exists(`${dir}/project/default/alpha`));
+      } finally {
+        process.chdir(previous);
+      }
       yield* fs.writeFileString(file, "not json");
       const invalid = yield* runCli(["install", file, "-y"]);
       assert.strictEqual(invalid.code, 1);

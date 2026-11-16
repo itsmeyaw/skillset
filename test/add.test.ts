@@ -816,6 +816,13 @@ it.effect("accepting the install prompt after add installs the Skillset", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "old", source: "other/repo", commit }],
+      }),
+    );
     const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
       keys: [
@@ -826,13 +833,16 @@ it.effect("accepting the install prompt after add installs the Skillset", () =>
       ],
       upstream: {
         ...upstream,
+        skills: { ...upstream.skills, [JSON.stringify(["other/repo", commit])]: ["old"] },
         installDir: dir,
         supportedAgents: [cursor],
         detectedAgents: [cursor],
       },
     });
     assert.strictEqual(result.code, 0);
-    assert.match(result.out.join("\n"), /Installed alpha/);
+    assert.match(result.out.join("\n"), /Installed alpha, old/);
+    assert.isTrue(yield* fs.exists(`${dir}/project/cursor/alpha`));
+    assert.isTrue(yield* fs.exists(`${dir}/project/cursor/old`));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
