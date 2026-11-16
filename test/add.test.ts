@@ -725,17 +725,192 @@ it.effect("interactive add repeats for another Source until declined", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("interactive add writes nothing when a later Source fails", () =>
+// Interactive add recovery spec: retain successful rounds when a later Source fails.
+it.effect("interactive add keeps earlier Entries when a later Source fails", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
-      keys: [key("y", "y"), ...Array.from("other/repo", (char) => key(char, char)), key("enter")],
+      keys: [
+        key("y", "y"),
+        ...Array.from("other/repo", (char) => key(char, char)),
+        key("enter"),
+        key("n", "n"),
+        key("n", "n"),
+      ],
+      upstream,
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.err, "Warning: Fake commit not configured for other/repo");
+    assert.match(result.screen.join(""), /Install skillset\?/);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+// Interactive add recovery spec: first-Source flags must not affect a retry.
+it.effect.each([{ flags: ["-s", "missing"] }, { flags: ["--all"] }, { flags: ["-l"] }])(
+  "interactive add retries a failed argv Source without $flags",
+  ({ flags }) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const file = `${dir}/skillset.json`;
+      const result = yield* runCli(["add", "bad/repo", ...flags, "--set", file], {
+        tty: true,
+        keys: [
+          key("enter"),
+          ...Array.from("owner/repo", (char) => key(char, char)),
+          key("enter"),
+          key("l", "l"),
+          key("space"),
+          key("enter"),
+          key("n", "n"),
+          key("n", "n"),
+        ],
+        upstream,
+      });
+      assert.strictEqual(result.code, 0);
+      assert.include(result.err, "Warning: Fake commit not configured for bad/repo");
+      assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+        { name: "alpha", source: "owner/repo", commit },
+      ]);
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+// Interactive add recovery spec: no additions means the last failure is fatal.
+it.effect("interactive add fails with the last error when every round fails", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "empty/repo", "--set", file], {
+      tty: true,
+      keys: [
+        key("enter"),
+        ...Array.from("bad/repo", (char) => key(char, char)),
+        key("enter"),
+        key("n", "n"),
+      ],
+      upstream: {
+        commits: { [JSON.stringify(["empty/repo", null])]: commit },
+        skills: { [JSON.stringify(["empty/repo", commit])]: [] },
+      },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err, `Warning: No skills found in empty/repo at ${commit}`);
+    assert.include(result.err, "Warning: Fake commit not configured for bad/repo");
+    assert.match(String(result.err.at(-1)), /Fake commit not configured for bad\/repo/);
+    assert.notInclude(result.screen.join(""), "Install skillset?");
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+// Interactive add recovery spec: -y remains fail-fast even on a TTY.
+it.effect("add -y fails without a warning or retry prompt", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "bad/repo", "--all", "-y", "--set", file], {
+      tty: true,
       upstream,
     });
     assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /Fake commit not configured for bad\/repo/);
+    assert.notInclude(result.err.join("\n"), "Warning:");
+    assert.deepStrictEqual(result.screen, []);
     assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+// Issue #11: quitting after a failed round still cancels without writing.
+it.effect("cancelling the retry prompt exits 130 without writing earlier Entries", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+      tty: true,
+      keys: [
+        key("y", "y"),
+        ...Array.from("bad/repo", (char) => key(char, char)),
+        key("enter"),
+        key("escape"),
+      ],
+      upstream,
+    });
+    assert.strictEqual(result.code, 130);
+    assert.include(result.out.join("\n"), "Cancelled");
+    assert.include(result.err, "Warning: Fake commit not configured for bad/repo");
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+// Interactive add recovery spec: discard conflicts while retaining the prior in-memory Skillset.
+it.effect("interactive add retries after a conflict without losing earlier Entries", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+      tty: true,
+      keys: [
+        key("y", "y"),
+        ...Array.from("other/repo", (char) => key(char, char)),
+        key("enter"),
+        key("space"),
+        key("enter"),
+        key("enter"),
+        ...Array.from("third/repo", (char) => key(char, char)),
+        key("enter"),
+        key("space"),
+        key("enter"),
+        key("n", "n"),
+        key("n", "n"),
+      ],
+      upstream: {
+        commits: {
+          ...upstream.commits,
+          [JSON.stringify(["other/repo", null])]: commit,
+          [JSON.stringify(["third/repo", null])]: commit,
+        },
+        skills: {
+          ...upstream.skills,
+          [JSON.stringify(["other/repo", commit])]: ["alpha"],
+          [JSON.stringify(["third/repo", commit])]: ["beta"],
+        },
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.err, "Warning: Skill alpha already belongs to owner/repo");
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+      { name: "alpha", source: "owner/repo", commit },
+      { name: "beta", source: "third/repo", commit },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+// Interactive add recovery spec: Skillset file errors warn without overwriting the file.
+it.effect("interactive add warns on an invalid Skillset and fails if no Source is added", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const original = '{"$schema":"https://example.com/v2","skills":[]}';
+    yield* fs.writeFileString(file, original);
+    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+      tty: true,
+      keys: [key("n", "n")],
+      upstream,
+    });
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /Warning:.*invalid Skillset file/i);
+    assert.match(result.screen.join(""), /Add another source\?/);
+    assert.notInclude(result.screen.join(""), "Install skillset?");
+    assert.strictEqual(yield* fs.readFileString(file), original);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

@@ -31,29 +31,41 @@ export const add = Command.make(
     const set = yield* skillsetPath;
     let first = true;
     let pending: Skillset | undefined;
+    let lastError: Effect.Error<ReturnType<typeof prepareAddition>> | undefined;
     const additions: Array<ReadonlyArray<Entry>> = [];
     for (;;) {
       // -s/--all/-l describe the first Source only; later Sources are chosen interactively.
-      const addition = yield* prepareAddition(
+      const result = yield* prepareAddition(
         input,
         set,
         first
           ? { selected, all, list, interactive }
           : { selected: [], all: false, list: false, interactive, base: pending },
-      );
-      if (addition._tag !== "Addition") break;
-      pending = addition.skillset;
-      additions.push(addition.added);
+      ).pipe(Effect.result);
+      first = false;
+      // Interactive add recovery spec: only typed failures permit another Source.
+      if (result._tag === "Failure") {
+        if (!interactive) return yield* result.failure;
+        lastError = result.failure;
+        yield* Console.error(`Warning: ${lastError.message}`);
+      } else {
+        const addition = result.success;
+        if (addition._tag !== "Addition") break;
+        pending = addition.skillset;
+        additions.push(addition.added);
+      }
       // Interactive add repeats Source selection until the user is done.
       if (
         !interactive ||
-        !(yield* cancelOnQuit(Prompt.Confirm({ message: "Add another source?", initial: false })))
+        !(yield* cancelOnQuit(
+          Prompt.Confirm({ message: "Add another source?", initial: result._tag === "Failure" }),
+        ))
       )
         break;
       input = yield* cancelOnQuit(Prompt.String({ message: "Source?" }));
-      first = false;
     }
-    // Nothing is written until every Source succeeds, so a failed later Source leaves the file untouched.
+    // Interactive add recovery spec: write successful rounds once, or fail with the last error.
+    if (!pending && lastError) return yield* lastError;
     if (pending) {
       yield* writeSkillset(set, pending);
       for (const added of additions)
