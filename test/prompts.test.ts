@@ -45,12 +45,35 @@ it.effect("search multiselect filters, moves, toggles, and submits", () =>
 
 it.effect("search select filters by value and submits", () =>
   Effect.gen(function* () {
-    const result = yield* runPrompt(searchSelect({ message: "Choose", choices }), [
-      key("c", "c"),
-      key("enter"),
-    ]);
+    const result = yield* runPrompt(
+      searchSelect({ message: "Choose", choices: [{ title: "Gamma", value: "c" }] }),
+      [key("c", "c"), key("enter")],
+    );
     assert.strictEqual(result.result._tag, "Success");
     if (result.result._tag === "Success") assert.strictEqual(result.result.value, "c");
+  }),
+);
+
+it.effect("search finds Universal agents by their description", () =>
+  Effect.gen(function* () {
+    const result = yield* runPrompt(
+      searchMultiSelect({
+        message: "Choose",
+        choices: [
+          { title: "Claude Code", value: "claude-code" },
+          { title: "Universal (.agents/skills)", value: "universal", description: "Amp, Cursor" },
+        ],
+        min: 1,
+      }),
+      [key("cursor", "cursor"), key("space"), key("enter"), key("escape")],
+    );
+    assert.strictEqual(result.result._tag, "Success");
+    if (result.result._tag === "Success")
+      assert.deepStrictEqual(result.result.value, ["universal"]);
+    assert.include(
+      result.screen,
+      "Search: cursor\nSelected: none\n❯ [ ] Universal (.agents/skills)",
+    );
   }),
 );
 

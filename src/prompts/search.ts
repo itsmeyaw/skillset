@@ -33,10 +33,12 @@ const safeText = (text: string) =>
 const width = (text: string) =>
   Array.from(text).reduce((columns, char) => columns + (char.codePointAt(0)! < 128 ? 1 : 2), 0);
 
-// Issue #11: search names and IDs without discarding selections hidden by the filter.
+// Issue #11: search names, IDs, and descriptions without discarding hidden selections.
 const matches = (choices: ReadonlyArray<SearchChoice>, query: string) =>
   choices.filter((choice) =>
-    `${choice.title}\n${choice.value}`.toLowerCase().includes(query.toLowerCase()),
+    `${choice.title}\n${choice.value}\n${choice.description ?? ""}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
   );
 
 const search = (
