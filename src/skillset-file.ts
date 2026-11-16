@@ -7,9 +7,12 @@ import { PIN_PATTERN } from "./pin.ts";
 export const SCHEMA_URL =
   "https://raw.githubusercontent.com/itsmeyaw/skillset/main/schemas/skillset/v1.json";
 
+// ECMA-48 §4.1: control characters can introduce terminal control functions.
+const entryText = Schema.String.check(Schema.isNonEmpty(), Schema.isPattern(/^\P{Cc}+$/u));
+
 export const Entry = Schema.Struct({
-  name: Schema.String.check(Schema.isNonEmpty()),
-  source: Schema.String.check(Schema.isNonEmpty()),
+  name: entryText,
+  source: entryText,
   commit: Schema.String.check(
     Schema.isPattern(PIN_PATTERN, {
       message: "Expected a full 40-character lowercase commit SHA",
