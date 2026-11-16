@@ -54,14 +54,19 @@ it.effect("search select filters by value and submits", () =>
   }),
 );
 
-it.effect("search finds Universal agents by their description", () =>
+it.effect("search finds choices by their keywords", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(
       searchMultiSelect({
         message: "Choose",
         choices: [
           { title: "Claude Code", value: "claude-code" },
-          { title: "Universal (.agents/skills)", value: "universal", description: "Amp, Cursor" },
+          {
+            title: "Universal (.agents/skills)",
+            value: "universal",
+            description: "Amp",
+            keywords: "Amp Cursor",
+          },
         ],
         min: 1,
       }),

@@ -49,7 +49,9 @@ const agentChoices = (supported: ReadonlyArray<AgentInfo>, detected: ReadonlyArr
     .map((agent) => ({
       title: agent.id === "universal" ? "Universal (.agents/skills)" : agent.name,
       value: agent.id,
-      ...(agent.id === "universal" ? { description } : {}),
+      ...(agent.id === "universal"
+        ? { description, keywords: members.map((member) => member.name).join(" ") }
+        : {}),
       selected: defaults.includes(agent.id),
     }));
   return { defaults, choices };

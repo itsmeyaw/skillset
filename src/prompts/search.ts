@@ -6,6 +6,7 @@ export type SearchChoice = {
   readonly title: string;
   readonly value: string;
   readonly description?: string;
+  readonly keywords?: string;
   readonly selected?: boolean;
 };
 
@@ -33,10 +34,10 @@ const safeText = (text: string) =>
 const width = (text: string) =>
   Array.from(text).reduce((columns, char) => columns + (char.codePointAt(0)! < 128 ? 1 : 2), 0);
 
-// Issue #11: search names, IDs, and descriptions without discarding hidden selections.
+// Issue #11: search names, IDs, and keywords without discarding hidden selections.
 const matches = (choices: ReadonlyArray<SearchChoice>, query: string) =>
   choices.filter((choice) =>
-    `${choice.title}\n${choice.value}\n${choice.description ?? ""}`
+    `${choice.title}\n${choice.value}\n${choice.keywords ?? ""}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
