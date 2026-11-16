@@ -164,8 +164,10 @@ it.effect("wide descriptions stay within terminal columns", () =>
       }),
       [key("enter")],
     );
-    assert.include(result.screen, `  ${"中".repeat(38)}…`);
-    assert.notInclude(result.screen, "中".repeat(39));
+    assert.strictEqual(
+      result.screen.split("\r")[0],
+      `Choose  Search: \n❯ Alpha\n  ${"中".repeat(38)}…`,
+    );
   }),
 );
 
@@ -194,6 +196,7 @@ it.effect("truncation never splits an emoji surrogate pair", () =>
       }),
       [key("enter")],
     );
+    // Unicode Standard §3.9: UTF-16 surrogate code units must form high-low pairs.
     assert.notMatch(
       result.screen,
       /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u,

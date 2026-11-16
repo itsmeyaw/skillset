@@ -80,6 +80,7 @@ const search = (
     const description = filtered[state.index]?.description;
     if (description) lines.push(`  ${safeText(description).replace(/\s+/gu, " ")}`);
     if (state.error) lines.push(state.error);
+    // Unicode UAX #11: reserve two columns for the ellipsis and truncate by code point.
     // Issue #11: keep the scrolling window visible when descriptions are long.
     return lines
       .map((line) => {
