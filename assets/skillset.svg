@@ -2,28 +2,42 @@
   <title id="title">Skillset</title>
   <desc id="desc">Easily manage, install, and share multiple agent skills at once. Based on Vercel&#8217;s Skill CLI. npm install -g @itsmeyaw/skillset</desc>
   <defs>
-    <pattern id="tiles" x="48" y="32" width="56" height="56" patternUnits="userSpaceOnUse">
-      <rect x="6" y="6" width="44" height="44" rx="10" fill="#12275A"/>
-    </pattern>
-    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
-      <stop offset="0.45" stop-color="#fff" stop-opacity="0.8"/>
-      <stop offset="1" stop-color="#fff"/>
-    </linearGradient>
-    <mask id="fade-mask">
-      <rect x="720" width="480" height="400" fill="url(#fade)"/>
-    </mask>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5C8DFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
   </defs>
   <rect width="1200" height="400" rx="24" fill="#0A1838"/>
-  <g mask="url(#fade-mask)">
-    <rect x="720" y="38" width="442" height="324" fill="url(#tiles)"/>
-    <rect x="1118" y="38" width="44" height="44" rx="10" fill="#2A5BC9"/>
-    <rect x="782" y="262" width="44" height="44" rx="10" fill="#2A5BC9"/>
-    <!-- the logo, echoed at grid scale -->
-    <rect x="950" y="150" width="44" height="44" rx="10" fill="#2A5BC9"/>
-    <rect x="1006" y="150" width="44" height="44" rx="10" fill="#3B7BFF"/>
-    <rect x="950" y="206" width="44" height="44" rx="10" fill="#3B7BFF"/>
-    <rect x="1016" y="196" width="44" height="44" rx="10" fill="#B5CEFF" transform="rotate(-12 1038 218)"/>
+  <g transform="translate(16 0)">
+    <!-- skills flowing into skillset -->
+    <g fill="none" stroke="#5C8DFF" stroke-width="2" stroke-linecap="round">
+      <path d="M796 114 C 836 114, 836 176, 868 182" marker-end="url(#arrow)"/>
+      <path d="M796 200 L 864 200" marker-end="url(#arrow)"/>
+      <path d="M796 286 C 836 286, 836 224, 868 218" marker-end="url(#arrow)"/>
+    </g>
+    <g>
+      <rect x="740" y="90" width="48" height="48" rx="11" fill="#2A5BC9"/>
+      <rect x="740" y="176" width="48" height="48" rx="11" fill="#3B7BFF"/>
+      <rect x="740" y="262" width="48" height="48" rx="11" fill="#2A5BC9"/>
+      <g fill="#DCE6FF" fill-opacity="0.85">
+        <rect x="750" y="104" width="28" height="5" rx="2.5"/><rect x="750" y="115" width="18" height="5" rx="2.5"/>
+        <rect x="750" y="190" width="28" height="5" rx="2.5"/><rect x="750" y="201" width="18" height="5" rx="2.5"/>
+        <rect x="750" y="276" width="28" height="5" rx="2.5"/><rect x="750" y="287" width="18" height="5" rx="2.5"/>
+      </g>
+    </g>
+    <!-- skillset -->
+    <circle cx="930" cy="200" r="72" fill="#3B7BFF" fill-opacity="0.08"/>
+    <circle cx="930" cy="200" r="58" fill="#0D1E45" stroke="#3B7BFF" stroke-width="2"/>
+    <g transform="translate(910.8 183.2) scale(0.6)">
+      <rect width="26" height="26" rx="7" fill="#2A5BC9"/>
+      <rect x="32" width="26" height="26" rx="7" fill="#3B7BFF"/>
+      <rect y="32" width="26" height="26" rx="7" fill="#3B7BFF"/>
+      <rect x="38" y="26" width="26" height="26" rx="7" fill="#B5CEFF" transform="rotate(-12 51 39)"/>
+    </g>
+    <!-- skillset document -->
+    <path d="M1002 200 L 1040 200" fill="none" stroke="#5C8DFF" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+    <path d="M1056 154 H1096 L1112 170 V238 a8 8 0 0 1 -8 8 H1056 a8 8 0 0 1 -8 -8 V162 a8 8 0 0 1 8 -8 Z" fill="#DCE6FF"/>
+    <path d="M1096 154 V170 H1112 Z" fill="#9DB0D6"/>
+    <path d="M1068 196 L1058 208 L1068 220 M1085 194 L1075 222 M1092 196 L1102 208 L1092 220" fill="none" stroke="#2A5BC9" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <rect x="0.5" y="0.5" width="1199" height="399" rx="23.5" fill="none" stroke="#1E3A6E"/>
 
