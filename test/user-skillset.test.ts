@@ -33,7 +33,7 @@ for (const value of ["./foo", "sub/foo", "-x", ".hidden", "", "a b"]) {
   });
 }
 
-it("isUserSkillsetName rejects .json values so install x.json stays a Source error", () => {
+it("isUserSkillsetName rejects .json paths", () => {
   assert.isTrue(isUserSkillsetName("my-set"));
   assert.isFalse(isUserSkillsetName("x.json"));
   assert.isFalse(isUserSkillsetName("X.JSON"));
@@ -141,12 +141,56 @@ it.effect("install <name> --set x is an error", () =>
   ),
 );
 
-it.effect("install x.json stays a Source error", () =>
+// Issue #22: invalid and missing positional references report the exact location.
+it.effect("install rejects non-Skillset and missing references without writing", () =>
+  withHome((home) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const previous = process.cwd();
+      try {
+        process.chdir(dir);
+        for (const [arg, location] of [
+          ["owner/repo", home],
+          ["missing-set", `${home}/missing-set.json`],
+          ["./missing.json", "./missing.json"],
+        ] as const) {
+          const result = yield* runCli(["install", arg, "-y"]);
+          assert.strictEqual(result.code, 1);
+          assert.include(
+            result.err.join("\n"),
+            `Cannot find Skillset "${arg}" in ${location}. To install a skill, use \`skillset add\`.`,
+          );
+        }
+        assert.deepStrictEqual(yield* fs.readDirectory(dir), []);
+        assert.isFalse(yield* fs.exists(home));
+      } finally {
+        process.chdir(previous);
+      }
+    }),
+  ),
+);
+
+// ADR 0002: positional JSON paths use the same resolution as --set.
+it.effect("install accepts a positional JSON path and preserves invalid-file errors", () =>
   withHome(() =>
     Effect.gen(function* () {
-      const result = yield* runCli(["install", "x.json", "-y"]);
-      assert.notStrictEqual(result.code, 0);
-      assert.include(result.err.join("\n"), "Invalid or unsupported Source");
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const file = `${dir}/team.json`;
+      const up = { ...upstream(), installDir: dir };
+      yield* runCli(["add", "owner/repo", "--all", "--set", file], { upstream: up });
+      const result = yield* runCli(["install", file, "-y"], { upstream: up });
+      assert.strictEqual(result.code, 0);
+      assert.isTrue(yield* fs.exists(`${dir}/project/default/alpha`));
+      yield* fs.writeFileString(file, "not json");
+      const invalid = yield* runCli(["install", file, "-y"]);
+      assert.strictEqual(invalid.code, 1);
+      assert.include(invalid.err.join("\n"), "Invalid Skillset file");
+      const badFlag = yield* runCli(["install", "--set", "owner/repo", "-y"]);
+      assert.include(badFlag.err.join("\n"), '"owner/repo" is not a Skillset name or .json path.');
+      const both = yield* runCli(["install", file, "--set", "other", "-y"]);
+      assert.include(both.err.join("\n"), "cannot be combined with --set");
     }),
   ),
 );

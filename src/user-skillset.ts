@@ -26,7 +26,10 @@ export const userDir = (env: Env = process.env): string => {
 };
 
 // ADR 0002: the form of `--set` alone decides path versus User Skillset.
-export const resolveSet = (value: Option.Option<string>, env: Env = process.env) => {
+export const resolveSet = (
+  value: Option.Option<string>,
+  env: Env = process.env,
+): Effect.Effect<string, CliMessageError> => {
   if (Option.isNone(value)) return Effect.succeed("./skillset.json");
   if (isJsonPath(value.value)) return Effect.succeed(value.value);
   if (NAME_PATTERN.test(value.value))

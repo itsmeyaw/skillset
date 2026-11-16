@@ -1,7 +1,6 @@
-import { Console, Effect, Option } from "effect";
+import { Console, Effect, FileSystem, Option } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
 import type { InstallMode, SkillSource } from "skills";
-import { prepareAddition } from "../addition.ts";
 import {
   CliMessageError as InstallError,
   emptySkillsetMessage,
@@ -11,10 +10,10 @@ import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
 import { root } from "../root.ts";
-import { readSkillset, writeSkillset } from "../skillset-file.ts";
+import { readSkillset } from "../skillset-file.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
 import { Upstream } from "../upstream.ts";
-import { isUserSkillsetName, resolveSet } from "../user-skillset.ts";
+import { resolveSet, userDir } from "../user-skillset.ts";
 
 export { InstallError };
 
@@ -78,7 +77,7 @@ const executeInstall = Effect.fn("executeInstall")(function* (
   yield* Console.log(`Installed ${plan.entries.map((entry) => entry.name).join(", ")}`);
 });
 
-// Issue #11: confirm the plan before writing the Skillset or installing skills.
+// ADR 0003: confirm the plan before installing skills.
 const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   skillset: Skillset,
   {
@@ -87,14 +86,12 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     global,
     copy,
     yes,
-    added,
   }: {
     readonly selected: ReadonlyArray<string>;
     readonly agents: ReadonlyArray<string>;
     readonly global: boolean;
     readonly copy: boolean;
     readonly yes: boolean;
-    readonly added?: ReadonlyArray<Entry>;
   },
 ) {
   // Issue #15: an empty Skillset needs neither a plan nor prompts.
@@ -116,7 +113,7 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   let mode: InstallMode = copy ? "copy" : "auto";
   if (interactive) {
     // Spec #1, User Stories 33–36: explicit flags skip their corresponding prompts.
-    if (added === undefined && selected.length === 0 && skillset.skills.length > 0) {
+    if (selected.length === 0 && skillset.skills.length > 0) {
       names = yield* cancelOnQuit(
         Prompt.MultiSelect({
           message: "Which skills?",
@@ -181,8 +178,7 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   };
   if (interactive) {
     yield* Console.log(
-      (added ? `Adding: ${added.map((entry) => entry.name).join(", ")}\n` : "") +
-        `Skills:\n${plan.entries.map((entry) => `  ${entry.name} (${entry.source}@${entry.commit})`).join(",\n")}\n` +
+      `Skills:\n${plan.entries.map((entry) => `  ${entry.name} (${entry.source}@${entry.commit})`).join(",\n")}\n` +
         `Agents: ${plan.agents?.join(", ") ?? "default"}\n` +
         `Scope: ${plan.global ? "global" : "project"}\nMode: ${plan.mode}`,
     );
@@ -217,9 +213,8 @@ export const installSkillset = Effect.fn("installSkillset")(function* (
 export const install = Command.make(
   "install",
   {
-    source: Argument.String("source").pipe(Argument.optional),
+    set: Argument.String("set").pipe(Argument.optional),
     selected: Flag.String("skill").pipe(Flag.withAlias("s"), Flag.atLeast(0)),
-    all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
     agents: Flag.String("agent").pipe(Flag.withAlias("a"), Flag.atLeast(0)),
     global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
     copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
@@ -227,43 +222,37 @@ export const install = Command.make(
   },
   Effect.fn(function* (options) {
     const { set: setFlag } = yield* root;
-    // Issue #12: a bare name in the positional means --set <name>; paths stay Source errors.
-    const named = Option.filter(options.source, isUserSkillsetName);
-    if (Option.isSome(named) && Option.isSome(setFlag))
+    // ADR 0003: positional Skillset references cannot be combined with --set.
+    if (Option.isSome(options.set) && Option.isSome(setFlag))
       return yield* new InstallError({
-        message: `"${named.value}" is a Skillset name; it cannot be combined with --set.`,
+        message: `"${options.set.value}" is a Skillset reference; it cannot be combined with --set.`,
       });
-    const set = yield* resolveSet(Option.isSome(named) ? named : setFlag);
-    const source = Option.isSome(named) ? Option.none() : options.source;
-    let addition:
-      | Extract<Effect.Success<ReturnType<typeof prepareAddition>>, { _tag: "Addition" }>
-      | undefined;
-    // Issue #11: Source installs prepare Entries before preflight and confirmation.
-    if (Option.isSome(source)) {
-      const interactive = yield* isInteractive(options.yes);
-      const result = yield* prepareAddition(source.value, set, {
-        ...options,
-        list: false,
-        interactive,
-      });
-      if (result._tag === "NoSelection") return;
-      addition = result;
+    // ADR 0003: invalid positional references use the User Skillset directory in the error.
+    const set = Option.isSome(options.set)
+      ? yield* resolveSet(options.set).pipe(
+          Effect.mapError(
+            () =>
+              new InstallError({ message: missingSet(Option.getOrThrow(options.set), userDir()) }),
+          ),
+        )
+      : yield* resolveSet(setFlag);
+    // Issue #22: only a missing positional file gets the Skillset-not-found message.
+    if (Option.isSome(options.set)) {
+      const fs = yield* FileSystem.FileSystem;
+      const exists = yield* fs
+        .exists(set)
+        .pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError({ message: `Cannot read Skillset file ${set}: ${error.message}` }),
+          ),
+        );
+      if (!exists) return yield* new InstallError({ message: missingSet(options.set.value, set) });
     }
-    if (!addition) return yield* installSkillset(set, options);
-    const { skillset } = addition;
-    // Issue #11: Source preflight precedes confirmation.
-    yield* Effect.scoped(
-      Effect.gen(function* () {
-        const checked = yield* checkSources(skillset.skills);
-        const plan = yield* buildInstallPlan(skillset, {
-          ...options,
-          selected: [],
-          added: addition.added,
-        });
-        if (!plan) return;
-        yield* writeSkillset(set, skillset);
-        yield* executeInstall(plan, checked);
-      }),
-    );
+    return yield* installSkillset(set, options);
   }),
 ).pipe(Command.withDescription("Install pinned Skillset Entries"));
+
+// ADR 0003: do not guess whether an invalid reference was a skill or Source.
+const missingSet = (arg: string, location: string) =>
+  `Cannot find Skillset "${arg}" in ${location}. To install a skill, use \`skillset add\`.`;
