@@ -107,6 +107,30 @@ it.effect("install <name> installs from the User Skillset and selects with -s", 
   ),
 );
 
+for (const agents of [["opencode"], ["opencode", "claude-code"]]) {
+  it.effect(`install -a ${agents.join(" ")} <name> installs the User Skillset`, () =>
+    withHome(() =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const dir = yield* fs.makeTempDirectoryScoped();
+        const up = { ...upstream(), installDir: dir };
+        const added = yield* runCli(["add", "owner/repo", "--all", "--set", "my-set"], {
+          upstream: up,
+        });
+        assert.strictEqual(added.code, 0);
+        const result = yield* runCli(["install", "-a", ...agents, "my-set", "-y"], {
+          upstream: up,
+        });
+        assert.strictEqual(result.code, 0);
+        for (const agent of agents) {
+          assert.isTrue(yield* fs.exists(`${dir}/project/${agent}/alpha`));
+          assert.isTrue(yield* fs.exists(`${dir}/project/${agent}/beta`));
+        }
+      }),
+    ),
+  );
+}
+
 it.effect("install <name> --set x is an error", () =>
   withHome(() =>
     Effect.gen(function* () {

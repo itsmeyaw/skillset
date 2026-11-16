@@ -105,6 +105,10 @@ skillset install my-set
 skillset ls -g                            # list your User Skillsets
 ```
 
+When selecting skills, put the User Skillset name before `-s` (for example,
+`skillset install my-set -s grilling`); otherwise it is treated as another skill name.
+Likewise, put the name before `-a` if it matches a supported agent ID.
+
 They are stored in the first of `$SKILLSET_HOME`, `$XDG_CONFIG_HOME/skillset`, or `~/.skillset`. To use a file in the current directory, give a path ending in `.json`.
 
 ## Skillset file format

@@ -35,6 +35,15 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
       flush();
       result.push(token);
       sourceSeen = true;
+      // Issue #13: only supported agent IDs extend a space-separated agent flag.
+    } else if (
+      (flag === "-a" || flag === "--agent") &&
+      hasValue &&
+      !getSupportedAgents().some((agent) => agent.id === token)
+    ) {
+      flush();
+      result.push(token);
+      if (adding) sourceSeen = true;
     } else if (flag !== undefined) {
       result.push(flag, token);
       hasValue = true;
@@ -50,3 +59,4 @@ export const expandSkillFlags = (argv: ReadonlyArray<string>): Array<string> => 
   flush();
   return result;
 };
+import { getSupportedAgents } from "skills";
