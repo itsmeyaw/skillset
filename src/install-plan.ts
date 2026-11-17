@@ -66,14 +66,13 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   const names =
     options.selected.length > 0
       ? options.selected
-      : ((yield* prompter.skills(
+      : yield* prompter.requiredSkills(
           skillset.skills.map((entry) => ({
             title: entry.name,
             value: entry.name,
             selected: true,
           })),
-          true,
-        )) ?? []);
+        );
   let agents: ReadonlyArray<string> | undefined =
     options.agents.length > 0 ? options.agents : undefined;
   if (options.agents.length === 0) {

@@ -12,10 +12,11 @@ type Answer<A> = Effect.Effect<
 >;
 
 export type Prompter = {
+  // Undefined means unattended selection was unavailable; an empty array means nothing was chosen.
   readonly skills: (
     choices: ReadonlyArray<SearchChoice>,
-    all: boolean,
   ) => Answer<ReadonlyArray<string> | undefined>;
+  readonly requiredSkills: (choices: ReadonlyArray<SearchChoice>) => Answer<ReadonlyArray<string>>;
   readonly agents: (
     choices: ReadonlyArray<SearchChoice>,
     defaults: ReadonlyArray<string>,
@@ -31,7 +32,8 @@ export type Prompter = {
 };
 
 const unattended: Prompter = {
-  skills: (choices, all) => Effect.succeed(all ? choices.map((choice) => choice.value) : undefined),
+  skills: () => Effect.undefined,
+  requiredSkills: (choices) => Effect.succeed(choices.map((choice) => choice.value)),
   agents: (_choices, defaults) => Effect.succeed(defaults.length > 0 ? defaults : undefined),
   scope: () => Effect.succeed("project"),
   mode: () => Effect.succeed("auto"),
@@ -44,10 +46,9 @@ const unattended: Prompter = {
 };
 
 const tty: Prompter = {
-  skills: (choices, all) =>
-    cancelOnQuit(
-      searchMultiSelect({ message: "Which skills?", choices, ...(all ? { min: 1 } : {}) }),
-    ),
+  skills: (choices) => cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices })),
+  requiredSkills: (choices) =>
+    cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices, min: 1 })),
   agents: (choices, _defaults, supported) =>
     !supported
       ? Effect.fail(new CliMessageError({ message: "No supported agents available" }))

@@ -38,7 +38,6 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
         value: skill.name,
         description: skill.description,
       })),
-      false,
     );
     if (chosen !== undefined) {
       selection = chosen;

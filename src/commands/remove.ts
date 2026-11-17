@@ -31,16 +31,15 @@ export const remove = Command.make(
         yield* Console.log(emptySkillsetMessage);
         return;
       }
-      skills =
-        (yield* prompter.skills(
-          skillset.skills.map((entry) => ({
-            title: entry.name,
-            value: entry.name,
-            description: entry.source,
-          })),
-          false,
-        )) ?? [];
-      if (skills.length === 0) return;
+      const chosen = yield* prompter.skills(
+        skillset.skills.map((entry) => ({
+          title: entry.name,
+          value: entry.name,
+          description: entry.source,
+        })),
+      );
+      if (!chosen || chosen.length === 0) return;
+      skills = chosen;
     }
     const { unknown } = selectEntries(skillset, skills);
     const next = removeEntries(skillset, all ? skillset.skills.map((entry) => entry.name) : skills);
