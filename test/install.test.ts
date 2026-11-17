@@ -505,6 +505,95 @@ it.effect("install -y rejects an Entry missing at its Pin before writing", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("install reports skipped targets without claiming they were installed", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [
+          { name: "alpha", source: "owner/repo", commit },
+          { name: "beta", source: "owner/repo", commit },
+        ],
+      }),
+    );
+    const result = yield* runCli(["install", "-y", "-a", "cursor", "--set", file], {
+      upstream: {
+        skills: {
+          [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha", "beta"],
+        },
+        skippedSkills: ["beta"],
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), "Skipped beta");
+    assert.include(result.out.join("\n"), "Installed alpha");
+    assert.notInclude(result.out.join("\n"), "Installed alpha, beta");
+    assert.isFalse(yield* fs.exists(`${dir}/project/cursor/beta`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("install omits the Installed line when every target is skipped", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-y", "-a", "cursor", "--set", file], {
+      upstream: {
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
+        skippedSkills: ["alpha"],
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), "Skipped alpha");
+    assert.notInclude(result.out.join("\n"), "Installed");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("install reports completed Entries when a later target fails", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [
+          { name: "alpha", source: "first/repo", commit },
+          { name: "beta", source: "second/repo", commit },
+        ],
+      }),
+    );
+    const result = yield* runCli(["install", "-y", "--set", file], {
+      upstream: {
+        skills: {
+          [JSON.stringify(["https://github.com/first/repo.git", commit])]: ["alpha"],
+          [JSON.stringify(["https://github.com/second/repo.git", commit])]: ["beta"],
+        },
+        failedResults: ["https://github.com/second/repo.git"],
+        installDir: dir,
+      },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.out, "Installed alpha");
+    assert.notInclude(result.out.join("\n"), "Installed alpha, beta");
+    assert.match(result.err.join("\n"), /failed.*second\/repo/i);
+    assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("install stops after an upstream install reports a failed target", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

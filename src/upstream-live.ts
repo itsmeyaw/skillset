@@ -2,11 +2,13 @@ import { Effect, Layer, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { detectAgents, getSupportedAgents, installSkills, resolveSource } from "skills";
 import { PIN_PATTERN } from "./pin.ts";
-import { Upstream, UpstreamError } from "./upstream.ts";
+import { Upstream, UpstreamError, type Agent } from "./upstream.ts";
+import { withUpstreamSession } from "./upstream-session.ts";
 
 // Spec #1, User Story 12: never reinterpret rejected Sources as Git repositories.
 // git-remote-ext(1): ext:: executes an arbitrary helper command.
 const executableTransport = (remote: string) => /^ext::/iu.test(remote);
+const toAgent = ({ id, name, universal }: Agent): Agent => ({ id, name, universal });
 
 // git-ls-remote(1): peeled tags use ^{}; prefer them to tag objects and branches.
 export const selectRemoteCommit = (output: string, ref?: string): string | undefined => {
@@ -23,6 +25,14 @@ export const selectRemoteCommit = (output: string, ref?: string): string | undef
         refs.get(`refs/tags/${ref}`) ??
         refs.get(`refs/heads/${ref}`));
 };
+
+export const assertPin = <T extends { readonly source: { readonly commit?: string } }>(
+  handle: T,
+  commit: string,
+) =>
+  handle.source.commit === commit
+    ? Effect.succeed(handle)
+    : Effect.fail(new UpstreamError({ message: `Source did not resolve to Pin ${commit}` }));
 
 export const UpstreamLive = Layer.effect(
   Upstream,
@@ -55,13 +65,18 @@ export const UpstreamLive = Layer.effect(
           catch: toError,
         }),
         (handle) => Effect.promise(() => handle.dispose()),
-      ).pipe(
-        Effect.filterOrFail(
-          (handle) => handle.source.commit === commit,
-          () => new UpstreamError({ message: `Source did not resolve to Pin ${commit}` }),
+      ).pipe(Effect.flatMap((handle) => assertPin(handle, commit)));
+    const adapter = Upstream.of({
+      withSession: (use) =>
+        withUpstreamSession(
+          resolvePinned,
+          (source, names, choices) =>
+            Effect.tryPromise({
+              try: () => installSkills(source, { ...choices, skills: names }),
+              catch: toError,
+            }),
+          use,
         ),
-      );
-    return Upstream.of({
       resolveRefs: Effect.fn("Upstream.resolveRefs")(function* (remote, refs) {
         if (executableTransport(remote))
           return yield* new UpstreamError({ message: "Unsupported Git transport: ext" });
@@ -100,12 +115,14 @@ export const UpstreamLive = Layer.effect(
         }
         return refs.map((ref) => selectRemoteCommit(stdout, ref));
       }),
-      resolveSource: resolvePinned,
-      install: (source, options) =>
-        Effect.tryPromise({ try: () => installSkills(source, options), catch: toError }),
       detectAgents: (options) =>
-        Effect.tryPromise({ try: () => detectAgents(options), catch: toError }),
-      getSupportedAgents: Effect.sync(() => getSupportedAgents()),
+        Effect.tryPromise({ try: () => detectAgents(options), catch: toError }).pipe(
+          Effect.map(({ agents }) => ({
+            agents: agents.map(toAgent),
+          })),
+        ),
+      getSupportedAgents: Effect.sync(() => getSupportedAgents().map(toAgent)),
     });
+    return adapter;
   }),
 );

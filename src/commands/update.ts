@@ -2,6 +2,7 @@ import { Console, Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { CliMessageError as UpdateError } from "../errors.ts";
 import { makePinning } from "../pinning.ts";
+import { Upstream } from "../upstream.ts";
 import {
   movePin,
   openCommandSkillset,
@@ -14,11 +15,12 @@ export const update = Command.make(
   "update",
   { skills: Argument.String("skills").pipe(Argument.variadic()) },
   Effect.fn(function* ({ skills }) {
-    return yield* Effect.scoped(
+    const upstream = yield* Upstream;
+    return yield* upstream.withSession((session) =>
       Effect.gen(function* () {
         const store = yield* openCommandSkillset({ missing: "fail" });
         let skillset = store.skillset;
-        const pinning = yield* makePinning();
+        const pinning = yield* makePinning(session);
         // Spec #1, User Story 22: named updates leave all other Entries alone.
         const { entries, unknown } = selectEntries(skillset, skills);
         const changes: Array<string> = [];

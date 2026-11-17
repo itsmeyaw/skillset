@@ -1,8 +1,6 @@
 import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
-import type { AgentInfo, InstallMode, SkillSource } from "skills";
 import { CliMessageError as InstallError, emptySkillsetMessage } from "../errors.ts";
-import { makePinning, type Pinning } from "../pinning.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
@@ -13,17 +11,17 @@ import {
   selectEntries,
   unknownNamesMessage,
 } from "../skillset-store.ts";
-import { Upstream } from "../upstream.ts";
+import { Upstream, type Agent, type InstallChoices, type UpstreamSession } from "../upstream.ts";
 
 type InstallPlan = {
   readonly entries: ReadonlyArray<Entry>;
   readonly agents: ReadonlyArray<string> | undefined;
   readonly global: boolean;
-  readonly mode: InstallMode;
+  readonly mode: InstallChoices["mode"];
 };
 
 // Spec #1, install: share the default agent selection across interactive and unattended installs.
-const agentChoices = (supported: ReadonlyArray<AgentInfo>, detected: ReadonlyArray<AgentInfo>) => {
+const agentChoices = (supported: ReadonlyArray<Agent>, detected: ReadonlyArray<Agent>) => {
   const defaults = ["universal", "claude-code"].filter((id) =>
     supported.some((agent) => agent.id === id),
   );
@@ -55,26 +53,27 @@ const agentChoices = (supported: ReadonlyArray<AgentInfo>, detected: ReadonlyArr
   return { defaults, choices };
 };
 
-// Spec #1, install: checked Sources remain scoped until all installs complete.
 const executeInstall = Effect.fn("executeInstall")(function* (
   plan: InstallPlan,
-  checked: ReadonlyArray<{ readonly source: SkillSource; readonly entries: ReadonlyArray<Entry> }>,
+  session: UpstreamSession,
 ) {
-  const upstream = yield* Upstream;
-  for (const { source, entries } of checked) {
-    const result = yield* upstream.install(source, {
-      skills: entries.map((entry) => entry.name),
-      agents: plan.agents,
-      scope: plan.global ? "global" : "project",
-      mode: plan.mode,
+  const result = yield* session.install(plan.entries, {
+    agents: plan.agents,
+    scope: plan.global ? "global" : "project",
+    mode: plan.mode,
+  });
+  const installed = new Set(result.installed.map((target) => target.skill));
+  for (const target of result.skipped)
+    yield* Console.log(`Skipped ${target.skill} for ${target.agent}: ${target.reason}`);
+  const names = plan.entries
+    .filter((entry) => installed.has(entry.name))
+    .map((entry) => entry.name);
+  if (names.length > 0) yield* Console.log(`Installed ${names.join(", ")}`);
+  // Spec #1, User Story 41: stop on the first failed write without rollback.
+  if (result.failed.length > 0)
+    return yield* new InstallError({
+      message: result.failed.map((failure) => failure.message).join("; "),
     });
-    // Spec #1, User Story 41: stop on the first failed write without rollback.
-    if (result.failed.length > 0)
-      return yield* new InstallError({
-        message: result.failed.map((failure) => failure.message).join("; "),
-      });
-  }
-  yield* Console.log(`Installed ${plan.entries.map((entry) => entry.name).join(", ")}`);
 });
 
 // ADR 0003: confirm the plan before installing skills.
@@ -110,7 +109,7 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   let names: ReadonlyArray<string> = selected;
   let targets: ReadonlyArray<string> | undefined = agents.length === 0 ? undefined : agents;
   let scope = global;
-  let mode: InstallMode = copy ? "copy" : "auto";
+  let mode: InstallChoices["mode"] = copy ? "copy" : "auto";
   // Spec #1, User Stories 33–36: explicit flags skip their corresponding prompts.
   if (interactive && selected.length === 0) {
     names = yield* cancelOnQuit(
@@ -199,11 +198,11 @@ type InstallOptions = Parameters<typeof buildInstallPlan>[1];
 export const installSkillset = Effect.fn("installSkillset")(function* (
   skillset: Skillset,
   options: InstallOptions,
-  pinning: Pinning,
+  session: UpstreamSession,
 ) {
   const plan = yield* buildInstallPlan(skillset, options);
   if (!plan) return;
-  yield* executeInstall(plan, yield* pinning.verify(plan.entries));
+  yield* executeInstall(plan, session);
 });
 
 // Spec #1, install -y: omitted agents use shared defaults, project scope, and auto mode.
@@ -223,11 +222,9 @@ export const install = Command.make(
       missing: "fail",
       install: true,
     });
-    return yield* Effect.scoped(
-      Effect.gen(function* () {
-        const pinning = yield* makePinning();
-        return yield* installSkillset(store.skillset, options, pinning);
-      }),
+    const upstream = yield* Upstream;
+    return yield* upstream.withSession((session) =>
+      installSkillset(store.skillset, options, session),
     );
   }),
 ).pipe(Command.withDescription("Install pinned Skillset Entries"));

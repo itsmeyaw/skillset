@@ -36,7 +36,7 @@ The exact commit of the Source that an Entry was taken from.
 _Avoid_: Version, lock, hash
 
 **Pinning**:
-The module that resolves Sources to Pins and skills, and verifies Entries at their Pins.
+The module that resolves Sources to Pins and skills. Upstream verifies Entries at their Pins during Install.
 
 **Universal agents**:
 The agents that read skills from the shared `.agents/skills` directory, so one install reaches all of them.
