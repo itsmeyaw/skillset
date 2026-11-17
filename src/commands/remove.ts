@@ -48,14 +48,11 @@ export const remove = Command.make(
       if (skills.length === 0) return;
     }
     const { unknown } = selectEntries(skillset, skills);
-    const remaining = removeEntries(
-      skillset,
-      all ? skillset.skills.map((entry) => entry.name) : skills,
-    );
+    const next = removeEntries(skillset, all ? skillset.skills.map((entry) => entry.name) : skills);
     // Spec #1, User Story 20: report unknown names after removing known Entries.
-    if (all || remaining.skills.length !== skillset.skills.length) {
-      yield* store.save(remaining);
-      const removed = skillset.skills.filter((entry) => !remaining.skills.includes(entry));
+    if (all || next.skills.length !== skillset.skills.length) {
+      yield* store.save(next);
+      const removed = skillset.skills.filter((entry) => !next.skills.includes(entry));
       if (removed.length > 0)
         yield* Console.log(
           `Removed ${removed.map((entry) => entry.name).join(", ")} from ${store.path}`,
