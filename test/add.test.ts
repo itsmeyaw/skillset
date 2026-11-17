@@ -617,7 +617,7 @@ it.effect("add leaves the file absent when Source lookup fails", () =>
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(["add", "owner/repo", "--all", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Fake commit not configured/);
+    assert.include(result.err.join("\n"), "Ref HEAD not found in owner/repo");
     assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
@@ -1083,10 +1083,7 @@ it.effect("interactive add keeps earlier Entries when a later Source fails", () 
       upstream,
     });
     assert.strictEqual(result.code, 0);
-    assert.include(
-      result.err,
-      "Warning: Fake commit not configured for https://github.com/other/repo.git",
-    );
+    assert.include(result.err, "Warning: Ref HEAD not found in other/repo");
     assert.match(result.screen.join(""), /Install skillset\?/);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { name: "alpha", source: "owner/repo", commit },
@@ -1117,10 +1114,7 @@ it.effect.each([{ flags: ["-s", "missing"] }, { flags: ["--all"] }, { flags: ["-
         upstream,
       });
       assert.strictEqual(result.code, 0);
-      assert.include(
-        result.err,
-        "Warning: Fake commit not configured for https://github.com/bad/repo.git",
-      );
+      assert.include(result.err, "Warning: Ref HEAD not found in bad/repo");
       assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
         { name: "alpha", source: "owner/repo", commit },
       ]);
@@ -1148,14 +1142,8 @@ it.effect("interactive add fails with the last error when every round fails", ()
     });
     assert.strictEqual(result.code, 1);
     assert.include(result.err, `Warning: No skills found in empty/repo at ${commit}`);
-    assert.include(
-      result.err,
-      "Warning: Fake commit not configured for https://github.com/bad/repo.git",
-    );
-    assert.match(
-      String(result.err.at(-1)),
-      /Fake commit not configured for https:\/\/github.com\/bad\/repo.git/,
-    );
+    assert.include(result.err, "Warning: Ref HEAD not found in bad/repo");
+    assert.match(String(result.err.at(-1)), /Ref HEAD not found in bad\/repo/);
     assert.notInclude(result.screen.join(""), "Install skillset?");
     assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
@@ -1172,10 +1160,7 @@ it.effect("add -y fails without a warning or retry prompt", () =>
       upstream,
     });
     assert.strictEqual(result.code, 1);
-    assert.match(
-      result.err.join("\n"),
-      /Fake commit not configured for https:\/\/github.com\/bad\/repo.git/,
-    );
+    assert.match(result.err.join("\n"), /Ref HEAD not found in bad\/repo/);
     assert.notInclude(result.err.join("\n"), "Warning:");
     assert.deepStrictEqual(result.screen, []);
     assert.isFalse(yield* fs.exists(file));
@@ -1200,10 +1185,7 @@ it.effect("cancelling the retry prompt exits 130 without writing earlier Entries
     });
     assert.strictEqual(result.code, 130);
     assert.include(result.out.join("\n"), "Cancelled");
-    assert.include(
-      result.err,
-      "Warning: Fake commit not configured for https://github.com/bad/repo.git",
-    );
+    assert.include(result.err, "Warning: Ref HEAD not found in bad/repo");
     assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

@@ -58,10 +58,9 @@ export const fakeUpstream = (
       resolveRefs: (source, refs) => {
         options.calls?.push("resolveRefs");
         options.commitLookups?.push(JSON.stringify([source, refs[0] ?? null]));
-        const commits = refs.map((ref) => options.commits?.[JSON.stringify([source, ref ?? null])]);
-        return commits.every((commit) => commit === undefined)
-          ? Effect.fail(new UpstreamError({ message: `Fake commit not configured for ${source}` }))
-          : Effect.succeed(commits);
+        return Effect.succeed(
+          refs.map((ref) => options.commits?.[JSON.stringify([source, ref ?? null])]),
+        );
       },
       resolveSource: (source, commit) => {
         options.calls?.push(`resolveSource ${source} ${commit}`);

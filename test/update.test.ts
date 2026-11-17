@@ -253,7 +253,10 @@ it.effect("update keeps failed Source Pins and updates other Sources", () =>
       },
     });
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Fake commit not configured/);
+    assert.include(
+      result.err.join("\n"),
+      "Warning: broken/repo: Ref HEAD not found in broken/repo",
+    );
     assert.match(result.err.join("\n"), /Fake skills not configured/);
     assert.deepStrictEqual(commitLookups, [
       JSON.stringify(["https://github.com/broken/repo.git", null]),
