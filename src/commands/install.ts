@@ -17,7 +17,7 @@ export const install = Command.make(
       Flag.annotate(Expansion, { reserveLast: true }),
       Flag.atLeast(0),
     ),
-    agents,
+    agents: agents(),
     global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
     copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),

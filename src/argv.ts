@@ -49,7 +49,7 @@ export const expandSkillFlags = (
   for (const token of argv) {
     if (rest) {
       result.push(token);
-      positionalSeen = true;
+      if (commandSeen) positionalSeen = true;
     } else if (token === "--") {
       flush();
       rest = true;
@@ -79,7 +79,7 @@ export const expandSkillFlags = (
     } else if (flag && hasValue && rule(flag.spec)?.accepts?.(token, agentIds) === false) {
       flush();
       result.push(token);
-      positionalSeen = true;
+      if (commandSeen) positionalSeen = true;
     } else if (flag !== undefined) {
       if (flag.local && rule(flag.spec)?.reserveLast && hasValue) skillsetIndex = result.length;
       result.push(flag.token, token);

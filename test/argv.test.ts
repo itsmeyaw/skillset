@@ -121,6 +121,20 @@ it("expands add agents without consuming the Source", () => {
   );
 });
 
+it("keeps a Source before the first agent and later expands skills", () => {
+  assert.deepStrictEqual(
+    expandSkillFlags(["add", "-a", "owner/repo", "fake-one", "-s", "other/repo", "alpha"]),
+    ["add", "-a", "owner/repo", "fake-one", "-s", "other/repo", "-s", "alpha"],
+  );
+});
+
+it("does not count an agent value before the command as its positional argument", () => {
+  assert.deepStrictEqual(
+    expandSkillFlags(["-a", "fake-one", "unknown", "install", "-s", "alpha", "my-set"]),
+    ["-a", "fake-one", "unknown", "install", "-s", "alpha", "my-set"],
+  );
+});
+
 it("keeps skills after a User Skillset name following an agent", () => {
   assert.deepStrictEqual(
     expandSkillFlags(["install", "-a", "fake-one", "my-set", "-s", "alpha", "beta"]),

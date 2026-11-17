@@ -11,6 +11,8 @@ import type { Entry, Skillset } from "../skillset-file.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
 
+const isSource = (value: string) => /[/:]/u.test(value);
+
 // Spec #1, add: list skills without changing the Skillset when no selection is given.
 export const add = Command.make(
   "add",
@@ -18,13 +20,13 @@ export const add = Command.make(
     source: Argument.String("source").pipe(Argument.optional),
     selected: Flag.String("skill").pipe(
       Flag.withAlias("s"),
-      Flag.annotate(Expansion, { positional: (value) => /[/:]/u.test(value) }),
+      Flag.annotate(Expansion, { positional: isSource }),
       Flag.atLeast(0),
     ),
     all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
     list: Flag.Boolean("list").pipe(Flag.withAlias("l"), Flag.withDefault(false)),
     install: Flag.Boolean("install").pipe(Flag.withDefault(false)),
-    agents,
+    agents: agents(isSource),
     global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
     copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
