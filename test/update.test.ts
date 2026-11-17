@@ -65,9 +65,11 @@ it.effect("update resolves each distinct Source once and follows its branch", ()
     ];
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: entries }));
     const commitLookups: Array<string> = [];
+    const calls: Array<string> = [];
     const result = yield* runCli(["update", "--set", file], {
       upstream: {
         commitLookups,
+        calls,
         commits: {
           [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest,
           [JSON.stringify(["https://github.com/owner/repo.git", "dev"])]: "c".repeat(40),
@@ -83,6 +85,13 @@ it.effect("update resolves each distinct Source once and follows its branch", ()
       JSON.stringify(["https://github.com/owner/repo.git", null]),
       JSON.stringify(["https://github.com/owner/repo.git", "dev"]),
     ]);
+    assert.deepStrictEqual(
+      calls.filter((call) => call.startsWith("resolveSource ")),
+      [
+        `resolveSource https://github.com/owner/repo.git ${latest}`,
+        `resolveSource https://github.com/owner/repo.git ${"c".repeat(40)}`,
+      ],
+    );
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { ...entries[0], commit: latest },
       { ...entries[2], commit: "c".repeat(40) },
