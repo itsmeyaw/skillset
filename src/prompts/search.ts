@@ -42,10 +42,7 @@ const matches = (choices: ReadonlyArray<SearchChoice>, query: string) =>
       .includes(query.toLowerCase()),
   );
 
-const search = (
-  options: SearchOptions,
-  multiple: boolean,
-): Prompt.Prompt<ReadonlyArray<string>> => {
+export const searchMultiSelect = (options: SearchOptions): Prompt.Prompt<ReadonlyArray<string>> => {
   // Issue #11: detected agents begin selected; skill choices begin unselected.
   const initial: SearchState = {
     query: "",
@@ -67,14 +64,11 @@ const search = (
       .map((value) => safeText(titles.get(value) ?? value));
     const summary =
       chosen.slice(0, 2).join(", ") + (chosen.length > 2 ? ` +${chosen.length - 2} more` : "");
-    const lines = [
-      `${options.message}  Search: ${state.query}`,
-      ...(multiple ? [`Selected: ${summary || "none"}`] : []),
-    ];
+    const lines = [`${options.message}  Search: ${state.query}`, `Selected: ${summary || "none"}`];
     if (start > 0) lines.push(`  ↑ ${start} more`);
     for (const [index, choice] of filtered.slice(start, start + height).entries()) {
       lines.push(
-        `${start + index === state.index ? "❯" : " "} ${multiple ? (state.selected.has(choice.value) ? "[x] " : "[ ] ") : ""}${safeText(choice.title)}`,
+        `${start + index === state.index ? "❯" : " "} ${state.selected.has(choice.value) ? "[x] " : "[ ] "}${safeText(choice.title)}`,
       );
     }
     if (start + height < filtered.length)
@@ -132,7 +126,7 @@ const search = (
       const selected = new Set(state.selected);
       const next = (change: Partial<SearchState>) =>
         Effect.succeed({ _tag: "NextFrame" as const, state: { ...state, error: "", ...change } });
-      if (input.key.ctrl && input.key.name === "a" && multiple) {
+      if (input.key.ctrl && input.key.name === "a") {
         for (const choice of filtered) selected.add(choice.value);
         return next({ selected });
       }
@@ -143,7 +137,7 @@ const search = (
             filtered.length === 0 ? 0 : (state.index + delta + filtered.length) % filtered.length,
         });
       }
-      if (input.key.name === "space" && multiple) {
+      if (input.key.name === "space") {
         const choice = filtered[state.index];
         if (choice) {
           if (selected.has(choice.value)) selected.delete(choice.value);
@@ -152,14 +146,10 @@ const search = (
         return next({ selected });
       }
       if (input.key.name === "enter" || input.key.name === "return") {
-        const values = multiple
-          ? options.choices
-              .filter((choice) => selected.has(choice.value))
-              .map((choice) => choice.value)
-          : filtered[state.index]
-            ? [filtered[state.index]!.value]
-            : [];
-        if (values.length < (options.min ?? (multiple ? 0 : 1)))
+        const values = options.choices
+          .filter((choice) => selected.has(choice.value))
+          .map((choice) => choice.value);
+        if (values.length < (options.min ?? 0))
           return next({ error: `At least ${options.min ?? 1} are required` });
         return Effect.succeed({ _tag: "Submit" as const, value: values });
       }
@@ -179,8 +169,3 @@ const search = (
     },
   });
 };
-
-// Issue #11: dropdowns and multiselects use the same searchable interaction.
-export const searchMultiSelect = (options: SearchOptions) => search(options, true);
-export const searchSelect = (options: SearchOptions) =>
-  Prompt.map(search(options, false), (values) => values[0]!);
