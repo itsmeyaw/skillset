@@ -22,11 +22,12 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
       const commits = await Effect.runPromise(
         Upstream.use((upstream) =>
           Effect.all([
-            upstream.resolveCommit("sindresorhus/is", "v7.0.0"),
-            upstream.resolveCommit("mattpocock/skills.git"),
-            upstream.resolveCommit("mattpocock/skills", "main"),
-            upstream.resolveCommit("lodash/lodash", "4.17.21"),
-            upstream.resolveCommit("mattpocock/skills", commit),
+            upstream.resolveRefs("sindresorhus/is", ["v7.0.0"]).pipe(Effect.map((refs) => refs[0])),
+            upstream
+              .resolveRefs("mattpocock/skills.git", [undefined])
+              .pipe(Effect.map((refs) => refs[0])),
+            upstream.resolveRefs("mattpocock/skills", ["main"]).pipe(Effect.map((refs) => refs[0])),
+            upstream.resolveRefs("lodash/lodash", ["4.17.21"]).pipe(Effect.map((refs) => refs[0])),
           ]),
         ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
       );
@@ -34,7 +35,6 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
       expect(commits[1]).toMatch(/^[a-f0-9]{40}$/u);
       expect(commits[2]).toBe(commits[1]);
       expect(commits[3]).toBe("f299b52f39486275a9e6483b60a410e06520c538");
-      expect(commits[4]).toBe(commit);
     }, 120_000);
 
     it("lists and installs a scoped source at a full SHA", async () => {

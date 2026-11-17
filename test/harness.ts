@@ -6,7 +6,7 @@ import { ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 import type { AgentInfo, SkillSource } from "skills";
 import { runArgv } from "../src/cli.ts";
-import { ambiguousTreeMessage, Upstream, UpstreamError } from "../src/upstream.ts";
+import { Upstream, UpstreamError } from "../src/upstream.ts";
 
 // Issue #11: fake Sources and listings expose the same skill descriptions.
 const toSkill = (skill: string | { readonly name: string; readonly description: string }) =>
@@ -55,27 +55,13 @@ export const fakeUpstream = (
   return Layer.succeed(
     Upstream,
     Upstream.of({
-      resolveCommit: (source, ref, treeRefs = []) => {
-        options.calls?.push("resolveCommit");
-        options.commitLookups?.push(JSON.stringify([source, ref ?? null]));
-        if (treeRefs.some((candidate) => options.commits?.[JSON.stringify([source, candidate])])) {
-          return Effect.fail(new UpstreamError({ message: ambiguousTreeMessage }));
-        }
-        const commit = options.commits?.[JSON.stringify([source, ref ?? null])];
-        return commit === undefined
+      resolveRefs: (source, refs) => {
+        options.calls?.push("resolveRefs");
+        options.commitLookups?.push(JSON.stringify([source, refs[0] ?? null]));
+        const commits = refs.map((ref) => options.commits?.[JSON.stringify([source, ref ?? null])]);
+        return commits.every((commit) => commit === undefined)
           ? Effect.fail(new UpstreamError({ message: `Fake commit not configured for ${source}` }))
-          : Effect.succeed(commit);
-      },
-      listSkills: (source, commit) => {
-        options.calls?.push("listSkills");
-        const skills = options.skills?.[JSON.stringify([source, commit])];
-        return skills === undefined
-          ? Effect.fail(
-              new UpstreamError({
-                message: `Fake skills not configured for ${source} at ${commit}`,
-              }),
-            )
-          : Effect.succeed(skills.map(toSkill));
+          : Effect.succeed(commits);
       },
       resolveSource: (source, commit) => {
         options.calls?.push(`resolveSource ${source} ${commit}`);

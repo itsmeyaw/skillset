@@ -8,7 +8,11 @@ it("lists skill names and descriptions", async () => {
   const commit = "a".repeat(40);
   const skills = [{ name: "alpha", description: "First skill" }];
   const result = await Effect.runPromise(
-    Upstream.use((upstream) => upstream.listSkills(source, commit)).pipe(
+    Upstream.use((upstream) =>
+      Effect.scoped(
+        upstream.resolveSource(source, commit).pipe(Effect.map((handle) => handle.skills)),
+      ),
+    ).pipe(
       Effect.provide(fakeUpstream({ skills: { [JSON.stringify([source, commit])]: skills } })),
     ),
   );

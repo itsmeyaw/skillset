@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import type { SkillSource } from "skills";
-import { CliMessageError, missingSkillsMessage } from "./errors.ts";
+import { ambiguousTreeMessage, CliMessageError, missingSkillsMessage } from "./errors.ts";
 import { PIN_PATTERN } from "./pin.ts";
 import type { Entry } from "./skillset-file.ts";
 import { parseSource } from "./source.ts";
@@ -42,10 +42,21 @@ export const makePinning = Effect.fn("makePinning")(function* () {
       const result = yield* Effect.gen(function* () {
         const parsed = parseSource(input);
         if ("error" in parsed) return yield* new CliMessageError({ message: parsed.error });
-        const commit =
-          parsed.ref !== undefined && PIN_PATTERN.test(parsed.ref) && !parsed.treeRefs?.length
-            ? parsed.ref
-            : yield* upstream.resolveCommit(parsed.remote, parsed.ref, parsed.treeRefs);
+        const isSha = parsed.ref !== undefined && PIN_PATTERN.test(parsed.ref);
+        let commit = isSha ? parsed.ref : undefined;
+        if (!isSha || parsed.treeRefs?.length) {
+          const [resolved, ...longer] = yield* upstream.resolveRefs(parsed.remote, [
+            parsed.ref,
+            ...(parsed.treeRefs ?? []),
+          ]);
+          if (longer.some((candidate) => candidate !== undefined))
+            return yield* new CliMessageError({ message: ambiguousTreeMessage });
+          commit ??= resolved;
+        }
+        if (commit === undefined)
+          return yield* new CliMessageError({
+            message: `Ref ${parsed.ref ?? "HEAD"} not found in ${parsed.remote}`,
+          });
         const fetched = yield* handle(parsed.stored, parsed.remote, commit);
         return { source: parsed.stored, commit, skills: fetched.skills, skill: parsed.skill };
       }).pipe(Effect.result);

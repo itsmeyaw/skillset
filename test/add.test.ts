@@ -56,7 +56,7 @@ it.effect("add --install clones each Source and Pin once", () =>
       { upstream: { ...upstream, calls } },
     );
     assert.strictEqual(result.code, 0);
-    assert.deepStrictEqual(calls, ["resolveCommit", `resolveSource owner/repo ${commit}`]);
+    assert.deepStrictEqual(calls, ["resolveRefs", `resolveSource owner/repo ${commit}`]);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
