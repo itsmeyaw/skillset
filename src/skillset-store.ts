@@ -26,8 +26,9 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
       message: `"${positional}" cannot be combined with --set.`,
     });
   const reference = positional ?? Option.getOrUndefined(set) ?? "./skillset.json";
+  const hint = install ? ". To install a skill, use `skillset add`." : "";
   const missingMessage = (location: string) =>
-    `Cannot find Skillset "${reference}" in ${location}${install ? ". To install a skill, use `skillset add`." : ""}`;
+    `Cannot find Skillset "${reference}" in ${location}${hint}`;
   const path = yield* resolveSet(
     Option.fromNullishOr(positional ?? Option.getOrUndefined(set)),
     env,
