@@ -25,6 +25,14 @@ export const selectRemoteCommit = (output: string, ref?: string): string | undef
         refs.get(`refs/heads/${ref}`));
 };
 
+export const assertPin = <T extends { readonly source: { readonly commit?: string } }>(
+  handle: T,
+  commit: string,
+) =>
+  handle.source.commit === commit
+    ? Effect.succeed(handle)
+    : Effect.fail(new UpstreamError({ message: `Source did not resolve to Pin ${commit}` }));
+
 export const UpstreamLive = Layer.effect(
   Upstream,
   Effect.gen(function* () {
@@ -56,12 +64,7 @@ export const UpstreamLive = Layer.effect(
           catch: toError,
         }),
         (handle) => Effect.promise(() => handle.dispose()),
-      ).pipe(
-        Effect.filterOrFail(
-          (handle) => handle.source.commit === commit,
-          () => new UpstreamError({ message: `Source did not resolve to Pin ${commit}` }),
-        ),
-      );
+      ).pipe(Effect.flatMap((handle) => assertPin(handle, commit)));
     const adapter = Upstream.of({
       withSession: (use) =>
         withUpstreamSession(

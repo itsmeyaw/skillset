@@ -10,7 +10,19 @@ import { Effect, Layer } from "effect";
 import { expect, it } from "vitest";
 import { makePinning } from "../src/pinning.ts";
 import { Upstream } from "../src/upstream.ts";
-import { selectRemoteCommit, UpstreamLive } from "../src/upstream-live.ts";
+import { assertPin, selectRemoteCommit, UpstreamLive } from "../src/upstream-live.ts";
+
+it("rejects a source whose resolved commit differs from its Pin", async () => {
+  const commit = "a".repeat(40);
+  const handle = { source: { commit: "b".repeat(40) } };
+  const error = await Effect.runPromise(assertPin(handle, commit).pipe(Effect.flip));
+  expect(error.message).toBe(`Source did not resolve to Pin ${commit}`);
+  const missing = await Effect.runPromise(assertPin({ source: {} }, commit).pipe(Effect.flip));
+  expect(missing.message).toBe(`Source did not resolve to Pin ${commit}`);
+  expect(await Effect.runPromise(assertPin({ source: { commit } }, commit))).toEqual({
+    source: { commit },
+  });
+});
 
 it("selects the default branch commit from git ls-remote output", () => {
   const output = "0123456789abcdef0123456789abcdef01234567\tHEAD\n";
