@@ -110,9 +110,9 @@ it("keeps a pinned source for installation and disposes it at scope exit", async
             ),
           ).toEqual([{ name: "example", description: "An example skill" }]);
           expect(
-            (yield* Effect.scoped(upstream.resolveSource("local/repo.git", commit))).skills.map(
-              (skill) => skill.name,
-            ),
+            (yield* Effect.scoped(
+              upstream.resolveSource("https://github.com/local/repo.git", commit),
+            )).skills.map((skill) => skill.name),
           ).toEqual(["example"]);
           // git-config(1): both remote spellings resolve to the local fixture without network access.
           expect(

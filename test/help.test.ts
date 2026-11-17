@@ -22,8 +22,10 @@ it.effect("aliases execute their commands", () =>
     const file = `${dir}/set.json`;
     const commit = "a".repeat(40);
     const upstream = {
-      commits: { [JSON.stringify(["owner/repo", null])]: commit },
-      skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha", "beta"] },
+      commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: commit },
+      skills: {
+        [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha", "beta"],
+      },
       installDir: dir,
     };
     const added = yield* runCli(["a", "-s", "alpha", "beta", "owner/repo", "--set", file], {

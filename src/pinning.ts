@@ -55,7 +55,7 @@ export const makePinning = Effect.fn("makePinning")(function* () {
         }
         if (commit === undefined)
           return yield* new CliMessageError({
-            message: `Ref ${parsed.ref ?? "HEAD"} not found in ${parsed.remote}`,
+            message: `Ref ${parsed.ref ?? "HEAD"} not found in ${parsed.displayRemote ?? parsed.remote}`,
           });
         const fetched = yield* handle(parsed.stored, parsed.remote, commit);
         return { source: parsed.stored, commit, skills: fetched.skills, skill: parsed.skill };

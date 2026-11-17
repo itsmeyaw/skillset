@@ -4,11 +4,16 @@ import { PIN_PATTERN } from "./pin.ts";
 export type ParsedSource = {
   readonly stored: string;
   readonly remote: string;
+  readonly displayRemote?: string;
   readonly ref: string | undefined;
   readonly fixed: boolean;
   readonly skill: string | undefined;
   readonly treeRefs?: ReadonlyArray<string>;
 };
+
+// GitHub shorthand has one clone URL for both Git and skills.
+const githubRemote = (remote: string): string =>
+  `https://github.com/${remote}${remote.endsWith(".git") ? "" : ".git"}`;
 
 // skills@1.8.1 decodeFragmentValue: retain malformed escapes as literal refs.
 const decodeRef = (ref: string | undefined): string | undefined => {
@@ -91,7 +96,8 @@ const parsePinned = (source: string): ParsedSource | undefined => {
   ) {
     return {
       stored: source,
-      remote: pinned[1]!,
+      remote: githubRemote(pinned[1]!),
+      displayRemote: pinned[1]!,
       // Spec #1, Skillset file format: Pins use lowercase hexadecimal.
       ref: PIN_PATTERN.test(pinned[2]!.toLowerCase()) ? pinned[2]!.toLowerCase() : pinned[2],
       fixed: true,
@@ -127,7 +133,8 @@ const parseShorthand = (source: string): ParsedSource | { readonly error: string
   }
   return {
     stored: source,
-    remote: match[1]!,
+    remote: githubRemote(match[1]!),
+    displayRemote: match[1]!,
     ref: decodeRef(match[2]),
     fixed: false,
     skill: undefined,

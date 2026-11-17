@@ -120,7 +120,9 @@ it.effect("interactive install prompts in order and uses selected options", () =
       upstream: {
         supportedAgents: [cursor, claude],
         detectedAgents: [claude],
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha", "beta"] },
+        skills: {
+          [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha", "beta"],
+        },
         installDir: dir,
       },
     });
@@ -173,7 +175,7 @@ it.effect("interactive install collapses Universal agents and selects the defaul
       upstream: {
         supportedAgents: [universal, claude, universalCursor, ...members, windsurf],
         detectedAgents: [universalCursor, windsurf],
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
         installDir: dir,
       },
     });
@@ -214,7 +216,7 @@ it.effect("interactive install lets users deselect default agents", () =>
       keys: [key("space"), key("enter"), key("enter"), key("escape")],
       upstream: {
         supportedAgents: [universal, claude, universalCursor],
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
         installDir: dir,
       },
     });
@@ -264,7 +266,7 @@ it.effect("interactive install requires an agent when none are detected", () =>
       keys: [key("enter"), key("down"), key("down"), key("space"), key("enter"), key("enter")],
       upstream: {
         supportedAgents: [cursor],
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
         installDir: dir,
       },
     });
@@ -297,7 +299,7 @@ it.effect.each([
       upstream: {
         supportedAgents: [cursor],
         detectedAgents: [cursor],
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
         installDir: dir,
       },
     });
@@ -341,7 +343,7 @@ it.effect.each([
       upstream: {
         supportedAgents: [universal, claude, universalCursor, windsurf],
         detectedAgents: [universalCursor, windsurf],
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
         installDir: dir,
       },
     });
@@ -372,7 +374,7 @@ it.effect("unattended defaults exclude unavailable and unsupported agents", () =
       upstream: {
         supportedAgents: [windsurf],
         detectedAgents: [windsurf, claude, universalCursor],
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
         installDir: dir,
       },
     });
@@ -397,7 +399,7 @@ it.effect("-y without any default agent falls back to upstream defaults", () =>
       upstream: {
         supportedAgents: [cursor],
         detectedAgents: [],
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
         installDir: dir,
       },
     });
@@ -422,7 +424,7 @@ it.effect("explicit Universal agent IDs stay unchanged", () =>
       upstream: {
         supportedAgents: [universal, claude, universalCursor],
         detectedAgents: [universalCursor],
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
         installDir: dir,
       },
     });
@@ -463,7 +465,9 @@ it.effect("install -y installs only selected Entries at their Pins with requeste
       ],
       {
         upstream: {
-          skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha", "unlisted"] },
+          skills: {
+            [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha", "unlisted"],
+          },
           installDir: dir,
         },
       },
@@ -490,7 +494,9 @@ it.effect("install -y rejects an Entry missing at its Pin before writing", () =>
     });
     yield* fs.writeFileString(file, original);
     const result = yield* runCli(["install", "-y", "--set", file], {
-      upstream: { skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] } },
+      upstream: {
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
+      },
     });
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /missing/i);
@@ -518,11 +524,11 @@ it.effect("install stops after an upstream install reports a failed target", () 
     const result = yield* runCli(["install", "-y", "--set", file], {
       upstream: {
         skills: {
-          [JSON.stringify(["first/repo", commit])]: ["alpha"],
-          [JSON.stringify(["second/repo", commit])]: ["beta"],
-          [JSON.stringify(["third/repo", commit])]: ["gamma"],
+          [JSON.stringify(["https://github.com/first/repo.git", commit])]: ["alpha"],
+          [JSON.stringify(["https://github.com/second/repo.git", commit])]: ["beta"],
+          [JSON.stringify(["https://github.com/third/repo.git", commit])]: ["gamma"],
         },
-        failedResults: ["second/repo"],
+        failedResults: ["https://github.com/second/repo.git"],
         installDir: dir,
         disposalLog: `${dir}/disposed`,
       },
@@ -533,7 +539,11 @@ it.effect("install stops after an upstream install reports a failed target", () 
     assert.isFalse(yield* fs.exists(`${dir}/project/universal/gamma`));
     assert.deepStrictEqual(
       (yield* fs.readFileString(`${dir}/disposed`)).trim().split("\n").sort(),
-      [`first/repo ${commit}`, `second/repo ${commit}`, `third/repo ${commit}`],
+      [
+        `https://github.com/first/repo.git ${commit}`,
+        `https://github.com/second/repo.git ${commit}`,
+        `https://github.com/third/repo.git ${commit}`,
+      ],
     );
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
@@ -561,8 +571,12 @@ it.effect("install -y uses default targets and leaves unrelated skills untouched
     const result = yield* runCli(["install", "-y", "--set", file], {
       upstream: {
         skills: {
-          [JSON.stringify(["owner/repo", commit])]: ["alpha", "beta", "outside"],
-          [JSON.stringify(["owner/repo", second])]: ["gamma"],
+          [JSON.stringify(["https://github.com/owner/repo.git", commit])]: [
+            "alpha",
+            "beta",
+            "outside",
+          ],
+          [JSON.stringify(["https://github.com/owner/repo.git", second])]: ["gamma"],
         },
         installDir: dir,
         disposalLog: log,
@@ -581,8 +595,8 @@ it.effect("install -y uses default targets and leaves unrelated skills untouched
     assert.strictEqual(yield* fs.readFileString(`${dir}/project/universal/custom`), "mine");
     assert.isFalse(yield* fs.exists(`${dir}/project/universal/outside`));
     assert.deepStrictEqual((yield* fs.readFileString(log)).trim().split("\n").sort(), [
-      `owner/repo ${commit}`,
-      `owner/repo ${second}`,
+      `https://github.com/owner/repo.git ${commit}`,
+      `https://github.com/owner/repo.git ${second}`,
     ]);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
@@ -605,7 +619,7 @@ it.effect("a failed later preflight leaves installs untouched and releases earli
     );
     const result = yield* runCli(["install", "-y", "--set", file], {
       upstream: {
-        skills: { [JSON.stringify(["first/repo", commit])]: ["alpha"] },
+        skills: { [JSON.stringify(["https://github.com/first/repo.git", commit])]: ["alpha"] },
         installDir: dir,
         disposalLog: log,
       },
@@ -613,7 +627,10 @@ it.effect("a failed later preflight leaves installs untouched and releases earli
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /broken\/repo/);
     assert.isFalse(yield* fs.exists(`${dir}/project`));
-    assert.strictEqual(yield* fs.readFileString(log), `first/repo ${commit}\n`);
+    assert.strictEqual(
+      yield* fs.readFileString(log),
+      `https://github.com/first/repo.git ${commit}\n`,
+    );
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
@@ -673,10 +690,10 @@ it.effect("an install error stops later Sources and releases all fetched Sources
     const result = yield* runCli(["install", "--set", file], {
       upstream: {
         skills: {
-          [JSON.stringify(["first/repo", commit])]: ["alpha"],
-          [JSON.stringify(["second/repo", commit])]: ["beta"],
+          [JSON.stringify(["https://github.com/first/repo.git", commit])]: ["alpha"],
+          [JSON.stringify(["https://github.com/second/repo.git", commit])]: ["beta"],
         },
-        failedInstalls: ["first/repo"],
+        failedInstalls: ["https://github.com/first/repo.git"],
         installDir: dir,
         disposalLog: `${dir}/disposed`,
       },
@@ -686,7 +703,10 @@ it.effect("an install error stops later Sources and releases all fetched Sources
     assert.isFalse(yield* fs.exists(`${dir}/project`));
     assert.deepStrictEqual(
       (yield* fs.readFileString(`${dir}/disposed`)).trim().split("\n").sort(),
-      [`first/repo ${commit}`, `second/repo ${commit}`],
+      [
+        `https://github.com/first/repo.git ${commit}`,
+        `https://github.com/second/repo.git ${commit}`,
+      ],
     );
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

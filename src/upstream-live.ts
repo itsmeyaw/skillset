@@ -20,13 +20,6 @@ export const selectRemoteCommit = (output: string, ref?: string): string | undef
         refs.get(`refs/heads/${ref}`));
 };
 
-// skills@1.8.1 parseSource: GitHub shorthand resolves to a GitHub clone URL.
-const gitRemote = (source: string): string => {
-  if (/^[\w.-]+\/[\w.-]+$/u.test(source))
-    return `https://github.com/${source}${source.endsWith(".git") ? "" : ".git"}`;
-  return source;
-};
-
 export const UpstreamLive = Layer.effect(
   Upstream,
   Effect.gen(function* () {
@@ -36,22 +29,20 @@ export const UpstreamLive = Layer.effect(
     // skills API: installSkills cannot accept ref with a resolved source; scope owns disposal.
     const resolvePinned = (source: string, commit: string) =>
       Effect.acquireRelease(
-        // skills@1.8.1 parseSource: shorthand already ending in .git otherwise gains a second .git.
         Effect.tryPromise({
           try: async () => {
-            const input = source.replace(/^([\w.-]+\/[\w.-]+)\.git(?=#|@|$)/u, "$1");
             try {
-              return await resolveSource(input, { ref: commit });
+              return await resolveSource(source, { ref: commit });
             } catch (error) {
               // gitremote-helpers(7): force the HTTP helper without changing the repository URL.
               if (
                 !(error instanceof Error) ||
                 error.name !== "SKILLS_INVALID_OPTION_VALUE" ||
                 error.message !== "ref must be used only with git sources" ||
-                !/^https?:\/\//iu.test(input)
+                !/^https?:\/\//iu.test(source)
               )
                 throw error;
-              const url = new URL(input);
+              const url = new URL(source);
               url.hash = "";
               return resolveSource(`${url.protocol.slice(0, -1)}::${url.href}`, { ref: commit });
             }
@@ -75,7 +66,7 @@ export const UpstreamLive = Layer.effect(
         const result = yield* Effect.scoped(
           Effect.gen(function* () {
             const child = yield* spawner.spawn(
-              ChildProcess.make("git", ["ls-remote", "--", gitRemote(source), ...patterns], {
+              ChildProcess.make("git", ["ls-remote", "--", source, ...patterns], {
                 env: { GIT_TERMINAL_PROMPT: "0" },
                 extendEnv: true,
                 stdin: "ignore",
