@@ -16,6 +16,7 @@ import {
   selectEntries,
   unknownNamesMessage,
 } from "../skillset-store.ts";
+import { parseSource } from "../source.ts";
 import { Upstream } from "../upstream.ts";
 
 type InstallPlan = {
@@ -73,7 +74,9 @@ const checkSources = Effect.fn("checkSources")(function* (allEntries: ReadonlyAr
   for (const entries of groups.values()) {
     const first = entries[0];
     if (first === undefined) continue;
-    const source = yield* upstream.resolveSource(first.source, first.commit);
+    const parsed = parseSource(first.source);
+    if ("error" in parsed) return yield* new InstallError({ message: parsed.error });
+    const source = yield* upstream.resolveSource(parsed.remote, first.commit);
     const missing = entries.filter(
       (entry) => !source.skills.some((skill) => skill.name === entry.name),
     );

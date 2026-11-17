@@ -78,6 +78,7 @@ export const fakeUpstream = (
           : Effect.succeed(skills.map(toSkill));
       },
       resolveSource: (source, commit) => {
+        options.calls?.push(`resolveSource ${source} ${commit}`);
         const skills = options.skills?.[JSON.stringify([source, commit])];
         if (skills === undefined) {
           return Effect.fail(

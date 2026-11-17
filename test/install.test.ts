@@ -463,7 +463,7 @@ it.effect("install -y installs only selected Entries at their Pins with requeste
       ],
       {
         upstream: {
-          skills: { [JSON.stringify(["owner/repo#branch", commit])]: ["alpha", "unlisted"] },
+          skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha", "unlisted"] },
           installDir: dir,
         },
       },

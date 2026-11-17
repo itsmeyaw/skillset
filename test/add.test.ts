@@ -17,6 +17,35 @@ const upstream = {
   skills: { [JSON.stringify(["owner/repo", commit])]: ["zeta", "alpha"] },
 };
 
+it.effect.each([
+  { input: "owner/repo#dev", remote: "owner/repo", ref: "dev" },
+  {
+    input: "https://github.com/owner/repo/tree/dev/alpha",
+    remote: "https://github.com/owner/repo",
+    ref: "dev",
+  },
+  { input: "github:owner/repo#dev", remote: "owner/repo", ref: "dev" },
+])("add then install uses the same remote for $input", ({ input, remote, ref }) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const upstream = {
+      commits: { [JSON.stringify([remote, ref])]: commit },
+      skills: { [JSON.stringify([remote, commit])]: ["alpha"] },
+      installDir: dir,
+    };
+    const added = yield* runCli(["add", input, "-s", "alpha", "--set", file], { upstream });
+    assert.strictEqual(added.code, 0);
+    const installed = yield* runCli(["install", "-y", "--set", file], { upstream });
+    assert.strictEqual(installed.code, 0);
+    assert.strictEqual(
+      yield* fs.readFileString(`${dir}/project/universal/alpha`),
+      `${commit}:auto`,
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 // ADR 0003: add only edits the file unless installation is requested.
 it.effect("add -s writes without installing", () =>
   Effect.gen(function* () {
