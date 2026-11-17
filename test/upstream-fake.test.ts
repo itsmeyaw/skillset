@@ -3,12 +3,25 @@ import { expect, it } from "vitest";
 import { Upstream } from "../src/upstream.ts";
 import { fakeUpstream } from "./harness.ts";
 
+it("returns undefined for missing refs", async () => {
+  const result = await Effect.runPromise(
+    Upstream.use((upstream) =>
+      upstream.resolveRefs("https://example.com/repo", [undefined, "missing"]),
+    ).pipe(Effect.provide(fakeUpstream())),
+  );
+  expect(result).toEqual([undefined, undefined]);
+});
+
 it("lists skill names and descriptions", async () => {
   const source = "owner/repo";
   const commit = "a".repeat(40);
   const skills = [{ name: "alpha", description: "First skill" }];
   const result = await Effect.runPromise(
-    Upstream.use((upstream) => upstream.listSkills(source, commit)).pipe(
+    Upstream.use((upstream) =>
+      Effect.scoped(
+        upstream.resolveSource(source, commit).pipe(Effect.map((handle) => handle.skills)),
+      ),
+    ).pipe(
       Effect.provide(fakeUpstream({ skills: { [JSON.stringify([source, commit])]: skills } })),
     ),
   );

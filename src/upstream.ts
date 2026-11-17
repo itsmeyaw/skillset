@@ -1,6 +1,6 @@
 import { Context, Effect } from "effect";
 import type { Scope } from "effect";
-import { ambiguousTreeMessage, CliMessageError as UpstreamError } from "./errors.ts";
+import { CliMessageError as UpstreamError } from "./errors.ts";
 import type {
   AgentInfo,
   BaseOptions,
@@ -10,27 +10,19 @@ import type {
   SkillSource,
 } from "skills";
 
-export { ambiguousTreeMessage, UpstreamError };
+export { UpstreamError };
 
 // Spec #1, Upstream service: this boundary represents Git and skills, not a Source.
 export class Upstream extends Context.Service<
   Upstream,
   {
-    readonly resolveCommit: (
-      source: string,
-      ref?: string,
-      treeRefs?: ReadonlyArray<string>,
-    ) => Effect.Effect<string, UpstreamError>;
-    readonly listSkills: (
-      source: string,
-      commit: string,
-    ) => Effect.Effect<
-      ReadonlyArray<{ readonly name: string; readonly description: string }>,
-      UpstreamError
-    >;
+    readonly resolveRefs: (
+      remote: string,
+      refs: ReadonlyArray<string | undefined>,
+    ) => Effect.Effect<ReadonlyArray<string | undefined>, UpstreamError>;
     // skills API: resolve with the Pin once; the caller's scope disposes the fetched source.
     readonly resolveSource: (
-      source: string,
+      remote: string,
       commit: string,
     ) => Effect.Effect<SkillSource, UpstreamError, Scope.Scope>;
     readonly install: (

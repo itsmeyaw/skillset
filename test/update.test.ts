@@ -26,8 +26,10 @@ it.effect("update moves every Entry and changes only the Skillset file", () =>
     yield* fs.writeFileString(`${dir}/installed-skill`, "untouched");
     const result = yield* runCli(["update", "--set", file], {
       upstream: {
-        commits: { [JSON.stringify(["owner/repo", null])]: latest },
-        skills: { [JSON.stringify(["owner/repo", latest])]: ["alpha", "zeta"] },
+        commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest },
+        skills: {
+          [JSON.stringify(["https://github.com/owner/repo.git", latest])]: ["alpha", "zeta"],
+        },
       },
     });
     assert.strictEqual(result.code, 0);
@@ -63,24 +65,33 @@ it.effect("update resolves each distinct Source once and follows its branch", ()
     ];
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: entries }));
     const commitLookups: Array<string> = [];
+    const calls: Array<string> = [];
     const result = yield* runCli(["update", "--set", file], {
       upstream: {
         commitLookups,
+        calls,
         commits: {
-          [JSON.stringify(["owner/repo", null])]: latest,
-          [JSON.stringify(["owner/repo", "dev"])]: "c".repeat(40),
+          [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest,
+          [JSON.stringify(["https://github.com/owner/repo.git", "dev"])]: "c".repeat(40),
         },
         skills: {
-          [JSON.stringify(["owner/repo", latest])]: ["one", "two"],
-          [JSON.stringify(["owner/repo", "c".repeat(40)])]: ["three"],
+          [JSON.stringify(["https://github.com/owner/repo.git", latest])]: ["one", "two"],
+          [JSON.stringify(["https://github.com/owner/repo.git", "c".repeat(40)])]: ["three"],
         },
       },
     });
     assert.strictEqual(result.code, 0);
     assert.deepStrictEqual(commitLookups, [
-      JSON.stringify(["owner/repo", null]),
-      JSON.stringify(["owner/repo", "dev"]),
+      JSON.stringify(["https://github.com/owner/repo.git", null]),
+      JSON.stringify(["https://github.com/owner/repo.git", "dev"]),
     ]);
+    assert.deepStrictEqual(
+      calls.filter((call) => call.startsWith("resolveSource ")),
+      [
+        `resolveSource https://github.com/owner/repo.git ${latest}`,
+        `resolveSource https://github.com/owner/repo.git ${"c".repeat(40)}`,
+      ],
+    );
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { ...entries[0], commit: latest },
       { ...entries[2], commit: "c".repeat(40) },
@@ -102,8 +113,10 @@ it.effect("update with names changes only selected Entries", () =>
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: entries }));
     const result = yield* runCli(["--set", file, "update", "alpha", "gamma"], {
       upstream: {
-        commits: { [JSON.stringify(["owner/repo", null])]: latest },
-        skills: { [JSON.stringify(["owner/repo", latest])]: ["alpha", "gamma"] },
+        commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest },
+        skills: {
+          [JSON.stringify(["https://github.com/owner/repo.git", latest])]: ["alpha", "gamma"],
+        },
       },
     });
     assert.strictEqual(result.code, 0);
@@ -153,12 +166,12 @@ it.effect("update warns for missing skills, keeps their Pins, and updates others
     const result = yield* runCli(["update", "--set", file], {
       upstream: {
         commits: {
-          [JSON.stringify(["owner/repo", null])]: latest,
-          [JSON.stringify(["other/repo", null])]: latest,
+          [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest,
+          [JSON.stringify(["https://github.com/other/repo.git", null])]: latest,
         },
         skills: {
-          [JSON.stringify(["owner/repo", latest])]: ["alpha"],
-          [JSON.stringify(["other/repo", latest])]: ["gamma"],
+          [JSON.stringify(["https://github.com/owner/repo.git", latest])]: ["alpha"],
+          [JSON.stringify(["https://github.com/other/repo.git", latest])]: ["gamma"],
         },
       },
     });
@@ -188,8 +201,8 @@ it.effect("update does not report or rewrite unchanged Pins", () =>
     yield* fs.writeFileString(file, original);
     const result = yield* runCli(["update", "--set", file], {
       upstream: {
-        commits: { [JSON.stringify(["owner/repo", null])]: latest },
-        skills: { [JSON.stringify(["owner/repo", latest])]: ["alpha"] },
+        commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", latest])]: ["alpha"] },
       },
     });
     assert.strictEqual(result.code, 0);
@@ -237,18 +250,28 @@ it.effect("update keeps failed Source Pins and updates other Sources", () =>
       ],
     });
     yield* fs.writeFileString(file, original);
+    const commitLookups: Array<string> = [];
     const result = yield* runCli(["update", "--set", file], {
       upstream: {
+        commitLookups,
         commits: {
-          [JSON.stringify(["owner/repo", null])]: latest,
-          [JSON.stringify(["missing/repo", null])]: latest,
+          [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest,
+          [JSON.stringify(["https://github.com/missing/repo.git", null])]: latest,
         },
-        skills: { [JSON.stringify(["owner/repo", latest])]: ["gamma"] },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", latest])]: ["gamma"] },
       },
     });
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Fake commit not configured/);
+    assert.include(
+      result.err.join("\n"),
+      "Warning: broken/repo: Ref HEAD not found in broken/repo",
+    );
     assert.match(result.err.join("\n"), /Fake skills not configured/);
+    assert.deepStrictEqual(commitLookups, [
+      JSON.stringify(["https://github.com/broken/repo.git", null]),
+      JSON.stringify(["https://github.com/missing/repo.git", null]),
+      JSON.stringify(["https://github.com/owner/repo.git", null]),
+    ]);
     assert.deepStrictEqual(result.out, ["gamma  aaaaaaa → bbbbbbb"]);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { name: "alpha", source: "broken/repo", commit: old },
@@ -273,8 +296,8 @@ it.effect("update reports unknown names while updating known Entries", () =>
     );
     const result = yield* runCli(["update", "alpha", "unknown", "absent", "--set", file], {
       upstream: {
-        commits: { [JSON.stringify(["owner/repo", null])]: latest },
-        skills: { [JSON.stringify(["owner/repo", latest])]: ["alpha"] },
+        commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", latest])]: ["alpha"] },
       },
     });
     assert.strictEqual(result.code, 1);

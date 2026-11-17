@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
 import { expect, it } from "vitest";
+import { makePinning } from "../src/pinning.ts";
 import { Upstream } from "../src/upstream.ts";
 import { selectRemoteCommit, UpstreamLive } from "../src/upstream-live.ts";
 
@@ -24,15 +25,37 @@ it("rejects the executable git ext transport", async () => {
     const script = join(cwd, "remote-helper");
     await writeFile(script, `#!/bin/sh\nprintf ran > '${marker}'\n`, { mode: 0o755 });
     process.env.GIT_ALLOW_PROTOCOL = "ext";
+    const boundaryErrors = await Effect.runPromise(
+      Upstream.use((upstream) =>
+        Effect.scoped(
+          Effect.all([
+            upstream.resolveRefs(`ext::${script}`, [undefined]).pipe(Effect.flip),
+            upstream.resolveSource(`ext::${script}`, "a".repeat(40)).pipe(Effect.flip),
+          ]),
+        ),
+      ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
+    );
+    expect(boundaryErrors.map((error) => error.message)).toEqual([
+      "Unsupported Git transport: ext",
+      "Unsupported Git transport: ext",
+    ]);
     const error = await Effect.runPromise(
-      Upstream.use((upstream) => upstream.resolveCommit(`ext::${script}`).pipe(Effect.flip)).pipe(
-        Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer)),
-      ),
+      Effect.scoped(
+        Effect.gen(function* () {
+          const pinning = yield* makePinning();
+          return yield* pinning.resolve(`ext::${script}`).pipe(Effect.flip);
+        }),
+      ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
     );
     expect(error.message).toContain("Unsupported Git transport");
     const installError = await Effect.runPromise(
-      Upstream.use((upstream) =>
-        Effect.scoped(upstream.resolveSource(`ext::${script}`, "a".repeat(40))).pipe(Effect.flip),
+      Effect.scoped(
+        Effect.gen(function* () {
+          const pinning = yield* makePinning();
+          return yield* pinning
+            .verify([{ name: "example", source: `ext::${script}`, commit: "a".repeat(40) }])
+            .pipe(Effect.flip);
+        }),
       ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
     );
     expect(installError.message).toContain("Unsupported Git transport");
@@ -95,23 +118,29 @@ it("keeps a pinned source for installation and disposes it at scope exit", async
     const result = await Effect.runPromise(
       Upstream.use((upstream) =>
         Effect.gen(function* () {
-          expect(yield* upstream.listSkills(source, commit)).toEqual([
-            { name: "example", description: "An example skill" },
-          ]);
-          expect(yield* upstream.listSkills("local/repo.git", commit)).toEqual([
-            { name: "example", description: "An example skill" },
-          ]);
+          expect(
+            (yield* Effect.scoped(upstream.resolveSource(source, commit))).skills.map(
+              ({ name, description }) => ({ name, description }),
+            ),
+          ).toEqual([{ name: "example", description: "An example skill" }]);
+          expect(
+            (yield* Effect.scoped(
+              upstream.resolveSource("https://github.com/local/repo.git", commit),
+            )).skills.map((skill) => skill.name),
+          ).toEqual(["example"]);
           // git-config(1): both remote spellings resolve to the local fixture without network access.
-          expect(yield* upstream.resolveCommit("https://git.example.test/team/repo")).toBe(
-            git("-C", "repo", "rev-parse", "HEAD"),
-          );
-          expect(yield* upstream.listSkills("https://git.example.test/team/repo", commit)).toEqual([
-            { name: "example", description: "An example skill" },
-          ]);
+          expect(
+            (yield* upstream.resolveRefs("https://git.example.test/team/repo", [undefined]))[0],
+          ).toBe(git("-C", "repo", "rev-parse", "HEAD"));
+          expect(
+            (yield* Effect.scoped(
+              upstream.resolveSource("https://git.example.test/team/repo", commit),
+            )).skills.map((skill) => skill.name),
+          ).toEqual(["example"]);
           yield* Effect.scoped(
             Effect.gen(function* () {
               const handle = yield* upstream.resolveSource(
-                "https://git.example.test/team/repo#main",
+                "https://git.example.test/team/repo",
                 commit,
               );
               expect(handle.source.input).toBe("https::https://git.example.test/team/repo");
@@ -131,17 +160,25 @@ it("keeps a pinned source for installation and disposes it at scope exit", async
               expect(handle.source.commit).toBe(commit);
             }),
           );
-          const rootError = yield* Effect.scoped(
-            upstream.resolveSource("https://git.example.test", commit),
-          ).pipe(Effect.flip);
-          expect(rootError.message).toMatch(/URLs cannot be pinned/);
-          const indexError = yield* Effect.scoped(
-            upstream.resolveSource(
-              "https://git.example.test/.well-known/agent-skills/index.json",
-              commit,
-            ),
-          ).pipe(Effect.flip);
-          expect(indexError.message).toContain("Well-known URLs cannot be pinned");
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const pinning = yield* makePinning();
+              const rootError = yield* pinning
+                .verify([{ name: "example", source: "https://git.example.test", commit }])
+                .pipe(Effect.flip);
+              expect(rootError.message).toMatch(/URLs cannot be pinned/);
+              const indexError = yield* pinning
+                .verify([
+                  {
+                    name: "example",
+                    source: "https://git.example.test/.well-known/agent-skills/index.json",
+                    commit,
+                  },
+                ])
+                .pipe(Effect.flip);
+              expect(indexError.message).toContain("Well-known URLs cannot be pinned");
+            }),
+          );
           expect((yield* upstream.getSupportedAgents).map((agent) => agent.id)).toContain(
             "universal",
           );
@@ -216,7 +253,7 @@ it("selects exact branch and lightweight tag refs from fixtures", () => {
   expect(selectRemoteCommit(output, "missing")).toBeUndefined();
 });
 
-it("resolves branches, tags, HEAD and full SHAs in a local bare git repository", async () => {
+it("looks up branches, tags and HEAD in a local bare git repository", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "skillset-git-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
   try {
@@ -239,27 +276,33 @@ it("resolves branches, tags, HEAD and full SHAs in a local bare git repository",
     const result = await Effect.runPromise(
       Upstream.use((upstream) =>
         Effect.all([
-          upstream.resolveCommit(join(cwd, "repo.git")),
-          upstream.resolveCommit(join(cwd, "repo.git"), "main"),
-          upstream.resolveCommit(join(cwd, "repo.git"), "v1.0.0"),
-          upstream.resolveCommit(join(cwd, "repo.git"), "v2.0.0"),
-          upstream.resolveCommit("no-such-remote", tagged),
-          upstream.resolveCommit(join(cwd, "repo.git"), "missing").pipe(Effect.flip),
-          upstream
-            .resolveCommit(join(cwd, "repo.git"), "feature", ["feature/docs", "feature/docs/skill"])
-            .pipe(Effect.flip),
-          upstream.resolveCommit(join(cwd, "repo.git"), "main", ["main/skill"]),
-          upstream
-            .resolveCommit(join(cwd, "repo.git"), "another", ["another/docs"])
-            .pipe(Effect.flip),
+          upstream.resolveRefs(join(cwd, "repo.git"), [
+            undefined,
+            "main",
+            "v1.0.0",
+            "v2.0.0",
+            "missing",
+            "feature",
+            "feature/docs",
+            "feature/docs/skill",
+            "another",
+            "another/docs",
+          ]),
         ]),
       ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
     );
-    expect(result.slice(0, 5)).toEqual([commit, commit, tagged, tagged, tagged]);
-    expect(result[5].message).toContain("missing");
-    expect(result[6].message).toMatch(/ambiguous.*#.*-s/i);
-    expect(result[7]).toBe(commit);
-    expect(result[8].message).toMatch(/ambiguous.*#.*-s/i);
+    expect(result[0]).toEqual([
+      commit,
+      commit,
+      tagged,
+      tagged,
+      undefined,
+      tagged,
+      tagged,
+      undefined,
+      undefined,
+      tagged,
+    ]);
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
@@ -327,7 +370,8 @@ it("resolves a suffixless HTTP Git repository without changing its path", async 
       Upstream.use((upstream) =>
         Effect.scoped(
           Effect.gen(function* () {
-            const commit = yield* upstream.resolveCommit(source);
+            const [commit] = yield* upstream.resolveRefs(source, [undefined]);
+            if (commit === undefined) throw new Error("Missing commit");
             const handle = yield* upstream.resolveSource(source, commit);
             expect(handle.source.input).toBe(`http::${source}`);
             expect(handle.source.commit).toBe(commit);

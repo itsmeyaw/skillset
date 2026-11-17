@@ -13,9 +13,152 @@ const cursor = {
 };
 const commit = "a".repeat(40);
 const upstream = {
-  commits: { [JSON.stringify(["owner/repo", null])]: commit },
-  skills: { [JSON.stringify(["owner/repo", commit])]: ["zeta", "alpha"] },
+  commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: commit },
+  skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["zeta", "alpha"] },
 };
+
+it.effect.each([
+  { input: "owner/repo#dev", remote: "https://github.com/owner/repo.git", ref: "dev" },
+  {
+    input: "https://github.com/owner/repo/tree/dev/alpha",
+    remote: "https://github.com/owner/repo",
+    ref: "dev",
+  },
+  { input: "github:owner/repo#dev", remote: "https://github.com/owner/repo.git", ref: "dev" },
+])("add then install uses the same remote for $input", ({ input, remote, ref }) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const upstream = {
+      commits: { [JSON.stringify([remote, ref])]: commit },
+      skills: { [JSON.stringify([remote, commit])]: ["alpha"] },
+      installDir: dir,
+    };
+    const added = yield* runCli(["add", input, "-s", "alpha", "--set", file], { upstream });
+    assert.strictEqual(added.code, 0);
+    const installed = yield* runCli(["install", "-y", "--set", file], { upstream });
+    assert.strictEqual(installed.code, 0);
+    assert.strictEqual(
+      yield* fs.readFileString(`${dir}/project/universal/alpha`),
+      `${commit}:auto`,
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add --install clones each Source and Pin once", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const calls: Array<string> = [];
+    const result = yield* runCli(
+      ["add", "owner/repo", "--all", "--install", "-y", "--set", `${dir}/set.json`],
+      { upstream: { ...upstream, calls } },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(calls, [
+      "resolveRefs",
+      `resolveSource https://github.com/owner/repo.git ${commit}`,
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add --install keeps different Pins of one Source in separate clones", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const old = "b".repeat(40);
+    const remote = "https://github.com/owner/repo.git";
+    const calls: Array<string> = [];
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "old", source: "owner/repo", commit: old }],
+      }),
+    );
+    const result = yield* runCli(
+      ["add", "owner/repo", "-s", "alpha", "--install", "-y", "--set", file],
+      {
+        upstream: {
+          commits: { [JSON.stringify([remote, null])]: commit },
+          skills: {
+            [JSON.stringify([remote, commit])]: ["alpha"],
+            [JSON.stringify([remote, old])]: ["old"],
+          },
+          calls,
+          installDir: dir,
+        },
+      },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(calls, [
+      "resolveRefs",
+      `resolveSource ${remote} ${commit}`,
+      `resolveSource ${remote} ${old}`,
+    ]);
+    assert.strictEqual(
+      yield* fs.readFileString(`${dir}/project/universal/alpha`),
+      `${commit}:auto`,
+    );
+    assert.strictEqual(yield* fs.readFileString(`${dir}/project/universal/old`), `${old}:auto`);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add uses a full SHA without looking up the remote ref", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const calls: Array<string> = [];
+    const result = yield* runCli(
+      ["add", `owner/repo@${commit}`, "--all", "--set", `${dir}/set.json`],
+      {
+        upstream: {
+          calls,
+          skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(calls, [`resolveSource https://github.com/owner/repo.git ${commit}`]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("a tree URL with a full SHA still checks for a longer ref", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const remote = "https://github.com/owner/repo";
+    const calls: Array<string> = [];
+    const result = yield* runCli(
+      ["add", `${remote}/tree/${commit}/alpha`, "--set", `${dir}/set.json`],
+      {
+        upstream: {
+          calls,
+          commits: { [JSON.stringify([remote, `${commit}/alpha`])]: "b".repeat(40) },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /ambiguous.*#.*-s/i);
+    assert.deepStrictEqual(calls, ["resolveRefs"]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add rejects the executable Git transport before calling Upstream", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const calls: Array<string> = [];
+    const result = yield* runCli(["add", "ext::helper", "--all", "--set", `${dir}/set.json`], {
+      upstream: { calls },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), "Unsupported Git transport: ext");
+    assert.deepStrictEqual(calls, []);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
 
 // ADR 0003: add only edits the file unless installation is requested.
 it.effect("add -s writes without installing", () =>
@@ -65,7 +208,10 @@ it.effect.each([{ flags: ["-s", "alpha"] }, { flags: ["--all"] }])(
           tty: true,
           upstream: {
             ...upstream,
-            skills: { ...upstream.skills, [JSON.stringify(["other/repo", commit])]: ["old"] },
+            skills: {
+              ...upstream.skills,
+              [JSON.stringify(["https://github.com/other/repo.git", commit])]: ["old"],
+            },
             installDir: dir,
           },
         },
@@ -130,7 +276,7 @@ it.effect("add --install keeps Entries when installation fails", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/set.json`;
     const result = yield* runCli(["add", "owner/repo", "--all", "--install", "-y", "--set", file], {
-      upstream: { ...upstream, failedInstalls: ["owner/repo"] },
+      upstream: { ...upstream, failedInstalls: ["https://github.com/owner/repo.git"] },
     });
     assert.strictEqual(result.code, 1);
     assert.lengthOf(JSON.parse(yield* fs.readFileString(file)).skills, 2);
@@ -264,7 +410,10 @@ it.effect("add reports a Source with no skills", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const result = yield* runCli(["add", "owner/repo", "--all", "--set", `${dir}/set.json`], {
-      upstream: { ...upstream, skills: { [JSON.stringify(["owner/repo", commit])]: [] } },
+      upstream: {
+        ...upstream,
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: [] },
+      },
     });
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /no skills/i);
@@ -410,8 +559,12 @@ it.effect("add resolves a branch and preserves its Source with repeated skill fl
       ["add", "owner/repo#feature/docs", "-s", "zeta", "-s", "alpha", "--set", file],
       {
         upstream: {
-          commits: { [JSON.stringify(["owner/repo", "feature/docs"])]: commit },
-          skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha", "zeta"] },
+          commits: {
+            [JSON.stringify(["https://github.com/owner/repo.git", "feature/docs"])]: commit,
+          },
+          skills: {
+            [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha", "zeta"],
+          },
         },
       },
     );
@@ -464,7 +617,7 @@ it.effect("add leaves the file absent when Source lookup fails", () =>
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(["add", "owner/repo", "--all", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Fake commit not configured/);
+    assert.include(result.err.join("\n"), "Ref HEAD not found in owner/repo");
     assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
@@ -523,15 +676,16 @@ for (const ref of ["v1.2.3", "1.2-beta+build", "b".repeat(40)]) {
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/skillset.json`;
       const source = `owner/repo@${ref}`;
+      const resolved = ref.length === 40 ? ref : commit;
       const result = yield* runCli(["add", source, "-s", "alpha", "--set", file], {
         upstream: {
-          commits: { [JSON.stringify(["owner/repo", ref])]: commit },
-          skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+          commits: { [JSON.stringify(["https://github.com/owner/repo.git", ref])]: commit },
+          skills: { [JSON.stringify(["https://github.com/owner/repo.git", resolved])]: ["alpha"] },
         },
       });
       assert.strictEqual(result.code, 0);
       assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
-        { name: "alpha", source, commit },
+        { name: "alpha", source, commit: resolved },
       ]);
     }).pipe(Effect.provide(NodeFileSystem.layer)),
   );
@@ -545,8 +699,8 @@ it.effect("add preserves an uppercase SHA while resolving its lowercase Pin", ()
     const source = `owner/repo@${"A".repeat(40)}`;
     const result = yield* runCli(["add", source, "-s", "alpha", "--set", file], {
       upstream: {
-        commits: { [JSON.stringify(["owner/repo", commit])]: commit },
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        commits: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: commit },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
       },
     });
     assert.strictEqual(result.code, 0);
@@ -751,7 +905,7 @@ it.effect("add rejects a missing tree-path skill without writing", () =>
 );
 
 for (const [source, repository, ref] of [
-  ["github:owner/repo#dev", "owner/repo", "dev"],
+  ["github:owner/repo#dev", "https://github.com/owner/repo.git", "dev"],
   ["gitlab:team/repo", "https://gitlab.com/team/repo", undefined],
   ["https://github.com/owner/repo", "https://github.com/owner/repo", undefined],
   [
@@ -793,8 +947,10 @@ it.effect("add decodes a percent-encoded shorthand branch", () =>
     const source = "owner/repo#feature%2Fdocs";
     const result = yield* runCli(["add", source, "--all", "--set", file], {
       upstream: {
-        commits: { [JSON.stringify(["owner/repo", "feature/docs"])]: commit },
-        skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+        commits: {
+          [JSON.stringify(["https://github.com/owner/repo.git", "feature/docs"])]: commit,
+        },
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
       },
     });
     assert.strictEqual(result.code, 0);
@@ -856,7 +1012,10 @@ it.effect("accepting the install prompt after add installs the Skillset", () =>
       ],
       upstream: {
         ...upstream,
-        skills: { ...upstream.skills, [JSON.stringify(["other/repo", commit])]: ["old"] },
+        skills: {
+          ...upstream.skills,
+          [JSON.stringify(["https://github.com/other/repo.git", commit])]: ["old"],
+        },
         installDir: dir,
         supportedAgents: [cursor],
         detectedAgents: [cursor],
@@ -886,8 +1045,14 @@ it.effect("interactive add repeats for another Source until declined", () =>
         key("n", "n"),
       ],
       upstream: {
-        commits: { ...upstream.commits, [JSON.stringify(["other/repo", null])]: commit },
-        skills: { ...upstream.skills, [JSON.stringify(["other/repo", commit])]: ["beta"] },
+        commits: {
+          ...upstream.commits,
+          [JSON.stringify(["https://github.com/other/repo.git", null])]: commit,
+        },
+        skills: {
+          ...upstream.skills,
+          [JSON.stringify(["https://github.com/other/repo.git", commit])]: ["beta"],
+        },
       },
     });
     assert.strictEqual(result.code, 0);
@@ -918,7 +1083,7 @@ it.effect("interactive add keeps earlier Entries when a later Source fails", () 
       upstream,
     });
     assert.strictEqual(result.code, 0);
-    assert.include(result.err, "Warning: Fake commit not configured for other/repo");
+    assert.include(result.err, "Warning: Ref HEAD not found in other/repo");
     assert.match(result.screen.join(""), /Install skillset\?/);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { name: "alpha", source: "owner/repo", commit },
@@ -949,7 +1114,7 @@ it.effect.each([{ flags: ["-s", "missing"] }, { flags: ["--all"] }, { flags: ["-
         upstream,
       });
       assert.strictEqual(result.code, 0);
-      assert.include(result.err, "Warning: Fake commit not configured for bad/repo");
+      assert.include(result.err, "Warning: Ref HEAD not found in bad/repo");
       assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
         { name: "alpha", source: "owner/repo", commit },
       ]);
@@ -971,14 +1136,14 @@ it.effect("interactive add fails with the last error when every round fails", ()
         key("n", "n"),
       ],
       upstream: {
-        commits: { [JSON.stringify(["empty/repo", null])]: commit },
-        skills: { [JSON.stringify(["empty/repo", commit])]: [] },
+        commits: { [JSON.stringify(["https://github.com/empty/repo.git", null])]: commit },
+        skills: { [JSON.stringify(["https://github.com/empty/repo.git", commit])]: [] },
       },
     });
     assert.strictEqual(result.code, 1);
     assert.include(result.err, `Warning: No skills found in empty/repo at ${commit}`);
-    assert.include(result.err, "Warning: Fake commit not configured for bad/repo");
-    assert.match(String(result.err.at(-1)), /Fake commit not configured for bad\/repo/);
+    assert.include(result.err, "Warning: Ref HEAD not found in bad/repo");
+    assert.match(String(result.err.at(-1)), /Ref HEAD not found in bad\/repo/);
     assert.notInclude(result.screen.join(""), "Install skillset?");
     assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
@@ -995,7 +1160,7 @@ it.effect("add -y fails without a warning or retry prompt", () =>
       upstream,
     });
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Fake commit not configured for bad\/repo/);
+    assert.match(result.err.join("\n"), /Ref HEAD not found in bad\/repo/);
     assert.notInclude(result.err.join("\n"), "Warning:");
     assert.deepStrictEqual(result.screen, []);
     assert.isFalse(yield* fs.exists(file));
@@ -1020,7 +1185,7 @@ it.effect("cancelling the retry prompt exits 130 without writing earlier Entries
     });
     assert.strictEqual(result.code, 130);
     assert.include(result.out.join("\n"), "Cancelled");
-    assert.include(result.err, "Warning: Fake commit not configured for bad/repo");
+    assert.include(result.err, "Warning: Ref HEAD not found in bad/repo");
     assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
@@ -1050,13 +1215,13 @@ it.effect("interactive add retries after a conflict without losing earlier Entri
       upstream: {
         commits: {
           ...upstream.commits,
-          [JSON.stringify(["other/repo", null])]: commit,
-          [JSON.stringify(["third/repo", null])]: commit,
+          [JSON.stringify(["https://github.com/other/repo.git", null])]: commit,
+          [JSON.stringify(["https://github.com/third/repo.git", null])]: commit,
         },
         skills: {
           ...upstream.skills,
-          [JSON.stringify(["other/repo", commit])]: ["alpha"],
-          [JSON.stringify(["third/repo", commit])]: ["beta"],
+          [JSON.stringify(["https://github.com/other/repo.git", commit])]: ["alpha"],
+          [JSON.stringify(["https://github.com/third/repo.git", commit])]: ["beta"],
         },
       },
     });

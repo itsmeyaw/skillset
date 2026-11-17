@@ -11,7 +11,7 @@ import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { Upstream } from "../src/upstream.ts";
 import { UpstreamLive } from "../src/upstream-live.ts";
 
-const source = "mattpocock/skills";
+const source = "https://github.com/mattpocock/skills";
 const commit = "5863806dd4e15c63174bee4e7515a4256792ecfa";
 
 // Spec #1, Testing Decisions: network smoke tests are opt-in and never run in CI.
@@ -22,11 +22,18 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
       const commits = await Effect.runPromise(
         Upstream.use((upstream) =>
           Effect.all([
-            upstream.resolveCommit("sindresorhus/is", "v7.0.0"),
-            upstream.resolveCommit("mattpocock/skills.git"),
-            upstream.resolveCommit("mattpocock/skills", "main"),
-            upstream.resolveCommit("lodash/lodash", "4.17.21"),
-            upstream.resolveCommit("mattpocock/skills", commit),
+            upstream
+              .resolveRefs("https://github.com/sindresorhus/is.git", ["v7.0.0"])
+              .pipe(Effect.map((refs) => refs[0])),
+            upstream
+              .resolveRefs("https://github.com/mattpocock/skills.git", [undefined])
+              .pipe(Effect.map((refs) => refs[0])),
+            upstream
+              .resolveRefs("https://github.com/mattpocock/skills.git", ["main"])
+              .pipe(Effect.map((refs) => refs[0])),
+            upstream
+              .resolveRefs("https://github.com/lodash/lodash.git", ["4.17.21"])
+              .pipe(Effect.map((refs) => refs[0])),
           ]),
         ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
       );
@@ -34,7 +41,6 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
       expect(commits[1]).toMatch(/^[a-f0-9]{40}$/u);
       expect(commits[2]).toBe(commits[1]);
       expect(commits[3]).toBe("f299b52f39486275a9e6483b60a410e06520c538");
-      expect(commits[4]).toBe(commit);
     }, 120_000);
 
     it("lists and installs a scoped source at a full SHA", async () => {

@@ -78,8 +78,8 @@ const withHome = <A, E, R>(
 const upstream = () => {
   const commit = "a".repeat(40);
   return {
-    commits: { [JSON.stringify(["owner/repo", null])]: commit },
-    skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha", "beta"] },
+    commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: commit },
+    skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha", "beta"] },
   };
 };
 

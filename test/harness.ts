@@ -6,7 +6,7 @@ import { ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 import type { AgentInfo, SkillSource } from "skills";
 import { runArgv } from "../src/cli.ts";
-import { ambiguousTreeMessage, Upstream, UpstreamError } from "../src/upstream.ts";
+import { Upstream, UpstreamError } from "../src/upstream.ts";
 
 // Issue #11: fake Sources and listings expose the same skill descriptions.
 const toSkill = (skill: string | { readonly name: string; readonly description: string }) =>
@@ -33,7 +33,7 @@ const defaultAgents: ReadonlyArray<AgentInfo> = [
 // Spec #1, Testing Decisions: the fake supplies Pins, available skills, and install failures.
 export const fakeUpstream = (
   options: {
-    readonly commits?: Readonly<Record<string, string>>;
+    readonly commits?: Readonly<Record<string, string | undefined>>;
     readonly commitLookups?: Array<string>;
     readonly calls?: Array<string>;
     readonly skills?: Readonly<
@@ -55,42 +55,28 @@ export const fakeUpstream = (
   return Layer.succeed(
     Upstream,
     Upstream.of({
-      resolveCommit: (source, ref, treeRefs = []) => {
-        options.calls?.push("resolveCommit");
-        options.commitLookups?.push(JSON.stringify([source, ref ?? null]));
-        if (treeRefs.some((candidate) => options.commits?.[JSON.stringify([source, candidate])])) {
-          return Effect.fail(new UpstreamError({ message: ambiguousTreeMessage }));
-        }
-        const commit = options.commits?.[JSON.stringify([source, ref ?? null])];
-        return commit === undefined
-          ? Effect.fail(new UpstreamError({ message: `Fake commit not configured for ${source}` }))
-          : Effect.succeed(commit);
+      resolveRefs: (remote, refs) => {
+        options.calls?.push("resolveRefs");
+        options.commitLookups?.push(JSON.stringify([remote, refs[0] ?? null]));
+        return Effect.succeed(
+          refs.map((ref) => options.commits?.[JSON.stringify([remote, ref ?? null])]),
+        );
       },
-      listSkills: (source, commit) => {
-        options.calls?.push("listSkills");
-        const skills = options.skills?.[JSON.stringify([source, commit])];
-        return skills === undefined
-          ? Effect.fail(
-              new UpstreamError({
-                message: `Fake skills not configured for ${source} at ${commit}`,
-              }),
-            )
-          : Effect.succeed(skills.map(toSkill));
-      },
-      resolveSource: (source, commit) => {
-        const skills = options.skills?.[JSON.stringify([source, commit])];
+      resolveSource: (remote, commit) => {
+        options.calls?.push(`resolveSource ${remote} ${commit}`);
+        const skills = options.skills?.[JSON.stringify([remote, commit])];
         if (skills === undefined) {
           return Effect.fail(
-            new UpstreamError({ message: `Fake skills not configured for ${source} at ${commit}` }),
+            new UpstreamError({ message: `Fake skills not configured for ${remote} at ${commit}` }),
           );
         }
         const handle: SkillSource = {
-          source: { input: source, type: "git", url: source, commit },
+          source: { input: remote, type: "git", url: remote, commit },
           skills: skills.map(toSkill),
           dispose: async () => {
             disposed.add(handle);
             if (options.disposalLog !== undefined) {
-              await appendFile(options.disposalLog, `${source} ${commit}\n`);
+              await appendFile(options.disposalLog, `${remote} ${commit}\n`);
             }
           },
         };
