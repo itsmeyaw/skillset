@@ -1059,15 +1059,17 @@ it.effect("interactive add fails on an invalid Skillset before Source lookup", (
     const file = `${dir}/skillset.json`;
     const original = '{"$schema":"https://example.com/v2","skills":[]}';
     yield* fs.writeFileString(file, original);
+    const calls: Array<string> = [];
     const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
       keys: [key("n", "n")],
-      upstream,
+      upstream: { ...upstream, calls },
     });
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /invalid Skillset file/i);
     assert.notInclude(result.screen.join(""), "Add another source?");
     assert.notInclude(result.screen.join(""), "Install skillset?");
+    assert.deepStrictEqual(calls, []);
     assert.strictEqual(yield* fs.readFileString(file), original);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
