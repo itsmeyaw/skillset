@@ -3,6 +3,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { detectAgents, getSupportedAgents, installSkills, resolveSource } from "skills";
 import { PIN_PATTERN } from "./pin.ts";
 import { Upstream, UpstreamError } from "./upstream.ts";
+import { withUpstreamSession } from "./upstream-session.ts";
 
 // Spec #1, User Story 12: never reinterpret rejected Sources as Git repositories.
 // git-remote-ext(1): ext:: executes an arbitrary helper command.
@@ -61,7 +62,14 @@ export const UpstreamLive = Layer.effect(
           () => new UpstreamError({ message: `Source did not resolve to Pin ${commit}` }),
         ),
       );
-    return Upstream.of({
+    const adapter = Upstream.of({
+      withSession: (use) =>
+        withUpstreamSession(
+          resolvePinned,
+          (source, names, choices) =>
+            adapter.install(source, { ...choices, skills: names, telemetry: false }),
+          use,
+        ),
       resolveRefs: Effect.fn("Upstream.resolveRefs")(function* (remote, refs) {
         if (executableTransport(remote))
           return yield* new UpstreamError({ message: "Unsupported Git transport: ext" });
@@ -107,5 +115,6 @@ export const UpstreamLive = Layer.effect(
         Effect.tryPromise({ try: () => detectAgents(options), catch: toError }),
       getSupportedAgents: Effect.sync(() => getSupportedAgents()),
     });
+    return adapter;
   }),
 );

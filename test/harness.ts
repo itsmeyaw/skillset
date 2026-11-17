@@ -7,6 +7,7 @@ import { TestConsole } from "effect/testing";
 import type { AgentInfo, SkillSource } from "skills";
 import { runArgv } from "../src/cli.ts";
 import { Upstream, UpstreamError } from "../src/upstream.ts";
+import { withUpstreamSession } from "../src/upstream-session.ts";
 
 // Issue #11: fake Sources and listings expose the same skill descriptions.
 const toSkill = (skill: string | { readonly name: string; readonly description: string }) =>
@@ -53,111 +54,111 @@ export const fakeUpstream = (
   } = {},
 ) => {
   const disposed = new WeakSet<SkillSource>();
-  return Layer.succeed(
-    Upstream,
-    Upstream.of({
-      resolveRefs: (remote, refs) => {
-        options.calls?.push("resolveRefs");
-        options.commitLookups?.push(JSON.stringify([remote, refs[0] ?? null]));
-        return Effect.succeed(
-          refs.map((ref) => options.commits?.[JSON.stringify([remote, ref ?? null])]),
+  const adapter = Upstream.of({
+    withSession: (use) =>
+      withUpstreamSession(
+        adapter.resolveSource,
+        (source, names, choices) => adapter.install(source, { ...choices, skills: names }),
+        use,
+      ),
+    resolveRefs: (remote, refs) => {
+      options.calls?.push("resolveRefs");
+      options.commitLookups?.push(JSON.stringify([remote, refs[0] ?? null]));
+      return Effect.succeed(
+        refs.map((ref) => options.commits?.[JSON.stringify([remote, ref ?? null])]),
+      );
+    },
+    resolveSource: (remote, commit) => {
+      options.calls?.push(`resolveSource ${remote} ${commit}`);
+      const skills = options.skills?.[JSON.stringify([remote, commit])];
+      if (skills === undefined) {
+        return Effect.fail(
+          new UpstreamError({ message: `Fake skills not configured for ${remote} at ${commit}` }),
         );
-      },
-      resolveSource: (remote, commit) => {
-        options.calls?.push(`resolveSource ${remote} ${commit}`);
-        const skills = options.skills?.[JSON.stringify([remote, commit])];
-        if (skills === undefined) {
-          return Effect.fail(
-            new UpstreamError({ message: `Fake skills not configured for ${remote} at ${commit}` }),
-          );
-        }
-        const handle: SkillSource = {
-          source: { input: remote, type: "git", url: remote, commit },
-          skills: skills.map(toSkill),
-          dispose: async () => {
-            disposed.add(handle);
-            if (options.disposalLog !== undefined) {
-              await appendFile(options.disposalLog, `${remote} ${commit}\n`);
-            }
-          },
-        };
-        return Effect.acquireRelease(Effect.succeed(handle), (handle) =>
-          Effect.promise(() => handle.dispose()),
-        );
-      },
-      install: (source, installOptions) => {
-        options.installCalls?.push(source.source.input);
-        return disposed.has(source)
-          ? Effect.fail(new UpstreamError({ message: "Fake source was disposed" }))
-          : options.failedInstalls?.includes(source.source.input)
-            ? Effect.fail(
-                new UpstreamError({ message: `Fake install failed for ${source.source.input}` }),
-              )
-            : options.failedResults?.includes(source.source.input)
-              ? Effect.succeed({
-                  source: source.source,
-                  installed: [],
-                  skipped: [],
-                  failed: [
-                    {
-                      skill: "fake",
-                      agent: "fake",
-                      code: "SKILLS_INSTALL_FAILED" as const,
-                      message: `Fake install failed for ${source.source.input}`,
-                    },
-                  ],
-                })
-              : Effect.promise(async () => {
-                  const agents = installOptions.agents ?? ["default"];
-                  const names = installOptions.skills ?? source.skills.map((skill) => skill.name);
-                  const skipped = agents.flatMap((agent) =>
-                    names
-                      .filter((name) => options.skippedSkills?.includes(name))
-                      .map((skill) => ({
-                        skill,
-                        agent,
-                        reason: "missing-agent-directory" as const,
-                      })),
-                  );
-                  const installed = agents.flatMap((agent) =>
-                    names
-                      .filter((name) => !options.skippedSkills?.includes(name))
-                      .map((skill) => ({
-                        skill,
-                        agent,
-                        scope: installOptions.scope ?? "project",
-                        mode:
-                          installOptions.mode === "symlink"
-                            ? ("symlink" as const)
-                            : ("copy" as const),
-                        path: skill,
-                      })),
-                  );
-                  if (options.installDir !== undefined) {
-                    for (const agent of agents) {
-                      const dir = join(
-                        options.installDir,
-                        installOptions.scope ?? "project",
-                        agent,
+      }
+      const handle: SkillSource = {
+        source: { input: remote, type: "git", url: remote, commit },
+        skills: skills.map(toSkill),
+        dispose: async () => {
+          disposed.add(handle);
+          if (options.disposalLog !== undefined) {
+            await appendFile(options.disposalLog, `${remote} ${commit}\n`);
+          }
+        },
+      };
+      return Effect.acquireRelease(Effect.succeed(handle), (handle) =>
+        Effect.promise(() => handle.dispose()),
+      );
+    },
+    install: (source, installOptions) => {
+      options.installCalls?.push(source.source.input);
+      return disposed.has(source)
+        ? Effect.fail(new UpstreamError({ message: "Fake source was disposed" }))
+        : options.failedInstalls?.includes(source.source.input)
+          ? Effect.fail(
+              new UpstreamError({ message: `Fake install failed for ${source.source.input}` }),
+            )
+          : options.failedResults?.includes(source.source.input)
+            ? Effect.succeed({
+                source: source.source,
+                installed: [],
+                skipped: [],
+                failed: [
+                  {
+                    skill: "fake",
+                    agent: "fake",
+                    code: "SKILLS_INSTALL_FAILED" as const,
+                    message: `Fake install failed for ${source.source.input}`,
+                  },
+                ],
+              })
+            : Effect.promise(async () => {
+                const agents = installOptions.agents ?? ["default"];
+                const names = installOptions.skills ?? source.skills.map((skill) => skill.name);
+                const skipped = agents.flatMap((agent) =>
+                  names
+                    .filter((name) => options.skippedSkills?.includes(name))
+                    .map((skill) => ({
+                      skill,
+                      agent,
+                      reason: "missing-agent-directory" as const,
+                    })),
+                );
+                const installed = agents.flatMap((agent) =>
+                  names
+                    .filter((name) => !options.skippedSkills?.includes(name))
+                    .map((skill) => ({
+                      skill,
+                      agent,
+                      scope: installOptions.scope ?? "project",
+                      mode:
+                        installOptions.mode === "symlink"
+                          ? ("symlink" as const)
+                          : ("copy" as const),
+                      path: skill,
+                    })),
+                );
+                if (options.installDir !== undefined) {
+                  for (const agent of agents) {
+                    const dir = join(options.installDir, installOptions.scope ?? "project", agent);
+                    await mkdir(dir, { recursive: true });
+                    for (const name of names.filter(
+                      (name) => !options.skippedSkills?.includes(name),
+                    )) {
+                      await writeFile(
+                        join(dir, name),
+                        `${source.source.commit}:${installOptions.mode ?? "auto"}`,
                       );
-                      await mkdir(dir, { recursive: true });
-                      for (const name of names.filter(
-                        (name) => !options.skippedSkills?.includes(name),
-                      )) {
-                        await writeFile(
-                          join(dir, name),
-                          `${source.source.commit}:${installOptions.mode ?? "auto"}`,
-                        );
-                      }
                     }
                   }
-                  return { source: source.source, installed, skipped, failed: [] };
-                });
-      },
-      detectAgents: () => Effect.succeed({ agents: options.detectedAgents ?? [] }),
-      getSupportedAgents: Effect.succeed(options.supportedAgents ?? defaultAgents),
-    }),
-  );
+                }
+                return { source: source.source, installed, skipped, failed: [] };
+              });
+    },
+    detectAgents: () => Effect.succeed({ agents: options.detectedAgents ?? [] }),
+    getSupportedAgents: Effect.succeed(options.supportedAgents ?? defaultAgents),
+  });
+  return Layer.succeed(Upstream, adapter);
 };
 
 export const key = (name: string, input?: string): Terminal.UserInput => ({
