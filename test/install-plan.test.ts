@@ -142,8 +142,11 @@ it.effect("agent choices group Universal members and select supported defaults",
     const cursor = agent("cursor", "Cursor", true);
     const claude = agent("claude-code", "Claude Code", false);
     const windsurf = agent("windsurf", "Windsurf", false);
+    const members = Array.from({ length: 9 }, (_, index) =>
+      agent(`member${index + 1}`, `Agent${index + 1}`, true),
+    );
     const plan = yield* runPlan(skillset, options, script.prompter, {
-      supportedAgents: [universal, cursor, claude, windsurf],
+      supportedAgents: [universal, cursor, ...members, claude, windsurf],
       detectedAgents: [cursor, windsurf, agent("unsupported", "Unsupported", false)],
     });
     assert.deepStrictEqual(plan?.agents, ["universal", "claude-code", "windsurf"]);
@@ -156,6 +159,21 @@ it.effect("agent choices group Universal members and select supported defaults",
       ],
     );
     assert.include(script.offered.agents?.[0]?.keywords ?? "", "Cursor");
+    assert.strictEqual(
+      script.offered.agents?.[0]?.description,
+      "Cursor, Agent1, Agent2, Agent3, Agent4, Agent5, Agent6, Agent7 +2 more",
+    );
+  }),
+);
+
+it.effect("scripted agent selection can deselect a default", () =>
+  Effect.gen(function* () {
+    const script = scripted({ agents: ["claude-code"] });
+    const plan = yield* runPlan(skillset, options, script.prompter);
+    assert.deepStrictEqual(plan?.agents, ["claude-code"]);
+    assert.isTrue(
+      script.offered.agents?.some((choice) => choice.value === "universal" && choice.selected),
+    );
   }),
 );
 
