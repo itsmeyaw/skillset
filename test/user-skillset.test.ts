@@ -1,6 +1,6 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
-import { Effect, Exit, FileSystem, Option } from "effect";
+import { Effect, FileSystem, Option } from "effect";
 import { execFileSync, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -30,9 +30,15 @@ for (const name of ["my-set", "a", "7up", "my_set.v2", "A-B"]) {
 
 for (const value of ["./foo", "sub/foo", "-x", ".hidden", "", "a b"]) {
   it(`--set ${JSON.stringify(value)} is rejected`, () => {
-    const exit = Effect.runSyncExit(resolveSet(Option.some(value), {}));
-    assert.isTrue(Exit.isFailure(exit));
-    assert.include(JSON.stringify(exit), `\\"${value}\\" is not a Skillset name or .json path.`);
+    const result = Effect.runSync(resolveSet(Option.some(value), {}).pipe(Effect.result));
+    assert.strictEqual(result._tag, "Failure");
+    if (result._tag === "Failure") {
+      assert.strictEqual(result.failure._tag, "CliMessageError");
+      assert.strictEqual(
+        result.failure.message,
+        `"${value}" is not a Skillset name or .json path.`,
+      );
+    }
   });
 }
 

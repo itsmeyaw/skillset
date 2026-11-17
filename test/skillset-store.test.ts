@@ -72,10 +72,14 @@ it("upserts Entries from the same Source and rejects conflicts", () => {
     ...skillset,
     skills: [beta, updated],
   });
-  const result = Effect.runSyncExit(
-    upsertEntries(skillset, [{ ...alpha, source: "another/repo" }]),
+  const result = Effect.runSync(
+    upsertEntries(skillset, [{ ...alpha, source: "another/repo" }]).pipe(Effect.result),
   );
-  assert.include(JSON.stringify(result), "Skill alpha already belongs to owner/repo");
+  assert.strictEqual(result._tag, "Failure");
+  if (result._tag === "Failure") {
+    assert.strictEqual(result.failure._tag, "CliMessageError");
+    assert.strictEqual(result.failure.message, "Skill alpha already belongs to owner/repo");
+  }
 });
 
 it("removes Entries and moves a Pin without changing other Entries", () => {
