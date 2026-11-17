@@ -105,7 +105,7 @@ it.effect("interactive install prompts in order and uses selected options", () =
     const result = yield* runCli(["install", "--set", file], {
       tty: true,
       keys: [
-        key("down"),
+        key("beta", "beta"),
         key("space"),
         key("enter"),
         key("enter"),
@@ -127,6 +127,7 @@ it.effect("interactive install prompts in order and uses selected options", () =
     assert.strictEqual(result.code, 0);
     const screen = result.screen.join("");
     assert.include(screen, "Which skills?  Search:");
+    assert.include(screen, "Search: beta");
     const prompts = [
       "Which skills?",
       "Which agents?",

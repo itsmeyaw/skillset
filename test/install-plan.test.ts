@@ -1,8 +1,8 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Stdio } from "effect";
 import { buildInstallPlan, type InstallPlanOptions } from "../src/install-plan.ts";
-import type { Prompter } from "../src/prompts/prompter.ts";
+import { makePrompter, type Prompter } from "../src/prompts/prompter.ts";
 import type { SearchChoice } from "../src/prompts/search.ts";
 import { SCHEMA_URL, type Skillset } from "../src/skillset-file.ts";
 import { fakeTerminal, fakeUpstream } from "./harness.ts";
@@ -183,6 +183,29 @@ it.effect("declining confirmation returns no plan", () =>
     const script = scripted({ proceed: false });
     assert.isUndefined(yield* runPlan(skillset, options, script.prompter));
     assert.strictEqual(script.asked.at(-1), "confirm");
+  }),
+);
+
+it.effect("unattended plans leave agents undefined when no defaults exist", () =>
+  Effect.gen(function* () {
+    const prompter = yield* makePrompter(true).pipe(Effect.provide(Stdio.layerTest({})));
+    const plan = yield* runPlan(skillset, options, prompter, {
+      supportedAgents: [
+        {
+          id: "cursor",
+          name: "Cursor",
+          universal: false,
+          projectSkillsDir: ".cursor/skills",
+          globalSkillsDir: null,
+        },
+      ],
+    });
+    assert.deepStrictEqual(plan, {
+      entries: [alpha, beta],
+      agents: undefined,
+      scope: "project",
+      mode: "auto",
+    });
   }),
 );
 
