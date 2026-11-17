@@ -60,6 +60,34 @@ it.effect("add --install clones each Source and Pin once", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("add uses a full SHA without looking up the remote ref", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const calls: Array<string> = [];
+    const result = yield* runCli(
+      ["add", `owner/repo@${commit}`, "--all", "--set", `${dir}/set.json`],
+      { upstream: { calls, skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] } } },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(calls, [`resolveSource owner/repo ${commit}`]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add rejects the executable Git transport before calling Upstream", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const calls: Array<string> = [];
+    const result = yield* runCli(["add", "ext::helper", "--all", "--set", `${dir}/set.json`], {
+      upstream: { calls },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), "Unsupported Git transport: ext");
+    assert.deepStrictEqual(calls, []);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 // ADR 0003: add only edits the file unless installation is requested.
 it.effect("add -s writes without installing", () =>
   Effect.gen(function* () {
@@ -566,15 +594,16 @@ for (const ref of ["v1.2.3", "1.2-beta+build", "b".repeat(40)]) {
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/skillset.json`;
       const source = `owner/repo@${ref}`;
+      const resolved = ref.length === 40 ? ref : commit;
       const result = yield* runCli(["add", source, "-s", "alpha", "--set", file], {
         upstream: {
           commits: { [JSON.stringify(["owner/repo", ref])]: commit },
-          skills: { [JSON.stringify(["owner/repo", commit])]: ["alpha"] },
+          skills: { [JSON.stringify(["owner/repo", resolved])]: ["alpha"] },
         },
       });
       assert.strictEqual(result.code, 0);
       assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
-        { name: "alpha", source, commit },
+        { name: "alpha", source, commit: resolved },
       ]);
     }).pipe(Effect.provide(NodeFileSystem.layer)),
   );

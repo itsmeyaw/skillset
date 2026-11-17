@@ -136,6 +136,8 @@ const parseShorthand = (source: string): ParsedSource | { readonly error: string
 
 // Spec #1, Source parsing module: retain the typed Source and separate the lookup ref.
 export const parseSource = (source: string): ParsedSource | { readonly error: string } => {
+  // git-remote-ext(1): ext:: executes an arbitrary helper command.
+  if (/^ext::/iu.test(source)) return { error: "Unsupported Git transport: ext" };
   // Spec #1, User Story 12: local paths cannot be pinned to a remote commit.
   if (/^(?:\.{1,2}(?:[/\\]|$)|~(?:[/\\]|$)|[/\\]|[a-z]:[/\\]|file:)/iu.test(source)) {
     return { error: "Local paths cannot be pinned; use a remote Git Source." };

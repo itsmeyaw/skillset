@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import type { SkillSource } from "skills";
 import { CliMessageError, missingSkillsMessage } from "./errors.ts";
+import { PIN_PATTERN } from "./pin.ts";
 import type { Entry } from "./skillset-file.ts";
 import { parseSource } from "./source.ts";
 import { Upstream } from "./upstream.ts";
@@ -41,7 +42,10 @@ export const makePinning = Effect.fn("makePinning")(function* () {
       const result = yield* Effect.gen(function* () {
         const parsed = parseSource(input);
         if ("error" in parsed) return yield* new CliMessageError({ message: parsed.error });
-        const commit = yield* upstream.resolveCommit(parsed.remote, parsed.ref, parsed.treeRefs);
+        const commit =
+          parsed.ref !== undefined && PIN_PATTERN.test(parsed.ref) && !parsed.treeRefs?.length
+            ? parsed.ref
+            : yield* upstream.resolveCommit(parsed.remote, parsed.ref, parsed.treeRefs);
         const fetched = yield* handle(parsed.stored, parsed.remote, commit);
         return { source: parsed.stored, commit, skills: fetched.skills, skill: parsed.skill };
       }).pipe(Effect.result);
