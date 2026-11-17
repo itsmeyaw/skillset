@@ -19,6 +19,7 @@ export type Prompter = {
   readonly agents: (
     choices: ReadonlyArray<SearchChoice>,
     defaults: ReadonlyArray<string>,
+    supported: boolean,
   ) => Answer<ReadonlyArray<string> | undefined>;
   readonly scope: () => Answer<"project" | "global">;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
@@ -47,8 +48,8 @@ const tty: Prompter = {
     cancelOnQuit(
       searchMultiSelect({ message: "Which skills?", choices, ...(all ? { min: 1 } : {}) }),
     ),
-  agents: (choices) =>
-    choices.length === 0
+  agents: (choices, _defaults, supported) =>
+    !supported
       ? Effect.fail(new CliMessageError({ message: "No supported agents available" }))
       : cancelOnQuit(searchMultiSelect({ message: "Which agents?", choices, min: 1 })),
   scope: () =>

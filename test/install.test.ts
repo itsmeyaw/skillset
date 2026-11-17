@@ -249,6 +249,29 @@ it.effect("interactive install rejects an empty supported agent list", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("interactive install only rejects an empty supported list, not filtered choices", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-s", "alpha", "--set", file], {
+      tty: true,
+      keys: [key("escape")],
+      upstream: { supportedAgents: [universalCursor] },
+    });
+    assert.strictEqual(result.code, 130);
+    assert.include(result.out.join("\n"), "Cancelled");
+    assert.notInclude(result.err.join("\n"), "No supported agents available");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("interactive install requires an agent when none are detected", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

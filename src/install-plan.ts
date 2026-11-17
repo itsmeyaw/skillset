@@ -81,7 +81,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     const supported = yield* upstream.getSupportedAgents;
     const detected = yield* upstream.detectAgents();
     const { defaults, choices } = agentChoices(supported, detected.agents);
-    agents = yield* prompter.agents(choices, defaults);
+    agents = yield* prompter.agents(choices, defaults, supported.length > 0);
   }
   const plan: InstallPlan = {
     entries: selectEntries(skillset, names).entries,
