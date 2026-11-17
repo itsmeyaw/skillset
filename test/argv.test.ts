@@ -1,6 +1,6 @@
 import { assert, it } from "@effect/vitest";
 import { Command, Flag } from "effect/cli";
-import { expandSkillFlags as expand } from "../src/argv.ts";
+import { Expansion, expandSkillFlags as expand } from "../src/argv.ts";
 import { cli, cliConfig } from "../src/cli.ts";
 
 const expandSkillFlags = (argv: ReadonlyArray<string>) =>
@@ -20,6 +20,46 @@ it("expands a new repeating flag declared on a command", () => {
     "one",
     "-t",
     "two",
+  ]);
+});
+
+it("uses renamed command and flag declarations for positional ambiguity", () => {
+  const command = Command.make("app").pipe(
+    Command.withSharedFlags({
+      collection: Flag.String("collection").pipe(
+        Flag.withAlias("c"),
+        Flag.annotate(Expansion, { blocksReserved: true }),
+        Flag.optional,
+      ),
+    }),
+    Command.withSubcommands([
+      Command.make("publish", {
+        items: Flag.String("item").pipe(
+          Flag.withAlias("t"),
+          Flag.annotate(Expansion, { reserveLast: true }),
+          Flag.atLeast(0),
+        ),
+      }).pipe(Command.withAlias("p")),
+    ]),
+  );
+  assert.deepStrictEqual(expand(["p", "-t", "one", "two"], [], command), ["p", "-t", "one", "two"]);
+  assert.deepStrictEqual(expand(["-c", "p", "p", "-t", "one", "two"], [], command), [
+    "-c",
+    "p",
+    "p",
+    "-t",
+    "one",
+    "-t",
+    "two",
+  ]);
+});
+
+it("stops agent expansion at an ID absent from the supplied list", () => {
+  assert.deepStrictEqual(expand(["install", "-a", "fake-one", "fake-two"], ["fake-one"], cli), [
+    "install",
+    "-a",
+    "fake-one",
+    "fake-two",
   ]);
 });
 

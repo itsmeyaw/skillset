@@ -1,6 +1,7 @@
 import { Context, Option } from "effect";
 import { Command, CommandSpec, GlobalFlag } from "effect/cli";
 
+// Variadic flags expand by default; annotations define positional boundaries.
 export const Expansion = Context.Service<
   never,
   {
