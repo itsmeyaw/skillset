@@ -65,15 +65,15 @@ const executeInstall = Effect.fn("executeInstall")(function* (
   const installed = new Set(result.installed.map((target) => target.skill));
   for (const target of result.skipped)
     yield* Console.log(`Skipped ${target.skill} for ${target.agent}: ${target.reason}`);
+  const names = plan.entries
+    .filter((entry) => installed.has(entry.name))
+    .map((entry) => entry.name);
+  if (names.length > 0) yield* Console.log(`Installed ${names.join(", ")}`);
   // Spec #1, User Story 41: stop on the first failed write without rollback.
   if (result.failed.length > 0)
     return yield* new InstallError({
       message: result.failed.map((failure) => failure.message).join("; "),
     });
-  const names = plan.entries
-    .filter((entry) => installed.has(entry.name))
-    .map((entry) => entry.name);
-  if (names.length > 0) yield* Console.log(`Installed ${names.join(", ")}`);
 });
 
 // ADR 0003: confirm the plan before installing skills.
