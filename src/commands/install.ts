@@ -1,4 +1,4 @@
-import { Console, Effect, FileSystem, Option } from "effect";
+import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
 import type { AgentInfo, InstallMode, SkillSource } from "skills";
 import {
@@ -9,13 +9,14 @@ import {
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
-import { root } from "../root.ts";
-import { readSkillset } from "../skillset-file.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
+import {
+  isEmpty,
+  openCommandSkillset,
+  selectEntries,
+  unknownNamesMessage,
+} from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
-import { resolveSet, userDir } from "../user-skillset.ts";
-
-export { InstallError };
 
 type InstallPlan = {
   readonly entries: ReadonlyArray<Entry>;
@@ -128,15 +129,15 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   },
 ) {
   // Issue #15: an empty Skillset needs neither a plan nor prompts.
-  if (skillset.skills.length === 0) {
+  if (isEmpty(skillset)) {
     yield* Console.log(emptySkillsetMessage);
     return;
   }
   // Spec #1, install: an explicit selection must name Entries in the Skillset.
-  const missing = selected.filter((name) => !skillset.skills.some((entry) => entry.name === name));
-  if (missing.length > 0)
+  const { unknown } = selectEntries(skillset, selected);
+  if (unknown.length > 0)
     return yield* new InstallError({
-      message: `Skills not found in Skillset: ${missing.join(", ")}`,
+      message: unknownNamesMessage(unknown),
     });
   // Spec #1, User Stories 37–39: confirm the plan only in an interactive terminal.
   const interactive = yield* isInteractive(yes);
@@ -204,10 +205,7 @@ const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     }
   }
   const plan: InstallPlan = {
-    entries:
-      names.length === 0
-        ? skillset.skills
-        : skillset.skills.filter((entry) => names.includes(entry.name)),
+    entries: selectEntries(skillset, names).entries,
     agents: targets,
     global: scope,
     mode,
@@ -233,10 +231,10 @@ type InstallOptions = Parameters<typeof buildInstallPlan>[1];
 
 // Issue #11: existing installs preflight after confirmation.
 export const installSkillset = Effect.fn("installSkillset")(function* (
-  set: string,
+  skillset: Skillset,
   options: InstallOptions,
 ) {
-  const plan = yield* buildInstallPlan(yield* readSkillset(set), options);
+  const plan = yield* buildInstallPlan(skillset, options);
   if (!plan) return;
   yield* Effect.scoped(
     Effect.gen(function* () {
@@ -257,38 +255,11 @@ export const install = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* (options) {
-    const { set: setFlag } = yield* root;
-    const ref = Option.getOrUndefined(options.set);
-    const given = ref ?? Option.getOrUndefined(setFlag);
-    // ADR 0003: positional Skillset references cannot be combined with --set.
-    if (ref !== undefined && Option.isSome(setFlag))
-      return yield* new InstallError({
-        message: `"${ref}" cannot be combined with --set.`,
-      });
-    // ADR 0003: invalid positional references use the User Skillset directory in the error.
-    const path =
-      ref === undefined
-        ? yield* resolveSet(setFlag)
-        : yield* resolveSet(options.set).pipe(
-            Effect.mapError(() => new InstallError({ message: missingSet(ref, userDir()) })),
-          );
-    // Issue #22: explicit missing Skillsets use the same error for positional and --set references.
-    if (given !== undefined) {
-      const fs = yield* FileSystem.FileSystem;
-      const exists = yield* fs
-        .exists(path)
-        .pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({ message: `Cannot read Skillset file ${path}: ${error.message}` }),
-          ),
-        );
-      if (!exists) return yield* new InstallError({ message: missingSet(given, path) });
-    }
-    return yield* installSkillset(path, options);
+    const store = yield* openCommandSkillset({
+      positional: Option.getOrUndefined(options.set),
+      missing: "fail",
+      install: true,
+    });
+    return yield* installSkillset(store.skillset, options);
   }),
 ).pipe(Command.withDescription("Install pinned Skillset Entries"));
-
-// ADR 0003: do not guess whether an invalid reference was a skill or Source.
-const missingSet = (arg: string, location: string) =>
-  `Cannot find Skillset "${arg}" in ${location}. To install a skill, use \`skillset add\`.`;

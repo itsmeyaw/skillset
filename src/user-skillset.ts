@@ -18,7 +18,7 @@ const nonEmpty = (value: string | undefined) =>
   value === undefined || value === "" ? undefined : value;
 
 // ADR 0002: SKILLSET_HOME, else $XDG_CONFIG_HOME/skillset, else ~/.skillset; never merged.
-export const userDir = (env: Env = process.env): string => {
+export const userDir = (env: Env): string => {
   const home = nonEmpty(env.SKILLSET_HOME);
   if (home !== undefined) return home;
   const xdg = nonEmpty(env.XDG_CONFIG_HOME);
@@ -28,7 +28,7 @@ export const userDir = (env: Env = process.env): string => {
 // ADR 0002: the form of `--set` alone decides path versus User Skillset.
 export const resolveSet = (
   value: Option.Option<string>,
-  env: Env = process.env,
+  env: Env,
 ): Effect.Effect<string, CliMessageError> => {
   if (Option.isNone(value)) return Effect.succeed("./skillset.json");
   if (isJsonPath(value.value)) return Effect.succeed(value.value);
@@ -40,7 +40,7 @@ export const resolveSet = (
 };
 
 // Issue #22: ls --user shows names only; a missing user directory is not an error.
-export const listUserSkillsets = Effect.fn("listUserSkillsets")(function* (env: Env = process.env) {
+export const listUserSkillsets = Effect.fn("listUserSkillsets")(function* (env: Env) {
   const fs = yield* FileSystem.FileSystem;
   const dir = userDir(env);
   const failure = (error: { readonly message: string }) =>

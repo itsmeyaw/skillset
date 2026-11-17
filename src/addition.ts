@@ -1,28 +1,26 @@
-import { Console, Effect, FileSystem } from "effect";
+import { Console, Effect } from "effect";
 import { CliMessageError as AddError, missingSkillsMessage } from "./errors.ts";
 import { cancelOnQuit } from "./prompts/cancel.ts";
 import { searchMultiSelect } from "./prompts/search.ts";
-import { readSkillset, SCHEMA_URL, SkillsetFileError } from "./skillset-file.ts";
 import type { Skillset } from "./skillset-file.ts";
+import { upsertEntries } from "./skillset-store.ts";
 import { parseSource } from "./source.ts";
 import { Upstream } from "./upstream.ts";
 
 // ADR 0003: adding resolves Sources, checks conflicts, and refreshes Pins.
 export const prepareAddition = Effect.fn("prepareAddition")(function* (
   input: string,
-  set: string,
+  skillset: Skillset,
   {
     selected,
     all,
     list,
     interactive,
-    base,
   }: {
     readonly selected: ReadonlyArray<string>;
     readonly all: boolean;
     readonly list: boolean;
     readonly interactive: boolean;
-    readonly base?: Skillset;
   },
 ) {
   const parsed = parseSource(input);
@@ -62,39 +60,13 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
     return yield* new AddError({
       message: missingSkillsMessage(commit, missing),
     });
-  const fs = yield* FileSystem.FileSystem;
-  // Issue #11: adding Entries creates a missing Skillset file.
-  // `base` carries Entries from earlier unwritten additions in the same session.
-  const exists =
-    base !== undefined ||
-    (yield* fs.exists(set).pipe(
-      Effect.mapError(
-        (error) =>
-          new SkillsetFileError({
-            message: `Cannot read Skillset file ${set}: ${error.message}`,
-          }),
-      ),
-    ));
-  const skillset: Skillset =
-    base ?? (exists ? yield* readSkillset(set) : { $schema: SCHEMA_URL, skills: [] });
   // Spec #1, User Story 16: re-adding an Entry from the same Source moves its Pin.
   // Spec #1, User Story 4: --all selects every skill at the resolved commit.
   const names = new Set(all ? skills : selection);
-  // Spec #1, User Story 15: a name from a different Source must never be overwritten.
-  const conflict = skillset.skills.find(
-    (entry) => names.has(entry.name) && entry.source !== parsed.stored,
-  );
-  if (conflict)
-    return yield* new AddError({
-      message: `Skill ${conflict.name} already belongs to ${conflict.source}`,
-    });
   const added = Array.from(names, (name) => ({ name, source: parsed.stored, commit }));
   return {
     _tag: "Addition" as const,
     added,
-    skillset: {
-      ...skillset,
-      skills: [...skillset.skills.filter((entry) => !names.has(entry.name)), ...added],
-    },
+    skillset: yield* upsertEntries(skillset, added),
   };
 });

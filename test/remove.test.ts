@@ -126,8 +126,7 @@ it.effect("remove reports unknown names but still removes all known names", () =
 
     const result = yield* runCli(["--set", file, "remove", "zeta", "missing", "alpha", "absent"]);
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /missing/);
-    assert.match(result.err.join("\n"), /absent/);
+    assert.include(result.err.join("\n"), "Unknown skills: missing, absent");
     assert.strictEqual(
       yield* fs.readFileString(file),
       JSON.stringify({ $schema: schemaUrl, skills: [beta] }, null, 2) + "\n",
@@ -190,7 +189,7 @@ it.effect("remove rejects missing Skillset files without creating them", () =>
 
     const result = yield* runCli(["remove", "--all", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /cannot read Skillset file/i);
+    assert.include(result.err.join("\n"), `Cannot find Skillset "${file}" in ${file}`);
     assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

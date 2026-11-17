@@ -1,10 +1,15 @@
-import { Effect, FileSystem, Option } from "effect";
+import { Context, Effect, FileSystem, Option } from "effect";
 import { CliMessageError } from "./errors.ts";
-import { readSkillset, SCHEMA_URL, writeSkillset } from "./skillset-file.ts";
+import { root } from "./root.ts";
+import { cannotReadSkillset, readSkillset, SCHEMA_URL, writeSkillset } from "./skillset-file.ts";
 import type { Entry, Skillset } from "./skillset-file.ts";
-import { resolveSet, userDir } from "./user-skillset.ts";
+import { listUserSkillsets, resolveSet, userDir } from "./user-skillset.ts";
 
-type Env = Readonly<Record<string, string | undefined>>;
+export type Env = Readonly<Record<string, string | undefined>>;
+
+export class SkillsetEnvironment extends Context.Service<SkillsetEnvironment, Env>()(
+  "skillset/Environment",
+) {}
 
 export const openSkillset = Effect.fn("openSkillset")(function* (
   options: {
@@ -34,20 +39,31 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
     ),
   );
   const fs = yield* FileSystem.FileSystem;
-  const exists = yield* fs
-    .exists(path)
-    .pipe(
-      Effect.mapError(
-        (error) =>
-          new CliMessageError({ message: `Cannot read Skillset file ${path}: ${error.message}` }),
-      ),
-    );
+  const exists = yield* fs.exists(path).pipe(Effect.mapError(cannotReadSkillset(path)));
   if (!exists && missing === "fail")
     return yield* new CliMessageError({ message: missingMessage(path) });
   const skillset: Skillset = exists
     ? yield* readSkillset(path)
     : { $schema: SCHEMA_URL, skills: [] };
   return { path, skillset, save: (next: Skillset) => writeSkillset(path, next) };
+});
+
+export const openCommandSkillset = Effect.fn("openCommandSkillset")(function* (options: {
+  readonly positional?: string;
+  readonly missing: "create" | "fail";
+  readonly install?: boolean;
+}) {
+  const { set } = yield* root;
+  const env = yield* SkillsetEnvironment;
+  return yield* openSkillset({ ...options, set }, env);
+});
+
+export const listCommandUserSkillsets = Effect.gen(function* () {
+  const { set } = yield* root;
+  if (Option.isSome(set))
+    return yield* new CliMessageError({ message: "--user cannot be used with --set." });
+  const env = yield* SkillsetEnvironment;
+  return yield* listUserSkillsets(env);
 });
 
 export const selectEntries = (skillset: Skillset, names: ReadonlyArray<string>) => ({
@@ -59,6 +75,9 @@ export const selectEntries = (skillset: Skillset, names: ReadonlyArray<string>) 
 });
 
 export const isEmpty = (skillset: Skillset) => skillset.skills.length === 0;
+
+export const unknownNamesMessage = (names: ReadonlyArray<string>) =>
+  `Unknown skills: ${names.join(", ")}`;
 
 export const upsertEntries = (skillset: Skillset, added: ReadonlyArray<Entry>) => {
   const conflict = skillset.skills.find((entry) =>

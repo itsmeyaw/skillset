@@ -650,7 +650,7 @@ it.effect("install rejects unknown selected names before fetching", () =>
     );
     const result = yield* runCli(["install", "-y", "-s", "missing", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /missing/i);
+    assert.include(result.err.join("\n"), "Unknown skills: missing");
     assert.deepStrictEqual(yield* fs.readDirectory(dir), ["skillset.json"]);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

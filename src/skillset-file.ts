@@ -69,17 +69,13 @@ export { SkillsetFileError };
 const invalidSkillset = (path: string) => (error: { readonly message: string }) =>
   new SkillsetFileError({ message: `Invalid Skillset file ${path}: ${error.message}` });
 
+export const cannotReadSkillset = (path: string) => (error: { readonly message: string }) =>
+  new SkillsetFileError({ message: `Cannot read Skillset file ${path}: ${error.message}` });
+
 // Spec #1, Skillset file module: reject invalid content and unknown versions before acting.
 export const readSkillset = Effect.fn("readSkillset")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
-  const text = yield* fs
-    .readFileString(path)
-    .pipe(
-      Effect.mapError(
-        (error) =>
-          new SkillsetFileError({ message: `Cannot read Skillset file ${path}: ${error.message}` }),
-      ),
-    );
+  const text = yield* fs.readFileString(path).pipe(Effect.mapError(cannotReadSkillset(path)));
   return yield* Schema.decodeEffect(Schema.fromJsonString(Skillset))(text, {
     onExcessProperty: "error",
   }).pipe(Effect.mapError(invalidSkillset(path)));

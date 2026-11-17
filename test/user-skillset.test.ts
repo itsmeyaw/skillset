@@ -1,7 +1,7 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, Exit, FileSystem, Option } from "effect";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { SCHEMA_URL } from "../src/skillset-file.ts";
@@ -51,24 +51,22 @@ it("user directory precedence: SKILLSET_HOME, XDG_CONFIG_HOME, then ~/.skillset"
   assert.strictEqual(userDir({ SKILLSET_HOME: "", XDG_CONFIG_HOME: "" }), `${homedir()}/.skillset`);
 });
 
-const withHome = <A, E, R>(effect: (home: string) => Effect.Effect<A, E, R>) =>
+const withHome = <A, E, R>(
+  effect: (
+    home: string,
+    run: (
+      argv: ReadonlyArray<string>,
+      options?: Parameters<typeof runCli>[1],
+    ) => ReturnType<typeof runCli>,
+  ) => Effect.Effect<A, E, R>,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const home = `${dir}/user`;
-    yield* Effect.acquireRelease(
-      Effect.sync(() => {
-        const previous = process.env.SKILLSET_HOME;
-        process.env.SKILLSET_HOME = home;
-        return previous;
-      }),
-      (previous) =>
-        Effect.sync(() => {
-          if (previous === undefined) delete process.env.SKILLSET_HOME;
-          else process.env.SKILLSET_HOME = previous;
-        }),
-    );
-    return yield* effect(home);
+    const run = (argv: ReadonlyArray<string>, options: Parameters<typeof runCli>[1] = {}) =>
+      runCli(argv, { ...options, env: options.env ?? { SKILLSET_HOME: home } });
+    return yield* effect(home, run);
   }).pipe(Effect.provide(NodeFileSystem.layer));
 
 const upstream = () => {
@@ -80,10 +78,10 @@ const upstream = () => {
 };
 
 it.effect("add --set <name> creates the User Skillset and the user directory", () =>
-  withHome((home) =>
+  withHome((home, run) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", "my-set"], {
+      const result = yield* run(["add", "owner/repo", "-s", "alpha", "--set", "my-set"], {
         upstream: upstream(),
       });
       assert.strictEqual(result.code, 0);
@@ -95,13 +93,13 @@ it.effect("add --set <name> creates the User Skillset and the user directory", (
 );
 
 it.effect("install <name> installs from the User Skillset and selects with -s", () =>
-  withHome((home) =>
+  withHome((home, run) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
       const up = { ...upstream(), installDir: dir };
-      yield* runCli(["add", "owner/repo", "--all", "--set", "my-set"], { upstream: up });
-      const result = yield* runCli(["install", "my-set", "-s", "beta", "-y"], { upstream: up });
+      yield* run(["add", "owner/repo", "--all", "--set", "my-set"], { upstream: up });
+      const result = yield* run(["install", "my-set", "-s", "beta", "-y"], { upstream: up });
       assert.strictEqual(result.code, 0);
       assert.isTrue(yield* fs.exists(`${dir}/project/universal/beta`));
       assert.isFalse(yield* fs.exists(`${dir}/project/universal/alpha`));
@@ -116,7 +114,7 @@ it.effect.each([
   { args: ["-s", "alpha", "./set.json"], beta: false },
   { args: ["-s", "alpha", "-a", "universal", "my-set"], beta: false },
 ])("install selects a Skillset after flags: $args", ({ args, beta }) =>
-  withHome((home) =>
+  withHome((home, run) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
@@ -135,16 +133,13 @@ it.effect.each([
         `${dir}/skillset.json`,
         JSON.stringify({ $schema: SCHEMA_URL, skills: [] }),
       );
-      const previous = process.cwd();
-      try {
-        process.chdir(dir);
-        const result = yield* runCli(["install", ...args, "-y"], { upstream: up });
-        assert.strictEqual(result.code, 0);
-        assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
-        assert.strictEqual(yield* fs.exists(`${dir}/project/universal/beta`), beta);
-      } finally {
-        process.chdir(previous);
-      }
+      const result = yield* run(
+        ["install", ...args.map((arg) => (arg === "./set.json" ? `${dir}/set.json` : arg)), "-y"],
+        { upstream: up },
+      );
+      assert.strictEqual(result.code, 0);
+      assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
+      assert.strictEqual(yield* fs.exists(`${dir}/project/universal/beta`), beta);
     }),
   ),
 );
@@ -176,16 +171,16 @@ it.effect("CLI process reads the User Skillset after a skill flag", () =>
 
 for (const agents of [["opencode"], ["opencode", "claude-code"]]) {
   it.effect(`install -a ${agents.join(" ")} <name> installs the User Skillset`, () =>
-    withHome(() =>
+    withHome((_home, run) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const dir = yield* fs.makeTempDirectoryScoped();
         const up = { ...upstream(), installDir: dir };
-        const added = yield* runCli(["add", "owner/repo", "--all", "--set", "my-set"], {
+        const added = yield* run(["add", "owner/repo", "--all", "--set", "my-set"], {
           upstream: up,
         });
         assert.strictEqual(added.code, 0);
-        const result = yield* runCli(["install", "-a", ...agents, "my-set", "-y"], {
+        const result = yield* run(["install", "-a", ...agents, "my-set", "-y"], {
           upstream: up,
         });
         assert.strictEqual(result.code, 0);
@@ -199,9 +194,9 @@ for (const agents of [["opencode"], ["opencode", "claude-code"]]) {
 }
 
 it.effect("install <name> --set x is an error", () =>
-  withHome(() =>
+  withHome((_home, run) =>
     Effect.gen(function* () {
-      const result = yield* runCli(["install", "my-set", "--set", "other", "-y"]);
+      const result = yield* run(["install", "my-set", "--set", "other", "-y"]);
       assert.notStrictEqual(result.code, 0);
       assert.include(result.err.join("\n"), '"my-set" cannot be combined with --set.');
     }),
@@ -210,82 +205,77 @@ it.effect("install <name> --set x is an error", () =>
 
 // Issue #22: invalid and missing positional references report the exact location.
 it.effect("install rejects non-Skillset and missing references without writing", () =>
-  withHome((home) =>
+  withHome((home, run) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
-      const previous = process.cwd();
-      try {
-        process.chdir(dir);
-        for (const [arg, location] of [
-          ["owner/repo", home],
-          ["missing-set", `${home}/missing-set.json`],
-          ["./missing.json", "./missing.json"],
-        ] as const) {
-          const result = yield* runCli(["install", arg, "-y"]);
-          assert.strictEqual(result.code, 1);
-          assert.include(
-            result.err.join("\n"),
-            `Cannot find Skillset "${arg}" in ${location}. To install a skill, use \`skillset add\`.`,
-          );
-        }
-        // Issue #22: --set and positional references report the same missing-file error.
-        const flagged = yield* runCli(["install", "--set", "missing-set", "-y"]);
-        assert.strictEqual(flagged.code, 1);
+      for (const [arg, location] of [
+        ["owner/repo", home],
+        ["missing-set", `${home}/missing-set.json`],
+        [`${dir}/missing.json`, `${dir}/missing.json`],
+      ] as const) {
+        const result = yield* run(["install", arg, "-y"]);
+        assert.strictEqual(result.code, 1);
         assert.include(
-          flagged.err.join("\n"),
-          `Cannot find Skillset "missing-set" in ${home}/missing-set.json. To install a skill, use \`skillset add\`.`,
+          result.err.join("\n"),
+          `Cannot find Skillset "${arg}" in ${location}. To install a skill, use \`skillset add\`.`,
         );
-        const defaultSet = yield* runCli(["install", "-y"]);
-        assert.strictEqual(defaultSet.code, 1);
-        assert.include(defaultSet.err.join("\n"), "Cannot read Skillset file ./skillset.json:");
-        assert.deepStrictEqual(yield* fs.readDirectory(dir), []);
-        assert.isFalse(yield* fs.exists(home));
-      } finally {
-        process.chdir(previous);
       }
+      // Issue #22: --set and positional references report the same missing-file error.
+      const flagged = yield* run(["install", "--set", "missing-set", "-y"]);
+      assert.strictEqual(flagged.code, 1);
+      assert.include(
+        flagged.err.join("\n"),
+        `Cannot find Skillset "missing-set" in ${home}/missing-set.json. To install a skill, use \`skillset add\`.`,
+      );
+      const defaultSet = spawnSync(
+        process.execPath,
+        [fileURLToPath(new URL("../src/bin.ts", import.meta.url)), "install", "-y"],
+        { cwd: dir, env: { ...process.env, SKILLSET_HOME: home }, encoding: "utf8" },
+      );
+      assert.strictEqual(defaultSet.status, 1);
+      assert.include(
+        defaultSet.stderr,
+        'Cannot find Skillset "./skillset.json" in ./skillset.json. To install a skill, use `skillset add`.',
+      );
+      assert.deepStrictEqual(yield* fs.readDirectory(dir), []);
+      assert.isFalse(yield* fs.exists(home));
     }),
   ),
 );
 
 // ADR 0002: positional JSON paths use the same resolution as --set.
 it.effect("install accepts a positional JSON path and preserves invalid-file errors", () =>
-  withHome(() =>
+  withHome((_home, run) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/team.json`;
       const up = { ...upstream(), installDir: dir };
-      yield* runCli(["add", "owner/repo", "--all", "--set", file], { upstream: up });
-      const previous = process.cwd();
-      try {
-        process.chdir(dir);
-        const result = yield* runCli(["install", "./team.json", "-y"], { upstream: up });
-        assert.strictEqual(result.code, 0);
-        assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
-      } finally {
-        process.chdir(previous);
-      }
+      yield* run(["add", "owner/repo", "--all", "--set", file], { upstream: up });
+      const result = yield* run(["install", file, "-y"], { upstream: up });
+      assert.strictEqual(result.code, 0);
+      assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
       yield* fs.writeFileString(file, "not json");
-      const invalid = yield* runCli(["install", file, "-y"]);
+      const invalid = yield* run(["install", file, "-y"]);
       assert.strictEqual(invalid.code, 1);
       assert.include(invalid.err.join("\n"), "Invalid Skillset file");
-      const badFlag = yield* runCli(["install", "--set", "owner/repo", "-y"]);
+      const badFlag = yield* run(["install", "--set", "owner/repo", "-y"]);
       assert.include(badFlag.err.join("\n"), '"owner/repo" is not a Skillset name or .json path.');
-      const both = yield* runCli(["install", file, "--set", "other", "-y"]);
+      const both = yield* run(["install", file, "--set", "other", "-y"]);
       assert.include(both.err.join("\n"), `"${file}" cannot be combined with --set.`);
     }),
   ),
 );
 
 it.effect("ls --user lists User Skillset names sorted without .json", () =>
-  withHome((home) =>
+  withHome((home, run) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       yield* fs.makeDirectory(home, { recursive: true });
       for (const file of ["b.json", "a.json", "notes.txt", "bad name.json"])
         yield* fs.writeFileString(`${home}/${file}`, "{}");
-      const result = yield* runCli(["ls", "--user"]);
+      const result = yield* run(["ls", "--user"]);
       assert.strictEqual(result.code, 0);
       assert.deepStrictEqual(result.out, ["a", "b"]);
     }),
@@ -294,9 +284,9 @@ it.effect("ls --user lists User Skillset names sorted without .json", () =>
 
 // Issue #22: -g is reserved for global installation scope.
 it.effect("ls rejects the removed -g flag", () =>
-  withHome(() =>
+  withHome((_home, run) =>
     Effect.gen(function* () {
-      const result = yield* runCli(["ls", "-g"]);
+      const result = yield* run(["ls", "-g"]);
       assert.strictEqual(result.code, 1);
       assert.include(result.err.join("\n"), "Unrecognized flag: -g in command skillset list");
     }),
@@ -304,9 +294,9 @@ it.effect("ls rejects the removed -g flag", () =>
 );
 
 it.effect("ls --user prints nothing when the user directory is missing", () =>
-  withHome(() =>
+  withHome((_home, run) =>
     Effect.gen(function* () {
-      const result = yield* runCli(["list", "--user"]);
+      const result = yield* run(["list", "--user"]);
       assert.strictEqual(result.code, 0);
       assert.deepStrictEqual(result.out, []);
     }),
@@ -314,9 +304,9 @@ it.effect("ls --user prints nothing when the user directory is missing", () =>
 );
 
 it.effect("ls --user --set x is an error", () =>
-  withHome(() =>
+  withHome((_home, run) =>
     Effect.gen(function* () {
-      const result = yield* runCli(["ls", "--user", "--set", "x"]);
+      const result = yield* run(["ls", "--user", "--set", "x"]);
       assert.notStrictEqual(result.code, 0);
       assert.include(result.err.join("\n"), "--user cannot be used with --set.");
     }),
@@ -324,22 +314,16 @@ it.effect("ls --user --set x is an error", () =>
 );
 
 it.effect("ls --user uses $XDG_CONFIG_HOME/skillset when SKILLSET_HOME is unset", () =>
-  withHome(() =>
+  withHome((_home, run) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const xdg = yield* fs.makeTempDirectoryScoped();
       yield* fs.makeDirectory(`${xdg}/skillset`);
       yield* fs.writeFileString(`${xdg}/skillset/via-xdg.json`, "{}");
-      const previous = process.env.SKILLSET_HOME;
-      delete process.env.SKILLSET_HOME;
-      process.env.XDG_CONFIG_HOME = xdg;
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          delete process.env.XDG_CONFIG_HOME;
-          if (previous !== undefined) process.env.SKILLSET_HOME = previous;
-        }),
+      assert.deepStrictEqual(
+        (yield* run(["ls", "--user"], { env: { XDG_CONFIG_HOME: xdg } })).out,
+        ["via-xdg"],
       );
-      assert.deepStrictEqual((yield* runCli(["ls", "--user"])).out, ["via-xdg"]);
     }),
   ),
 );
