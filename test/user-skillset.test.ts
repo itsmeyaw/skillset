@@ -111,7 +111,6 @@ it.effect("install <name> installs from the User Skillset and selects with -s", 
 it.effect.each([
   { args: ["-s", "alpha", "my-set"], beta: false },
   { args: ["-s", "alpha", "beta", "my-set"], beta: true },
-  { args: ["-s", "alpha", "./set.json"], beta: false },
   { args: ["-s", "alpha", "-a", "universal", "my-set"], beta: false },
 ])("install selects a Skillset after flags: $args", ({ args, beta }) =>
   withHome((home, run) =>
@@ -128,20 +127,38 @@ it.effect.each([
       });
       yield* fs.makeDirectory(home, { recursive: true });
       yield* fs.writeFileString(`${home}/my-set.json`, contents);
-      yield* fs.writeFileString(`${dir}/set.json`, contents);
-      yield* fs.writeFileString(
-        `${dir}/skillset.json`,
-        JSON.stringify({ $schema: SCHEMA_URL, skills: [] }),
-      );
-      const result = yield* run(
-        ["install", ...args.map((arg) => (arg === "./set.json" ? `${dir}/set.json` : arg)), "-y"],
-        { upstream: up },
-      );
+      const result = yield* run(["install", ...args, "-y"], { upstream: up });
       assert.strictEqual(result.code, 0);
       assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
       assert.strictEqual(yield* fs.exists(`${dir}/project/universal/beta`), beta);
     }),
   ),
+);
+
+it.effect("CLI resolves a relative JSON path after a skill flag", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    yield* fs.writeFileString(
+      `${dir}/set.json`,
+      JSON.stringify({ $schema: SCHEMA_URL, skills: [] }),
+    );
+    yield* fs.writeFileString(`${dir}/skillset.json`, "not json");
+    const result = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("../src/bin.ts", import.meta.url)),
+        "install",
+        "-s",
+        "alpha",
+        "./set.json",
+        "-y",
+      ],
+      { cwd: dir, env: { ...process.env, SKILLSET_HOME: dir }, encoding: "utf8" },
+    );
+    assert.strictEqual(result.status, 0);
+    assert.include(result.stdout, "This Skillset is empty.");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
 it.effect("CLI process reads the User Skillset after a skill flag", () =>
