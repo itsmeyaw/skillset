@@ -1,9 +1,7 @@
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { CliMessageError as RemoveError, emptySkillsetMessage } from "../errors.ts";
-import { cancelOnQuit } from "../prompts/cancel.ts";
-import { isInteractive } from "../prompts/interactive.ts";
-import { searchMultiSelect } from "../prompts/search.ts";
+import { makePrompter } from "../prompts/prompter.ts";
 import {
   isEmpty,
   openCommandSkillset,
@@ -21,11 +19,9 @@ export const remove = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* ({ skills: supplied, all, yes }) {
-    const interactive = yield* isInteractive(yes);
+    const prompter = yield* makePrompter(yes);
     // Spec #1, User Story 19: an empty selection must not remove anything.
-    if (!all && supplied.length === 0 && !interactive) {
-      return yield* new RemoveError({ message: "Usage: skillset remove [skills...] [--all]" });
-    }
+    if (!all && supplied.length === 0) yield* prompter.ensureRemoveInput();
     const store = yield* openCommandSkillset({ missing: "fail" });
     const { skillset } = store;
     let skills: ReadonlyArray<string> = supplied;
@@ -35,17 +31,15 @@ export const remove = Command.make(
         yield* Console.log(emptySkillsetMessage);
         return;
       }
-      skills = yield* cancelOnQuit(
-        searchMultiSelect({
-          message: "Which skills?",
-          choices: skillset.skills.map((entry) => ({
-            title: entry.name,
-            value: entry.name,
-            description: entry.source,
-          })),
-        }),
+      const chosen = yield* prompter.skills(
+        skillset.skills.map((entry) => ({
+          title: entry.name,
+          value: entry.name,
+          description: entry.source,
+        })),
       );
-      if (skills.length === 0) return;
+      if (!chosen || chosen.length === 0) return;
+      skills = chosen;
     }
     const { unknown } = selectEntries(skillset, skills);
     const next = removeEntries(skillset, all ? skillset.skills.map((entry) => entry.name) : skills);

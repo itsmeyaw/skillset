@@ -1,8 +1,7 @@
 import { Console, Effect } from "effect";
 import { CliMessageError as AddError, missingSkillsMessage } from "./errors.ts";
 import type { Pinning } from "./pinning.ts";
-import { cancelOnQuit } from "./prompts/cancel.ts";
-import { searchMultiSelect } from "./prompts/search.ts";
+import type { Prompter } from "./prompts/prompter.ts";
 import type { Skillset } from "./skillset-file.ts";
 import { upsertEntries } from "./skillset-store.ts";
 
@@ -11,16 +10,15 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
   input: string,
   skillset: Skillset,
   pinning: Pinning,
+  prompter: Prompter,
   {
     selected,
     all,
     list,
-    interactive,
   }: {
     readonly selected: ReadonlyArray<string>;
     readonly all: boolean;
     readonly list: boolean;
-    readonly interactive: boolean;
   },
 ) {
   const resolved = yield* pinning.resolve(input);
@@ -33,24 +31,25 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
   // Spec #1, Source parsing: -s or --all overrides an implied tree-path selection.
   let selection: ReadonlyArray<string> =
     selected.length > 0 ? selected : !all && resolved.skill ? [resolved.skill] : [];
-  if (list || (!interactive && !all && selection.length === 0)) {
+  let showList = list;
+  if (!list && !all && selection.length === 0) {
+    const chosen = yield* prompter.skills(
+      available.map((skill) => ({
+        title: skill.name,
+        value: skill.name,
+        description: skill.description,
+      })),
+    );
+    if (chosen !== undefined) {
+      selection = chosen;
+      if (selection.length === 0) return { _tag: "NoSelection" as const };
+    } else showList = true;
+  }
+  if (showList) {
     // Issue #11: listing skills must not create or change a Skillset file.
     for (const skill of skills) yield* Console.log(skill);
     yield* Console.log("Use -s to select skills or --all to add every skill.");
     return { _tag: "NoSelection" as const };
-  }
-  if (!all && selection.length === 0) {
-    selection = yield* cancelOnQuit(
-      searchMultiSelect({
-        message: "Which skills?",
-        choices: available.map((skill) => ({
-          title: skill.name,
-          value: skill.name,
-          description: skill.description,
-        })),
-      }),
-    );
-    if (selection.length === 0) return { _tag: "NoSelection" as const };
   }
   // Spec #1, User Story 14: reject absent skills before writing anything.
   const missing = selection.filter((name) => !skills.includes(name));

@@ -105,9 +105,7 @@ it.effect("interactive install prompts in order and uses selected options", () =
     const result = yield* runCli(["install", "--set", file], {
       tty: true,
       keys: [
-        key("down"),
-        key("down"),
-        key("down"),
+        key("beta", "beta"),
         key("space"),
         key("enter"),
         key("enter"),
@@ -128,6 +126,10 @@ it.effect("interactive install prompts in order and uses selected options", () =
     });
     assert.strictEqual(result.code, 0);
     const screen = result.screen.join("");
+    assert.include(screen, "Which skills?  Search:");
+    assert.include(screen, "❯ [x] alpha");
+    assert.include(screen, "[x] beta");
+    assert.include(screen, "Search: beta");
     const prompts = [
       "Which skills?",
       "Which agents?",
@@ -152,82 +154,6 @@ it.effect("interactive install prompts in order and uses selected options", () =
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("interactive install collapses Universal agents and selects the defaults", () =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const dir = yield* fs.makeTempDirectoryScoped();
-    const file = `${dir}/skillset.json`;
-    yield* fs.writeFileString(
-      file,
-      JSON.stringify({
-        $schema: SCHEMA_URL,
-        skills: [{ name: "alpha", source: "owner/repo", commit }],
-      }),
-    );
-    const members = Array.from({ length: 9 }, (_, index) => ({
-      ...universal,
-      id: `member${index + 1}`,
-      name: `Agent${index + 1}`,
-    }));
-    const result = yield* runCli(["install", "-s", "alpha", "-g", "--copy", "--set", file], {
-      tty: true,
-      keys: [key("enter"), key("enter"), key("escape")],
-      upstream: {
-        supportedAgents: [universal, claude, universalCursor, ...members, windsurf],
-        detectedAgents: [universalCursor, windsurf],
-        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
-        installDir: dir,
-      },
-    });
-    assert.strictEqual(result.code, 0);
-    const screen = result.screen.join("");
-    assert.include(screen, "❯ [x] Universal (.agents/skills)");
-    assert.include(
-      screen,
-      "Cursor, Agent1, Agent2, Agent3, Agent4, Agent5, Agent6, Agent7 +2 more",
-    );
-    assert.notMatch(screen, /\[[ x]\] (Cursor|Agent[0-9])/);
-    assert.include(screen, "[x] Claude Code");
-    assert.include(screen, "[x] Windsurf");
-    assert.include(result.out.join("\n"), "Agents: universal, claude-code, windsurf");
-    for (const agent of ["universal", "claude-code", "windsurf"])
-      assert.strictEqual(
-        yield* fs.readFileString(`${dir}/global/${agent}/alpha`),
-        `${commit}:copy`,
-      );
-    assert.isFalse(yield* fs.exists(`${dir}/global/cursor/alpha`));
-  }).pipe(Effect.provide(NodeFileSystem.layer)),
-);
-
-it.effect("interactive install lets users deselect default agents", () =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const dir = yield* fs.makeTempDirectoryScoped();
-    const file = `${dir}/skillset.json`;
-    yield* fs.writeFileString(
-      file,
-      JSON.stringify({
-        $schema: SCHEMA_URL,
-        skills: [{ name: "alpha", source: "owner/repo", commit }],
-      }),
-    );
-    const result = yield* runCli(["install", "-s", "alpha", "-g", "--copy", "--set", file], {
-      tty: true,
-      keys: [key("space"), key("enter"), key("enter"), key("escape")],
-      upstream: {
-        supportedAgents: [universal, claude, universalCursor],
-        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
-        installDir: dir,
-      },
-    });
-    assert.strictEqual(result.code, 0);
-    assert.include(result.screen.join(""), "\n  Cursor\r");
-    assert.include(result.out.join("\n"), "Agents: claude-code");
-    assert.isFalse(yield* fs.exists(`${dir}/global/universal/alpha`));
-    assert.isTrue(yield* fs.exists(`${dir}/global/claude-code/alpha`));
-  }).pipe(Effect.provide(NodeFileSystem.layer)),
-);
-
 it.effect("interactive install rejects an empty supported agent list", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -246,6 +172,29 @@ it.effect("interactive install rejects an empty supported agent list", () =>
     });
     assert.strictEqual(result.code, 1);
     assert.include(result.err.join("\n"), "No supported agents available");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("interactive install only rejects an empty supported list, not filtered choices", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-s", "alpha", "--set", file], {
+      tty: true,
+      keys: [key("escape")],
+      upstream: { supportedAgents: [universalCursor] },
+    });
+    assert.strictEqual(result.code, 130);
+    assert.include(result.out.join("\n"), "Cancelled");
+    assert.notInclude(result.err.join("\n"), "No supported agents available");
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 

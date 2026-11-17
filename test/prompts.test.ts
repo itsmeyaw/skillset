@@ -1,7 +1,7 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Cause, Effect, Layer, Terminal } from "effect";
-import { searchMultiSelect, searchSelect } from "../src/prompts/search.ts";
+import { searchMultiSelect } from "../src/prompts/search.ts";
 import { fakeTerminal, key } from "./harness.ts";
 
 const choices = [
@@ -43,14 +43,14 @@ it.effect("search multiselect filters, moves, toggles, and submits", () =>
   }),
 );
 
-it.effect("search select filters by value and submits", () =>
+it.effect("search multiselect filters by value and submits", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(
-      searchSelect({ message: "Choose", choices: [{ title: "Gamma", value: "c" }] }),
-      [key("c", "c"), key("enter")],
+      searchMultiSelect({ message: "Choose", choices: [{ title: "Gamma", value: "c" }] }),
+      [key("c", "c"), key("space"), key("enter")],
     );
     assert.strictEqual(result.result._tag, "Success");
-    if (result.result._tag === "Success") assert.strictEqual(result.result.value, "c");
+    if (result.result._tag === "Success") assert.deepStrictEqual(result.result.value, ["c"]);
   }),
 );
 
@@ -104,15 +104,16 @@ it.effect("ctrl+a selects matches without losing hidden selections", () =>
 
 it.effect("empty match state recovers after backspace", () =>
   Effect.gen(function* () {
-    const result = yield* runPrompt(searchSelect({ message: "Choose", choices }), [
+    const result = yield* runPrompt(searchMultiSelect({ message: "Choose", choices, min: 1 }), [
       key("z", "z"),
       key("enter"),
       key("backspace"),
+      key("space"),
       key("enter"),
     ]);
     assert.include(result.screen, "No matches");
     assert.strictEqual(result.result._tag, "Success");
-    if (result.result._tag === "Success") assert.strictEqual(result.result.value, "a");
+    if (result.result._tag === "Success") assert.deepStrictEqual(result.result.value, ["a"]);
   }),
 );
 
@@ -122,14 +123,15 @@ it.effect("scrolling reports remaining choices", () =>
       title: `Item ${index}`,
       value: `${index}`,
     }));
-    const result = yield* runPrompt(searchSelect({ message: "Choose", choices: many }), [
+    const result = yield* runPrompt(searchMultiSelect({ message: "Choose", choices: many }), [
       ...Array.from({ length: 8 }, () => key("down")),
+      key("space"),
       key("enter"),
     ]);
     assert.include(result.screen, "↓ 5 more");
     assert.include(result.screen, "↑ 2 more");
     assert.strictEqual(result.result._tag, "Success");
-    if (result.result._tag === "Success") assert.strictEqual(result.result.value, "8");
+    if (result.result._tag === "Success") assert.deepStrictEqual(result.result.value, ["8"]);
   }),
 );
 
@@ -147,7 +149,7 @@ it.effect("escape quits the prompt", () =>
 it.effect("untrusted descriptions cannot emit terminal escape sequences", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(
-      searchSelect({
+      searchMultiSelect({
         message: "Choose",
         choices: [{ title: "Alpha", value: "a", description: "Details\u001b]0;unsafe\u0007" }],
       }),
@@ -159,21 +161,22 @@ it.effect("untrusted descriptions cannot emit terminal escape sequences", () =>
 
 it.effect("backspace removes a full Unicode character", () =>
   Effect.gen(function* () {
-    const result = yield* runPrompt(searchSelect({ message: "Choose", choices }), [
+    const result = yield* runPrompt(searchMultiSelect({ message: "Choose", choices }), [
       key("emoji", "😀"),
       key("backspace"),
       key("a", "a"),
+      key("space"),
       key("enter"),
     ]);
     assert.strictEqual(result.result._tag, "Success");
-    if (result.result._tag === "Success") assert.strictEqual(result.result.value, "a");
+    if (result.result._tag === "Success") assert.deepStrictEqual(result.result.value, ["a"]);
   }),
 );
 
 it.effect("long descriptions stay within the prompt window", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(
-      searchSelect({
+      searchMultiSelect({
         message: "Choose",
         choices: [{ title: "Alpha", value: "a", description: "x".repeat(300) }],
       }),
@@ -186,7 +189,7 @@ it.effect("long descriptions stay within the prompt window", () =>
 it.effect("wide descriptions stay within terminal columns", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(
-      searchSelect({
+      searchMultiSelect({
         message: "Choose",
         choices: [{ title: "Alpha", value: "a", description: "中".repeat(60) }],
       }),
@@ -194,7 +197,7 @@ it.effect("wide descriptions stay within terminal columns", () =>
     );
     assert.strictEqual(
       result.screen.split("\r")[0],
-      `Choose  Search: \n❯ Alpha\n  ${"中".repeat(38)}…`,
+      `Choose  Search: \nSelected: none\n❯ [ ] Alpha\n  ${"中".repeat(38)}…`,
     );
   }),
 );
@@ -202,15 +205,15 @@ it.effect("wide descriptions stay within terminal columns", () =>
 it.effect("redraw clears exactly the previous narrow frame", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(
-      searchSelect({
+      searchMultiSelect({
         message: "Choose",
         choices: [{ title: "Alpha", value: "a", description: "中".repeat(30) }],
       }),
       [key("down"), key("enter")],
       20,
     );
-    const frame = `Choose  Search: \n❯ Alpha\n  ${"中".repeat(8)}…`;
-    const clear = "\r\x1b[2K" + "\x1b[1A\r\x1b[2K".repeat(2);
+    const frame = `Choose  Search: \nSelected: none\n❯ [ ] Alpha\n  ${"中".repeat(8)}…`;
+    const clear = "\r\x1b[2K" + "\x1b[1A\r\x1b[2K".repeat(3);
     assert.include(result.screen, frame + clear + frame + clear);
   }),
 );
@@ -218,15 +221,15 @@ it.effect("redraw clears exactly the previous narrow frame", () =>
 it.effect("one-column redraw clears exactly the previous frame", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(
-      searchSelect({
+      searchMultiSelect({
         message: "Choose",
         choices: [{ title: "Alpha", value: "a", description: "中文" }],
       }),
       [key("down"), key("enter")],
       1,
     );
-    const frame = ".\n.\n.";
-    const clear = "\r\x1b[2K" + "\x1b[1A\r\x1b[2K".repeat(2);
+    const frame = ".\n.\n.\n.";
+    const clear = "\r\x1b[2K" + "\x1b[1A\r\x1b[2K".repeat(3);
     assert.include(result.screen, frame + clear + frame + clear);
   }),
 );
@@ -234,7 +237,7 @@ it.effect("one-column redraw clears exactly the previous frame", () =>
 it.effect("truncation never splits an emoji surrogate pair", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(
-      searchSelect({
+      searchMultiSelect({
         message: "Choose",
         choices: [{ title: "Alpha", value: "a", description: `${"x".repeat(75)}😀more` }],
       }),

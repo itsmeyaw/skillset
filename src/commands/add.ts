@@ -1,14 +1,13 @@
 import { Console, Effect, Option } from "effect";
-import { Argument, Command, Flag, Prompt } from "effect/cli";
+import { Argument, Command, Flag } from "effect/cli";
 import { prepareAddition } from "../addition.ts";
 import { CliMessageError as AddError } from "../errors.ts";
+import { installSkillset } from "../install.ts";
 import { makePinning } from "../pinning.ts";
-import { cancelOnQuit } from "../prompts/cancel.ts";
-import { isInteractive } from "../prompts/interactive.ts";
+import { makePrompter } from "../prompts/prompter.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
-import { installSkillset } from "./install.ts";
 
 // Spec #1, add: list skills without changing the Skillset when no selection is given.
 export const add = Command.make(
@@ -33,12 +32,8 @@ export const add = Command.make(
           return yield* new AddError({
             message: "--agent, --global and --copy require --install.",
           });
-        const interactive = yield* isInteractive(yes);
-        if (Option.isNone(source) && !interactive)
-          return yield* new AddError({ message: "Usage: skillset add <source>" });
-        let input = Option.isSome(source)
-          ? source.value
-          : yield* cancelOnQuit(Prompt.String({ message: "Source?" }));
+        const prompter = yield* makePrompter(yes);
+        let input = Option.isSome(source) ? source.value : yield* prompter.source();
         const store = yield* openCommandSkillset({ missing: "create" });
         const pinning = yield* makePinning(session);
         let first = true;
@@ -51,16 +46,13 @@ export const add = Command.make(
             input,
             pending ?? store.skillset,
             pinning,
-            first
-              ? { selected, all, list, interactive }
-              : { selected: [], all: false, list: false, interactive },
+            prompter,
+            first ? { selected, all, list } : { selected: [], all: false, list: false },
           ).pipe(Effect.result);
           first = false;
           // Interactive add recovery spec: only typed failures permit another Source.
           if (result._tag === "Failure") {
-            if (!interactive) return yield* result.failure;
             lastError = result.failure;
-            yield* Console.error(`Warning: ${lastError.message}`);
           } else {
             const addition = result.success;
             if (addition._tag !== "Addition") break;
@@ -69,16 +61,10 @@ export const add = Command.make(
           }
           // Interactive add repeats Source selection until the user is done.
           if (
-            !interactive ||
-            !(yield* cancelOnQuit(
-              Prompt.Confirm({
-                message: "Add another source?",
-                initial: result._tag === "Failure",
-              }),
-            ))
+            !(yield* prompter.anotherSource(result._tag === "Failure" ? result.failure : undefined))
           )
             break;
-          input = yield* cancelOnQuit(Prompt.String({ message: "Source?" }));
+          input = yield* prompter.source();
         }
         // Interactive add recovery spec: write successful rounds once, or fail with the last error.
         if (!pending && lastError) return yield* lastError;
@@ -90,14 +76,7 @@ export const add = Command.make(
             );
         }
         // ADR 0003: write additions before either chained or prompted full-Skillset installation.
-        if (
-          pending &&
-          (install ||
-            (interactive &&
-              (yield* cancelOnQuit(
-                Prompt.Confirm({ message: "Install skillset?", initial: false }),
-              ))))
-        )
+        if (pending && (install || (yield* prompter.confirmInstall())))
           yield* installSkillset(
             pending,
             {
@@ -105,9 +84,9 @@ export const add = Command.make(
               agents,
               global,
               copy,
-              yes,
             },
             session,
+            prompter,
           );
       }),
     );
