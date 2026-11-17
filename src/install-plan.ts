@@ -38,7 +38,7 @@ const agentChoices = (supported: ReadonlyArray<Agent>, detected: ReadonlyArray<A
       .slice(0, 8)
       .map((agent) => agent.name)
       .join(", ") + (members.length > 8 ? ` +${members.length - 8} more` : "");
-  return supported
+  const choices = supported
     .filter((agent) => !agent.universal || agent.id === "universal")
     .map((agent) => ({
       title: agent.id === "universal" ? "Universal (.agents/skills)" : agent.name,
@@ -48,6 +48,7 @@ const agentChoices = (supported: ReadonlyArray<Agent>, detected: ReadonlyArray<A
         : {}),
       selected: defaults.includes(agent.id),
     }));
+  return { defaults, choices };
 };
 
 export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
@@ -79,7 +80,8 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     const upstream = yield* Upstream;
     const supported = yield* upstream.getSupportedAgents;
     const detected = yield* upstream.detectAgents();
-    agents = yield* prompter.agents(agentChoices(supported, detected.agents));
+    const { defaults, choices } = agentChoices(supported, detected.agents);
+    agents = yield* prompter.agents(choices, defaults);
   }
   const plan: InstallPlan = {
     entries: selectEntries(skillset, names).entries,

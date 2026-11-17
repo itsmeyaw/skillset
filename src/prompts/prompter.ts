@@ -18,6 +18,7 @@ export type Prompter = {
   ) => Answer<ReadonlyArray<string> | undefined>;
   readonly agents: (
     choices: ReadonlyArray<SearchChoice>,
+    defaults: ReadonlyArray<string>,
   ) => Answer<ReadonlyArray<string> | undefined>;
   readonly scope: () => Answer<"project" | "global">;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
@@ -30,10 +31,7 @@ export type Prompter = {
 
 const unattended: Prompter = {
   skills: (choices, all) => Effect.succeed(all ? choices.map((choice) => choice.value) : undefined),
-  agents: (choices) => {
-    const selected = choices.filter((choice) => choice.selected).map((choice) => choice.value);
-    return Effect.succeed(selected.length > 0 ? selected : undefined);
-  },
+  agents: (_choices, defaults) => Effect.succeed(defaults.length > 0 ? defaults : undefined),
   scope: () => Effect.succeed("project"),
   mode: () => Effect.succeed("auto"),
   confirmPlan: () => Effect.succeed(true),

@@ -209,6 +209,25 @@ it.effect("unattended plans leave agents undefined when no defaults exist", () =
   }),
 );
 
+it.effect("unattended agents keep default priority even when supported agents are reordered", () =>
+  Effect.gen(function* () {
+    const prompter = yield* makePrompter(true).pipe(Effect.provide(Stdio.layerTest({})));
+    const agent = (id: string, universal = false) => ({
+      id,
+      name: id,
+      universal,
+      projectSkillsDir: ".agents/skills",
+      globalSkillsDir: null,
+    });
+    const windsurf = agent("windsurf");
+    const plan = yield* runPlan(skillset, options, prompter, {
+      supportedAgents: [windsurf, agent("claude-code"), agent("universal", true)],
+      detectedAgents: [windsurf],
+    });
+    assert.deepStrictEqual(plan?.agents, ["universal", "claude-code", "windsurf"]);
+  }),
+);
+
 it.effect.each([
   { flags: { selected: ["alpha"] }, skipped: "skills" },
   { flags: { agents: ["cursor"] }, skipped: "agents" },
