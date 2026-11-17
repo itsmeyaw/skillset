@@ -45,20 +45,20 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
 
     it("lists and installs a scoped source at a full SHA", async () => {
       const cwd = await mkdtemp(join(tmpdir(), "skillset-smoke-"));
+      const telemetry = process.env.DISABLE_TELEMETRY;
+      process.env.DISABLE_TELEMETRY = "1";
       try {
         await Effect.runPromise(
           Upstream.use((upstream) =>
-            Effect.scoped(
+            upstream.withSession((session) =>
               Effect.gen(function* () {
-                const resolved = yield* upstream.resolveSource(`${source}.git`, commit);
-                expect(resolved.source.commit).toBe(commit);
-                expect(resolved.skills.map((skill) => skill.name)).toContain("grilling");
-                const installed = yield* upstream.install(resolved, {
+                const resolved = yield* session.list(`${source}.git`, commit);
+                expect(resolved.map((skill) => skill.name)).toContain("grilling");
+                const installed = yield* session.install([{ name: "grilling", source, commit }], {
                   cwd,
-                  skills: ["grilling"],
                   agents: ["universal"],
+                  scope: "project",
                   mode: "copy",
-                  telemetry: false,
                 });
                 expect(installed.failed).toEqual([]);
               }),
@@ -69,6 +69,8 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
           "grilling",
         );
       } finally {
+        if (telemetry === undefined) delete process.env.DISABLE_TELEMETRY;
+        else process.env.DISABLE_TELEMETRY = telemetry;
         await rm(cwd, { recursive: true, force: true });
       }
     }, 120_000);

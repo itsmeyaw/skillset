@@ -34,9 +34,14 @@ export const withUpstreamSession = <Handle extends Source, A, E, R>(
         return source;
       });
       const get = (remote: string, commit: string) =>
-        getScoped(remote, commit).pipe(Effect.provideService(Scope.Scope, scope));
+        getScoped(remote, commit).pipe(Scope.provide(scope));
       const session: UpstreamSession = {
-        list: (remote, commit) => get(remote, commit).pipe(Effect.map((source) => source.skills)),
+        list: (remote, commit) =>
+          get(remote, commit).pipe(
+            Effect.map((source) =>
+              source.skills.map(({ name, description }) => ({ name, description })),
+            ),
+          ),
         install: Effect.fn("Upstream.install")(function* (entries, choices) {
           const groups = new Map<
             string,
@@ -45,7 +50,7 @@ export const withUpstreamSession = <Handle extends Source, A, E, R>(
           for (const entry of entries) {
             const parsed = parseSource(entry.source);
             if ("error" in parsed) return yield* new UpstreamError({ message: parsed.error });
-            const key = JSON.stringify([parsed.remote, entry.commit]);
+            const key = JSON.stringify([entry.source, entry.commit]);
             const group = groups.get(key) ?? {
               remote: parsed.remote,
               commit: entry.commit,
@@ -71,9 +76,13 @@ export const withUpstreamSession = <Handle extends Source, A, E, R>(
           const failed: Array<InstallOutcome["failed"][number]> = [];
           for (const group of checked) {
             const result = yield* write(group.source, group.names, choices);
-            installed.push(...result.installed);
-            skipped.push(...result.skipped);
-            failed.push(...result.failed);
+            installed.push(...result.installed.map(({ skill, agent }) => ({ skill, agent })));
+            skipped.push(
+              ...result.skipped.map(({ skill, agent, reason }) => ({ skill, agent, reason })),
+            );
+            failed.push(
+              ...result.failed.map(({ skill, agent, message }) => ({ skill, agent, message })),
+            );
             if (result.failed.length > 0) break;
           }
           return { installed, skipped, failed };

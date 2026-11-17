@@ -537,6 +537,30 @@ it.effect("install reports skipped targets without claiming they were installed"
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("install does not report success when every target is skipped", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    yield* fs.writeFileString(
+      file,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [{ name: "alpha", source: "owner/repo", commit }],
+      }),
+    );
+    const result = yield* runCli(["install", "-y", "-a", "cursor", "--set", file], {
+      upstream: {
+        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
+        skippedSkills: ["alpha"],
+      },
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), "Skipped alpha");
+    assert.notInclude(result.out.join("\n"), "Installed");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("install stops after an upstream install reports a failed target", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

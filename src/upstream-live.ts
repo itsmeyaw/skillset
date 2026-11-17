@@ -67,7 +67,10 @@ export const UpstreamLive = Layer.effect(
         withUpstreamSession(
           resolvePinned,
           (source, names, choices) =>
-            adapter.install(source, { ...choices, skills: names, telemetry: false }),
+            Effect.tryPromise({
+              try: () => installSkills(source, { ...choices, skills: names }),
+              catch: toError,
+            }),
           use,
         ),
       resolveRefs: Effect.fn("Upstream.resolveRefs")(function* (remote, refs) {
@@ -108,12 +111,15 @@ export const UpstreamLive = Layer.effect(
         }
         return refs.map((ref) => selectRemoteCommit(stdout, ref));
       }),
-      resolveSource: resolvePinned,
-      install: (source, options) =>
-        Effect.tryPromise({ try: () => installSkills(source, options), catch: toError }),
       detectAgents: (options) =>
-        Effect.tryPromise({ try: () => detectAgents(options), catch: toError }),
-      getSupportedAgents: Effect.sync(() => getSupportedAgents()),
+        Effect.tryPromise({ try: () => detectAgents(options), catch: toError }).pipe(
+          Effect.map(({ agents }) => ({
+            agents: agents.map(({ id, name, universal }) => ({ id, name, universal })),
+          })),
+        ),
+      getSupportedAgents: Effect.sync(() =>
+        getSupportedAgents().map(({ id, name, universal }) => ({ id, name, universal })),
+      ),
     });
     return adapter;
   }),

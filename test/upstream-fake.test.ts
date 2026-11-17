@@ -1,4 +1,7 @@
 import { Effect } from "effect";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { expect, it } from "vitest";
 import { Upstream } from "../src/upstream.ts";
 import { fakeUpstream } from "./harness.ts";
@@ -18,9 +21,7 @@ it("lists skill names and descriptions", async () => {
   const skills = [{ name: "alpha", description: "First skill" }];
   const result = await Effect.runPromise(
     Upstream.use((upstream) =>
-      Effect.scoped(
-        upstream.resolveSource(source, commit).pipe(Effect.map((handle) => handle.skills)),
-      ),
+      upstream.withSession((session) => session.list(source, commit)),
     ).pipe(
       Effect.provide(fakeUpstream({ skills: { [JSON.stringify([source, commit])]: skills } })),
     ),
@@ -28,16 +29,29 @@ it("lists skill names and descriptions", async () => {
   expect(result).toEqual(skills);
 });
 
-it("disposes fake sources when the preflight scope closes", async () => {
+it("disposes fake sources when the session closes", async () => {
   const source = "owner/repo";
   const commit = "a".repeat(40);
-  const error = await Effect.runPromise(
-    Upstream.use((upstream) =>
-      Effect.gen(function* () {
-        const handle = yield* Effect.scoped(upstream.resolveSource(source, commit));
-        return yield* upstream.install(handle, {}).pipe(Effect.flip);
-      }),
-    ).pipe(Effect.provide(fakeUpstream({ skills: { [JSON.stringify([source, commit])]: ["a"] } }))),
-  );
-  expect(error.message).toContain("disposed");
+  const dir = await mkdtemp(join(tmpdir(), "skillset-fake-"));
+  const calls: Array<string> = [];
+  try {
+    const result = await Effect.runPromise(
+      Upstream.use((upstream) =>
+        upstream.withSession((session) => session.list(source, commit)),
+      ).pipe(
+        Effect.provide(
+          fakeUpstream({
+            calls,
+            disposalLog: join(dir, "disposed"),
+            skills: { [JSON.stringify([source, commit])]: ["a"] },
+          }),
+        ),
+      ),
+    );
+    expect(result.map((skill) => skill.name)).toEqual(["a"]);
+    expect(calls).toEqual([`resolveSource ${source} ${commit}`]);
+    expect(await readFile(join(dir, "disposed"), "utf8")).toBe(`${source} ${commit}\n`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
