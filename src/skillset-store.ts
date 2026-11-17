@@ -23,18 +23,19 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
     readonly positional?: string;
     readonly missing: "create" | "fail";
     readonly install?: boolean;
+    readonly allowRemote?: boolean;
   },
   env: Env,
   fetchRemote: typeof fetch = fetch,
 ) {
-  const { set, positional, missing, install } = options;
+  const { set, positional, missing, install, allowRemote } = options;
   if (positional !== undefined && Option.isSome(set))
     return yield* new CliMessageError({
       message: `"${positional}" cannot be combined with --set.`,
     });
   const reference = positional ?? Option.getOrUndefined(set) ?? DEFAULT_SKILLSET_PATH;
   if (isRemoteSkillset(reference)) {
-    if (!install) return yield* rejectRemoteSkillset();
+    if (!install && !allowRemote) return yield* rejectRemoteSkillset();
     const skillset = yield* fetchSkillset(reference, fetchRemote);
     return {
       path: reference,
@@ -72,6 +73,7 @@ export const openCommandSkillset = Effect.fn("openCommandSkillset")(function* (o
   readonly positional?: string;
   readonly missing: "create" | "fail";
   readonly install?: boolean;
+  readonly allowRemote?: boolean;
 }) {
   const { set } = yield* root;
   const env = yield* SkillsetEnvironment;

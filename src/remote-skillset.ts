@@ -9,7 +9,7 @@ export class RemoteFetch extends Context.Service<RemoteFetch, typeof fetch>()(
 export const isRemoteSkillset = (value: string) => /^https:\/\//iu.test(value);
 export const isHttpUrl = (value: string) => /^http:\/\//iu.test(value);
 export const rejectRemoteSkillset = () =>
-  new CliMessageError({ message: "Remote Skillsets can only be installed." });
+  new CliMessageError({ message: "Remote Skillsets can only be installed or listed." });
 
 const limit = 1024 * 1024;
 

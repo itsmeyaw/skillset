@@ -160,7 +160,7 @@ skillset install https://example.com/team.json
 skillset install --set https://github.com/owner/repo/blob/main/skillset.json -y
 ```
 
-GitHub blob links are converted to raw URLs. Remote Skillsets are fetched on every install, never saved, and cannot be edited or listed with other commands. Interactive installs show the Entries and ask for confirmation. Use `-y` for unattended installs. Only HTTPS URLs are supported, with no authentication; downloads are limited to 1 MB and 10 seconds.
+GitHub blob links are converted to raw URLs. Remote Skillsets are fetched on every install, never saved, and can be listed with `ls --set <url>` but cannot be edited. Interactive installs show the Entries and ask for confirmation. Use `-y` for unattended installs. Only HTTPS URLs are supported, with no authentication; downloads are limited to 1 MB and 10 seconds.
 
 ## Skillset file format
 

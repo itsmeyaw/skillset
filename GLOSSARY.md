@@ -24,7 +24,7 @@ A Skillset the user keeps by name, outside any project, so it can be used from a
 _Avoid_: Global skillset, saved skillset, profile
 
 **Remote Skillset**:
-A Skillset published at an `https` URL instead of kept on disk. It can only be installed, never edited.
+A Skillset published at an `https` URL instead of kept on disk. It can be installed or listed, never edited.
 _Avoid_: Remote source (a Source is where an Entry comes from), URL skillset
 
 **Entry**:

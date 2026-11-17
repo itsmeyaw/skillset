@@ -134,6 +134,14 @@ it.effect("cancels a multi-chunk body once it exceeds the limit", () =>
   }),
 );
 
+it.effect("lists a Remote Skillset", () =>
+  Effect.gen(function* () {
+    const result = yield* runCli(["ls", "--set", url], { fetch: fetchResponse(response) });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), "alpha  owner/repo  aaaaaaa");
+  }),
+);
+
 it.effect.each([
   ["install", url, "-y"],
   ["install", "--set", url, "-y"],
@@ -227,14 +235,13 @@ it.effect.each([
   ["add", "owner/repo", "--set", url, "--install", "-y"],
   ["remove", "alpha", "--set", url, "-y"],
   ["update", "--set", url],
-  ["ls", "--set", url],
 ])("rejects Remote Skillsets outside install: %s", (argv) =>
   Effect.gen(function* () {
     const result = yield* runCli(argv, {
       fetch: () => Promise.reject(new Error("unexpected fetch")),
     });
     assert.strictEqual(result.code, 1);
-    assert.include(result.err.join("\n"), "Remote Skillsets can only be installed.");
+    assert.include(result.err.join("\n"), "Remote Skillsets can only be installed or listed.");
   }),
 );
 

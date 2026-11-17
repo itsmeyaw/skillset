@@ -14,7 +14,7 @@ export const list = Command.make(
       for (const name of yield* listCommandUserSkillsets) yield* Console.log(name);
       return;
     }
-    const { skillset } = yield* openCommandSkillset({ missing: "fail" });
+    const { skillset } = yield* openCommandSkillset({ missing: "fail", allowRemote: true });
     const entries = sortedEntries(skillset.skills);
     if (isEmpty(skillset)) {
       yield* Console.log(emptySkillsetMessage);
