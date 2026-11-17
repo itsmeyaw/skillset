@@ -64,8 +64,6 @@ export const skillsetJsonSchema = (): string => {
   );
 };
 
-export { SkillsetFileError };
-
 const invalidSkillset = (path: string) => (error: { readonly message: string }) =>
   new SkillsetFileError({ message: `Invalid Skillset file ${path}: ${error.message}` });
 
