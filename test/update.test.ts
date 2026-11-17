@@ -241,8 +241,10 @@ it.effect("update keeps failed Source Pins and updates other Sources", () =>
       ],
     });
     yield* fs.writeFileString(file, original);
+    const commitLookups: Array<string> = [];
     const result = yield* runCli(["update", "--set", file], {
       upstream: {
+        commitLookups,
         commits: {
           [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest,
           [JSON.stringify(["https://github.com/missing/repo.git", null])]: latest,
@@ -253,6 +255,11 @@ it.effect("update keeps failed Source Pins and updates other Sources", () =>
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /Fake commit not configured/);
     assert.match(result.err.join("\n"), /Fake skills not configured/);
+    assert.deepStrictEqual(commitLookups, [
+      JSON.stringify(["https://github.com/broken/repo.git", null]),
+      JSON.stringify(["https://github.com/missing/repo.git", null]),
+      JSON.stringify(["https://github.com/owner/repo.git", null]),
+    ]);
     assert.deepStrictEqual(result.out, ["gamma  aaaaaaa → bbbbbbb"]);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { name: "alpha", source: "broken/repo", commit: old },

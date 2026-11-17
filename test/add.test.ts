@@ -125,6 +125,27 @@ it.effect("add uses a full SHA without looking up the remote ref", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("a tree URL with a full SHA still checks for a longer ref", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const remote = "https://github.com/owner/repo";
+    const calls: Array<string> = [];
+    const result = yield* runCli(
+      ["add", `${remote}/tree/${commit}/alpha`, "--set", `${dir}/set.json`],
+      {
+        upstream: {
+          calls,
+          commits: { [JSON.stringify([remote, `${commit}/alpha`])]: "b".repeat(40) },
+        },
+      },
+    );
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /ambiguous.*#.*-s/i);
+    assert.deepStrictEqual(calls, ["resolveRefs"]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("add rejects the executable Git transport before calling Upstream", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

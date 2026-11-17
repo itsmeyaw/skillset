@@ -12,15 +12,12 @@ export const makePinning = Effect.fn("makePinning")(function* () {
   const handles = new Map<string, SkillSource>();
   const resolutions = new Map<
     string,
-    | {
-        value: {
-          source: string;
-          commit: string;
-          skills: SkillSource["skills"];
-          skill: string | undefined;
-        };
-      }
-    | { error: CliMessageError }
+    {
+      source: string;
+      commit: string;
+      skills: SkillSource["skills"];
+      skill: string | undefined;
+    }
   >();
 
   const handle = Effect.fn("Pinning.handle")(function* (
@@ -37,34 +34,29 @@ export const makePinning = Effect.fn("makePinning")(function* () {
   });
 
   const resolve = Effect.fn("Pinning.resolve")(function* (input: string) {
-    let cached = resolutions.get(input);
-    if (!cached) {
-      const result = yield* Effect.gen(function* () {
-        const parsed = parseSource(input);
-        if ("error" in parsed) return yield* new CliMessageError({ message: parsed.error });
-        const isSha = parsed.ref !== undefined && PIN_PATTERN.test(parsed.ref);
-        let commit = isSha ? parsed.ref : undefined;
-        if (!isSha || parsed.treeRefs?.length) {
-          const [resolved, ...longer] = yield* upstream.resolveRefs(parsed.remote, [
-            parsed.ref,
-            ...(parsed.treeRefs ?? []),
-          ]);
-          if (longer.some((candidate) => candidate !== undefined))
-            return yield* new CliMessageError({ message: ambiguousTreeMessage });
-          commit ??= resolved;
-        }
-        if (commit === undefined)
-          return yield* new CliMessageError({
-            message: `Ref ${parsed.ref ?? "HEAD"} not found in ${parsed.displayRemote ?? parsed.remote}`,
-          });
-        const fetched = yield* handle(parsed.stored, parsed.remote, commit);
-        return { source: parsed.stored, commit, skills: fetched.skills, skill: parsed.skill };
-      }).pipe(Effect.result);
-      cached = result._tag === "Failure" ? { error: result.failure } : { value: result.success };
-      resolutions.set(input, cached);
+    const cached = resolutions.get(input);
+    if (cached) return cached;
+    const parsed = parseSource(input);
+    if ("error" in parsed) return yield* new CliMessageError({ message: parsed.error });
+    const isSha = parsed.ref !== undefined && PIN_PATTERN.test(parsed.ref);
+    let commit = isSha ? parsed.ref : undefined;
+    if (!isSha || parsed.treeRefs?.length) {
+      const [resolved, ...longer] = yield* upstream.resolveRefs(parsed.remote, [
+        parsed.ref,
+        ...(parsed.treeRefs ?? []),
+      ]);
+      if (longer.some((candidate) => candidate !== undefined))
+        return yield* new CliMessageError({ message: ambiguousTreeMessage });
+      commit ??= resolved;
     }
-    if ("error" in cached) return yield* cached.error;
-    return cached.value;
+    if (commit === undefined)
+      return yield* new CliMessageError({
+        message: `Ref ${parsed.ref ?? "HEAD"} not found in ${parsed.displayRemote ?? parsed.remote}`,
+      });
+    const fetched = yield* handle(parsed.stored, parsed.remote, commit);
+    const result = { source: parsed.stored, commit, skills: fetched.skills, skill: parsed.skill };
+    resolutions.set(input, result);
+    return result;
   });
 
   const latest = Effect.fn("Pinning.latest")(function* (input: string) {

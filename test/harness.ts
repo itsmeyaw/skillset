@@ -33,7 +33,7 @@ const defaultAgents: ReadonlyArray<AgentInfo> = [
 // Spec #1, Testing Decisions: the fake supplies Pins, available skills, and install failures.
 export const fakeUpstream = (
   options: {
-    readonly commits?: Readonly<Record<string, string>>;
+    readonly commits?: Readonly<Record<string, string | undefined>>;
     readonly commitLookups?: Array<string>;
     readonly calls?: Array<string>;
     readonly skills?: Readonly<
