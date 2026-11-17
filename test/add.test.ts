@@ -498,6 +498,24 @@ it.effect("add rejects an invalid Skillset file without overwriting it", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("add -l rejects an invalid Skillset before Source lookup", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const original = "not json";
+    const calls: Array<string> = [];
+    yield* fs.writeFileString(file, original);
+    const result = yield* runCli(["add", "owner/repo", "-l", "--set", file], {
+      upstream: { ...upstream, calls },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /invalid Skillset file/i);
+    assert.deepStrictEqual(calls, []);
+    assert.strictEqual(yield* fs.readFileString(file), original);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 for (const ref of ["v1.2.3", "1.2-beta+build", "b".repeat(40)]) {
   it.effect(`add accepts version-pinned Source ${ref} and preserves it`, () =>
     Effect.gen(function* () {
