@@ -51,6 +51,7 @@ export const expandSkillFlags = (
     if (rest) {
       result.push(token);
       if (commandSeen) positionalSeen = true;
+      // POSIX Utility Syntax Guidelines, guideline 10: -- ends option processing.
     } else if (token === "--") {
       flush();
       rest = true;

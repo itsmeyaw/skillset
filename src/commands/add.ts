@@ -11,6 +11,8 @@ import type { Entry, Skillset } from "../skillset-file.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
 
+// Issue #11: only the add command takes a Source.
+// Spec #1, User Story 3: a Source can follow space-separated skill names.
 const isSource = (value: string) => /[/:]/u.test(value);
 
 // Spec #1, add: list skills without changing the Skillset when no selection is given.
