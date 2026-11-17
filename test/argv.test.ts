@@ -23,6 +23,33 @@ it("expands a new repeating flag declared on a command", () => {
   ]);
 });
 
+it("keeps a non-variadic flag value separate from positional arguments", () => {
+  const command = Command.make("app").pipe(
+    Command.withSubcommands([
+      Command.make("publish", {
+        ref: Flag.String("ref"),
+        items: Flag.String("item").pipe(
+          Flag.withAlias("t"),
+          Flag.annotate(Expansion, { reserveLast: true }),
+          Flag.atLeast(0),
+        ),
+      }),
+    ]),
+  );
+  assert.deepStrictEqual(expand(["publish", "--ref", "branch", "-t", "one", "two"], [], command), [
+    "publish",
+    "--ref",
+    "branch",
+    "-t",
+    "one",
+    "two",
+  ]);
+  assert.deepStrictEqual(
+    expand(["publish", "--ref", "branch", "target", "-t", "one", "two"], [], command),
+    ["publish", "--ref", "branch", "target", "-t", "one", "-t", "two"],
+  );
+});
+
 it("uses renamed command and flag declarations for positional ambiguity", () => {
   const command = Command.make("app").pipe(
     Command.withSharedFlags({
