@@ -38,6 +38,12 @@ _Avoid_: Version, lock, hash
 **Pinning**:
 The module that resolves Sources to Pins and skills. Upstream verifies Entries at their Pins during Install.
 
+**Install plan**:
+The Entries, agents, scope, and mode chosen for one Install before any skills are written.
+
+**Prompter**:
+The interface that asks for user choices or supplies unattended defaults to Add, Install, and Remove.
+
 **Universal agents**:
 The agents that read skills from the shared `.agents/skills` directory, so one install reaches all of them.
 _Avoid_: Generic agents, shared agents
