@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { Expansion } from "../argv.ts";
-import { agents } from "../flags.ts";
+import { agents } from "../agent-flag.ts";
 import { installSkillset } from "../install.ts";
 import { makePrompter } from "../prompts/prompter.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
