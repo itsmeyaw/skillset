@@ -7,7 +7,8 @@ import { list } from "./commands/list.ts";
 import { remove } from "./commands/remove.ts";
 import { update } from "./commands/update.ts";
 import { root } from "./root.ts";
-import { SkillsetEnvironment, type Env } from "./skillset-store.ts";
+import { SkillsetEnvironment } from "./skillset-store.ts";
+import type { Env } from "./user-skillset.ts";
 
 // Issue #11: aliases share the same command handlers as their long names.
 export const cli = root.pipe(

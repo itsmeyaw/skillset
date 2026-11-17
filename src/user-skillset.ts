@@ -11,7 +11,8 @@ const isJsonPath = (value: string) => /\.json$/iu.test(value);
 
 export const isUserSkillsetName = (value: string) => NAME_PATTERN.test(value) && !isJsonPath(value);
 
-type Env = Readonly<Record<string, string | undefined>>;
+export type Env = Readonly<Record<string, string | undefined>>;
+export const DEFAULT_SKILLSET_PATH = "./skillset.json";
 
 // XDG Base Directory Specification: an empty variable counts as unset.
 const nonEmpty = (value: string | undefined) =>
@@ -30,7 +31,7 @@ export const resolveSet = (
   value: Option.Option<string>,
   env: Env,
 ): Effect.Effect<string, CliMessageError> => {
-  if (Option.isNone(value)) return Effect.succeed("./skillset.json");
+  if (Option.isNone(value)) return Effect.succeed(DEFAULT_SKILLSET_PATH);
   if (isJsonPath(value.value)) return Effect.succeed(value.value);
   if (NAME_PATTERN.test(value.value))
     return Effect.succeed(join(userDir(env), `${value.value}${EXT}`));

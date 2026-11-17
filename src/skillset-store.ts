@@ -3,9 +3,8 @@ import { CliMessageError } from "./errors.ts";
 import { root } from "./root.ts";
 import { cannotReadSkillset, readSkillset, SCHEMA_URL, writeSkillset } from "./skillset-file.ts";
 import type { Entry, Skillset } from "./skillset-file.ts";
-import { listUserSkillsets, resolveSet, userDir } from "./user-skillset.ts";
-
-export type Env = Readonly<Record<string, string | undefined>>;
+import { DEFAULT_SKILLSET_PATH, listUserSkillsets, resolveSet, userDir } from "./user-skillset.ts";
+import type { Env } from "./user-skillset.ts";
 
 export class SkillsetEnvironment extends Context.Service<SkillsetEnvironment, Env>()(
   "skillset/Environment",
@@ -25,7 +24,7 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
     return yield* new CliMessageError({
       message: `"${positional}" cannot be combined with --set.`,
     });
-  const reference = positional ?? Option.getOrUndefined(set) ?? "./skillset.json";
+  const reference = positional ?? Option.getOrUndefined(set) ?? DEFAULT_SKILLSET_PATH;
   const hint = install ? ". To install a skill, use `skillset add`." : "";
   const missingMessage = (location: string) =>
     `Cannot find Skillset "${reference}" in ${location}${hint}`;
