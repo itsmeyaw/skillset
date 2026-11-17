@@ -192,13 +192,23 @@ it.effect("CLI process reads the User Skillset after a skill flag", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-for (const agents of [["opencode"], ["opencode", "claude-code"]]) {
+for (const agents of [["fake-one"], ["fake-one", "fake-two"]]) {
   it.effect(`install -a ${agents.join(" ")} <name> installs the User Skillset`, () =>
     withHome((_home, run) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const dir = yield* fs.makeTempDirectoryScoped();
-        const up = { ...upstream(), installDir: dir };
+        const up = {
+          ...upstream(),
+          installDir: dir,
+          supportedAgents: agents.map((id) => ({
+            id,
+            name: id,
+            projectSkillsDir: `.${id}/skills`,
+            globalSkillsDir: null,
+            universal: false,
+          })),
+        };
         const added = yield* run(["add", "owner/repo", "--all", "--set", "my-set"], {
           upstream: up,
         });

@@ -8,6 +8,7 @@ import { remove } from "./commands/remove.ts";
 import { update } from "./commands/update.ts";
 import { root } from "./root.ts";
 import { SkillsetEnvironment } from "./skillset-store.ts";
+import { Upstream } from "./upstream.ts";
 import type { Env } from "./user-skillset.ts";
 
 // Issue #11: aliases share the same command handlers as their long names.
@@ -26,9 +27,18 @@ export const cliConfig = CliConfig.make({
 });
 const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
 export const runArgv = (argv: ReadonlyArray<string>, env: Env = process.env) =>
-  Command.runWith(cli, { version })(expandSkillFlags(argv)).pipe(
-    Effect.provideService(CliConfig.CliConfig, cliConfig),
-    Effect.provideService(SkillsetEnvironment, env),
-  );
+  Effect.gen(function* () {
+    const upstream = yield* Upstream;
+    const agents = yield* upstream.getSupportedAgents;
+    return yield* Command.runWith(cli, { version })(
+      expandSkillFlags(
+        argv,
+        agents.map((agent) => agent.id),
+      ),
+    ).pipe(
+      Effect.provideService(CliConfig.CliConfig, cliConfig),
+      Effect.provideService(SkillsetEnvironment, env),
+    );
+  });
 export const run = Stdio.Stdio.use((stdio) => Effect.flatMap(stdio.args, runArgv));
 import { createRequire } from "node:module";

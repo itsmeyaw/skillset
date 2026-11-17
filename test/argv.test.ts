@@ -1,5 +1,8 @@
 import { assert, it } from "@effect/vitest";
-import { expandSkillFlags } from "../src/argv.ts";
+import { expandSkillFlags as expand } from "../src/argv.ts";
+
+const expandSkillFlags = (argv: ReadonlyArray<string>) =>
+  expand(argv, ["universal", "fake-one", "fake-two"]);
 
 it("keeps a User Skillset name after a selected skill", () => {
   assert.deepStrictEqual(expandSkillFlags(["install", "-s", "alpha", "my-set"]), [
@@ -52,20 +55,24 @@ it.each([
 });
 
 it("keeps a User Skillset name after an agent", () => {
-  assert.deepStrictEqual(expandSkillFlags(["install", "-a", "opencode", "my-set"]), [
+  assert.deepStrictEqual(expandSkillFlags(["install", "-a", "fake-one", "my-set"]), [
     "install",
     "-a",
-    "opencode",
+    "fake-one",
     "my-set",
   ]);
 });
 
 for (const flag of ["-a", "--agent"]) {
   it(`expands known agents after ${flag} but stops at a User Skillset name`, () => {
-    assert.deepStrictEqual(
-      expandSkillFlags(["install", flag, "opencode", "claude-code", "my-set"]),
-      ["install", flag, "opencode", flag, "claude-code", "my-set"],
-    );
+    assert.deepStrictEqual(expandSkillFlags(["install", flag, "fake-one", "fake-two", "my-set"]), [
+      "install",
+      flag,
+      "fake-one",
+      flag,
+      "fake-two",
+      "my-set",
+    ]);
   });
 }
 
@@ -79,10 +86,10 @@ it("preserves an unknown first agent for validation", () => {
 });
 
 it("keeps a Source after an agent", () => {
-  assert.deepStrictEqual(expandSkillFlags(["install", "-a", "opencode", "owner/repo"]), [
+  assert.deepStrictEqual(expandSkillFlags(["install", "-a", "fake-one", "owner/repo"]), [
     "install",
     "-a",
-    "opencode",
+    "fake-one",
     "owner/repo",
   ]);
 });
@@ -90,15 +97,15 @@ it("keeps a Source after an agent", () => {
 // Issue #22: add accepts multiple agent IDs before its Source.
 it("expands add agents without consuming the Source", () => {
   assert.deepStrictEqual(
-    expandSkillFlags(["add", "--install", "-a", "opencode", "claude-code", "owner/repo"]),
-    ["add", "--install", "-a", "opencode", "-a", "claude-code", "owner/repo"],
+    expandSkillFlags(["add", "--install", "-a", "fake-one", "fake-two", "owner/repo"]),
+    ["add", "--install", "-a", "fake-one", "-a", "fake-two", "owner/repo"],
   );
 });
 
 it("keeps skills after a User Skillset name following an agent", () => {
   assert.deepStrictEqual(
-    expandSkillFlags(["install", "-a", "opencode", "my-set", "-s", "alpha", "beta"]),
-    ["install", "-a", "opencode", "my-set", "-s", "alpha", "-s", "beta"],
+    expandSkillFlags(["install", "-a", "fake-one", "my-set", "-s", "alpha", "beta"]),
+    ["install", "-a", "fake-one", "my-set", "-s", "alpha", "-s", "beta"],
   );
 });
 
