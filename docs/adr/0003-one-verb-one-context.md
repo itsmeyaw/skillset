@@ -13,4 +13,5 @@
 
 - An `install` argument that names no Skillset, such as `owner/repo`, fails with `Cannot find Skillset "<arg>" in <location>. To install a skill, use \`skillset add\`.` The message does not try to guess whether the argument was a skill or a Source.
 - `add` writes the Skillset before the install step starts, so declining or failing the install keeps the added Entries.
+- On `install`, when the last `-s` has several space-separated values and no other Skillset is given (a positional name or `--set`), the final value is the Skillset name, following the bare-name rule of ADR 0002. Repeat `-s` to select several skills.
 - On `add`, `-s` and `--all` select skills from the Source. There is no way to install only some Entries through `add --install`; use `install -s` for that.
