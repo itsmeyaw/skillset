@@ -46,6 +46,20 @@ it.effect.each([
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("add --install clones each Source and Pin once", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const calls: Array<string> = [];
+    const result = yield* runCli(
+      ["add", "owner/repo", "--all", "--install", "-y", "--set", `${dir}/set.json`],
+      { upstream: { ...upstream, calls } },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(calls, ["resolveCommit", `resolveSource owner/repo ${commit}`]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 // ADR 0003: add only edits the file unless installation is requested.
 it.effect("add -s writes without installing", () =>
   Effect.gen(function* () {

@@ -1,11 +1,8 @@
 import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/cli";
 import type { AgentInfo, InstallMode, SkillSource } from "skills";
-import {
-  CliMessageError as InstallError,
-  emptySkillsetMessage,
-  missingSkillsMessage,
-} from "../errors.ts";
+import { CliMessageError as InstallError, emptySkillsetMessage } from "../errors.ts";
+import { makePinning, type Pinning } from "../pinning.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import { searchMultiSelect } from "../prompts/search.ts";
@@ -16,7 +13,6 @@ import {
   selectEntries,
   unknownNamesMessage,
 } from "../skillset-store.ts";
-import { parseSource } from "../source.ts";
 import { Upstream } from "../upstream.ts";
 
 type InstallPlan = {
@@ -58,39 +54,6 @@ const agentChoices = (supported: ReadonlyArray<AgentInfo>, detected: ReadonlyArr
     }));
   return { defaults, choices };
 };
-
-// Issue #11: check every Source before confirming or writing a Source-based install.
-const checkSources = Effect.fn("checkSources")(function* (allEntries: ReadonlyArray<Entry>) {
-  const upstream = yield* Upstream;
-  // Spec #1, install: group by the complete Source and Pin pair.
-  const groups = new Map<string, Array<Entry>>();
-  for (const entry of allEntries) {
-    const key = JSON.stringify([entry.source, entry.commit]);
-    const group = groups.get(key) ?? [];
-    group.push(entry);
-    groups.set(key, group);
-  }
-  const checked = [];
-  for (const entries of groups.values()) {
-    const first = entries[0];
-    if (first === undefined) continue;
-    const parsed = parseSource(first.source);
-    if ("error" in parsed) return yield* new InstallError({ message: parsed.error });
-    const source = yield* upstream.resolveSource(parsed.remote, first.commit);
-    const missing = entries.filter(
-      (entry) => !source.skills.some((skill) => skill.name === entry.name),
-    );
-    if (missing.length > 0)
-      return yield* new InstallError({
-        message: missingSkillsMessage(
-          first.commit,
-          missing.map((entry) => entry.name),
-        ),
-      });
-    checked.push({ source, entries });
-  }
-  return checked;
-});
 
 // Spec #1, install: checked Sources remain scoped until all installs complete.
 const executeInstall = Effect.fn("executeInstall")(function* (
@@ -236,14 +199,11 @@ type InstallOptions = Parameters<typeof buildInstallPlan>[1];
 export const installSkillset = Effect.fn("installSkillset")(function* (
   skillset: Skillset,
   options: InstallOptions,
+  pinning: Pinning,
 ) {
   const plan = yield* buildInstallPlan(skillset, options);
   if (!plan) return;
-  yield* Effect.scoped(
-    Effect.gen(function* () {
-      yield* executeInstall(plan, yield* checkSources(plan.entries));
-    }),
-  );
+  yield* executeInstall(plan, yield* pinning.verify(plan.entries));
 });
 
 // Spec #1, install -y: omitted agents use shared defaults, project scope, and auto mode.
@@ -263,6 +223,11 @@ export const install = Command.make(
       missing: "fail",
       install: true,
     });
-    return yield* installSkillset(store.skillset, options);
+    return yield* Effect.scoped(
+      Effect.gen(function* () {
+        const pinning = yield* makePinning();
+        return yield* installSkillset(store.skillset, options, pinning);
+      }),
+    );
   }),
 ).pipe(Command.withDescription("Install pinned Skillset Entries"));
