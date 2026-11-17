@@ -44,6 +44,7 @@ export const fakeUpstream = (
     >;
     readonly failedInstalls?: ReadonlyArray<string>;
     readonly failedResults?: ReadonlyArray<string>;
+    readonly skippedSkills?: ReadonlyArray<string>;
     readonly installCalls?: Array<string>;
     readonly installDir?: string;
     readonly disposalLog?: string;
@@ -107,16 +108,42 @@ export const fakeUpstream = (
                   ],
                 })
               : Effect.promise(async () => {
+                  const agents = installOptions.agents ?? ["default"];
+                  const names = installOptions.skills ?? source.skills.map((skill) => skill.name);
+                  const skipped = agents.flatMap((agent) =>
+                    names
+                      .filter((name) => options.skippedSkills?.includes(name))
+                      .map((skill) => ({
+                        skill,
+                        agent,
+                        reason: "missing-agent-directory" as const,
+                      })),
+                  );
+                  const installed = agents.flatMap((agent) =>
+                    names
+                      .filter((name) => !options.skippedSkills?.includes(name))
+                      .map((skill) => ({
+                        skill,
+                        agent,
+                        scope: installOptions.scope ?? "project",
+                        mode:
+                          installOptions.mode === "symlink"
+                            ? ("symlink" as const)
+                            : ("copy" as const),
+                        path: skill,
+                      })),
+                  );
                   if (options.installDir !== undefined) {
-                    for (const agent of installOptions.agents ?? ["default"]) {
+                    for (const agent of agents) {
                       const dir = join(
                         options.installDir,
                         installOptions.scope ?? "project",
                         agent,
                       );
                       await mkdir(dir, { recursive: true });
-                      for (const name of installOptions.skills ??
-                        source.skills.map((skill) => skill.name)) {
+                      for (const name of names.filter(
+                        (name) => !options.skippedSkills?.includes(name),
+                      )) {
                         await writeFile(
                           join(dir, name),
                           `${source.source.commit}:${installOptions.mode ?? "auto"}`,
@@ -124,7 +151,7 @@ export const fakeUpstream = (
                       }
                     }
                   }
-                  return { source: source.source, installed: [], skipped: [], failed: [] };
+                  return { source: source.source, installed, skipped, failed: [] };
                 });
       },
       detectAgents: () => Effect.succeed({ agents: options.detectedAgents ?? [] }),

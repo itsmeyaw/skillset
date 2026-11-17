@@ -61,6 +61,7 @@ const executeInstall = Effect.fn("executeInstall")(function* (
   checked: ReadonlyArray<{ readonly source: SkillSource; readonly entries: ReadonlyArray<Entry> }>,
 ) {
   const upstream = yield* Upstream;
+  const installed = new Set<string>();
   for (const { source, entries } of checked) {
     const result = yield* upstream.install(source, {
       skills: entries.map((entry) => entry.name),
@@ -68,13 +69,19 @@ const executeInstall = Effect.fn("executeInstall")(function* (
       scope: plan.global ? "global" : "project",
       mode: plan.mode,
     });
+    for (const target of result.installed) installed.add(target.skill);
+    for (const target of result.skipped)
+      yield* Console.log(`Skipped ${target.skill} for ${target.agent}: ${target.reason}`);
     // Spec #1, User Story 41: stop on the first failed write without rollback.
     if (result.failed.length > 0)
       return yield* new InstallError({
         message: result.failed.map((failure) => failure.message).join("; "),
       });
   }
-  yield* Console.log(`Installed ${plan.entries.map((entry) => entry.name).join(", ")}`);
+  const names = plan.entries
+    .filter((entry) => installed.has(entry.name))
+    .map((entry) => entry.name);
+  if (names.length > 0) yield* Console.log(`Installed ${names.join(", ")}`);
 });
 
 // ADR 0003: confirm the plan before installing skills.
