@@ -25,7 +25,8 @@ it.effect("opens or creates a User Skillset and saves it", () =>
     );
     assert.strictEqual(opened.path, `${dir}/team.json`);
     assert.isTrue(isEmpty(opened.skillset));
-    yield* opened.save(skillset);
+    const saved = yield* opened.save({ ...skillset, skills: [beta, alpha] });
+    assert.deepStrictEqual(saved, skillset);
     const loaded = yield* openSkillset(
       { set: Option.some("team"), missing: "fail" },
       { SKILLSET_HOME: dir },

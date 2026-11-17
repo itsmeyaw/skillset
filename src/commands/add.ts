@@ -5,7 +5,6 @@ import { CliMessageError as AddError } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
-import { sortedEntries } from "../skillset-file.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { installSkillset } from "./install.ts";
 
@@ -72,7 +71,7 @@ export const add = Command.make(
     // Interactive add recovery spec: write successful rounds once, or fail with the last error.
     if (!pending && lastError) return yield* lastError;
     if (pending) {
-      yield* store.save(pending);
+      pending = yield* store.save(pending);
       for (const added of additions)
         yield* Console.log(`Added ${added.map((entry) => entry.name).join(", ")} to ${store.path}`);
     }
@@ -83,15 +82,12 @@ export const add = Command.make(
         (interactive &&
           (yield* cancelOnQuit(Prompt.Confirm({ message: "Install skillset?", initial: false })))))
     )
-      yield* installSkillset(
-        { ...pending, skills: sortedEntries(pending.skills) },
-        {
-          selected: [],
-          agents,
-          global,
-          copy,
-          yes,
-        },
-      );
+      yield* installSkillset(pending, {
+        selected: [],
+        agents,
+        global,
+        copy,
+        yes,
+      });
   }),
 ).pipe(Command.withDescription("Add skills from a Source"));

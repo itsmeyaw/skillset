@@ -92,12 +92,8 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
   const validated = yield* Schema.decodeEffect(Skillset)(skillset, {
     onExcessProperty: "error",
   }).pipe(Effect.mapError(invalidSkillset(path)));
-  const content =
-    JSON.stringify(
-      { $schema: validated.$schema, skills: sortedEntries(validated.skills) },
-      null,
-      2,
-    ) + "\n";
+  const saved = { $schema: validated.$schema, skills: sortedEntries(validated.skills) };
+  const content = JSON.stringify(saved, null, 2) + "\n";
   yield* Effect.gen(function* () {
     const tmp = `${path}.tmp`;
     // Issue #12: create missing parent directories so a first write to the user directory works.
@@ -118,4 +114,5 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
         }),
     ),
   );
+  return saved;
 });
