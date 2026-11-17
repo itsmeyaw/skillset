@@ -1,6 +1,56 @@
 import { assert, it } from "@effect/vitest";
 import { expandSkillFlags } from "../src/argv.ts";
 
+it("keeps a User Skillset name after a selected skill", () => {
+  assert.deepStrictEqual(expandSkillFlags(["install", "-s", "alpha", "my-set"]), [
+    "install",
+    "-s",
+    "alpha",
+    "my-set",
+  ]);
+});
+
+it("keeps all skills when another skill flag follows", () => {
+  assert.deepStrictEqual(expandSkillFlags(["install", "-s", "alpha", "beta", "-s", "gamma"]), [
+    "install",
+    "-s",
+    "alpha",
+    "-s",
+    "beta",
+    "-s",
+    "gamma",
+  ]);
+});
+
+it.each([
+  {
+    input: ["install", "-s", "alpha", "beta", "my-set"],
+    expected: ["install", "-s", "alpha", "-s", "beta", "my-set"],
+  },
+  {
+    input: ["i", "--skill", "alpha", "./set.json", "-y"],
+    expected: ["i", "--skill", "alpha", "./set.json", "-y"],
+  },
+  {
+    input: ["install", "-s", "alpha", "-a", "universal", "my-set"],
+    expected: ["install", "-s", "alpha", "-a", "universal", "my-set"],
+  },
+  {
+    input: ["install", "-s", "alpha", "beta", "--set", "my-set"],
+    expected: ["install", "-s", "alpha", "-s", "beta", "--set", "my-set"],
+  },
+  {
+    input: ["install", "-s", "alpha", "beta", "--", "my-set"],
+    expected: ["install", "-s", "alpha", "-s", "beta", "--", "my-set"],
+  },
+  {
+    input: ["add", "-s", "alpha", "owner/repo"],
+    expected: ["add", "-s", "alpha", "owner/repo"],
+  },
+])("preserves Skillset and Source arguments: $input", ({ input, expected }) => {
+  assert.deepStrictEqual(expandSkillFlags(input), expected);
+});
+
 it("keeps a User Skillset name after an agent", () => {
   assert.deepStrictEqual(expandSkillFlags(["install", "-a", "opencode", "my-set"]), [
     "install",

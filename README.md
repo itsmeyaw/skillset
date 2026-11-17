@@ -122,7 +122,7 @@ Every command accepts `--set <value>` (default `./skillset.json`) and `--help`. 
 | `-y, --yes`          | `add`, `install` | Skip prompts in both steps.                                             |
 | `--user`             | `list`           | List User Skillset names; cannot be combined with `--set`.              |
 
-To select several skills or agents, repeat the flag or list the names after it. If you decline or a `--install` step fails, the added Entries stay in the Skillset.
+To select several skills or agents, repeat the flag or list the names after it. For `install`, when the last `-s` has multiple space-separated values and no other Skillset is given (a positional name or `--set`), the final value is treated as the Skillset name. To select multiple skills from the default Project Skillset, repeat `-s` (for example, `install -s alpha -s beta`) or use `--set ./skillset.json`. If you decline or a `--install` step fails, the added Entries stay in the Skillset.
 
 Without `-a`, installs go to Universal agents (`.agents/skills`), Claude Code, and any detected agent. `-y` and non-interactive runs use these defaults without asking.
 

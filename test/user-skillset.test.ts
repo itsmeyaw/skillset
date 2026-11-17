@@ -1,7 +1,10 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, Exit, FileSystem, Option } from "effect";
+import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
+import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { isUserSkillsetName, resolveSet, userDir } from "../src/user-skillset.ts";
 import { runCli } from "./harness.ts";
 
@@ -105,6 +108,70 @@ it.effect("install <name> installs from the User Skillset and selects with -s", 
       assert.isTrue(yield* fs.exists(`${home}/my-set.json`));
     }),
   ),
+);
+
+it.effect.each([
+  { args: ["-s", "alpha", "my-set"], beta: false },
+  { args: ["-s", "alpha", "beta", "my-set"], beta: true },
+  { args: ["-s", "alpha", "./set.json"], beta: false },
+  { args: ["-s", "alpha", "-a", "universal", "my-set"], beta: false },
+])("install selects a Skillset after flags: $args", ({ args, beta }) =>
+  withHome((home) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const up = { ...upstream(), installDir: dir };
+      const contents = JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [
+          { name: "alpha", source: "owner/repo", commit: "a".repeat(40) },
+          { name: "beta", source: "owner/repo", commit: "a".repeat(40) },
+        ],
+      });
+      yield* fs.makeDirectory(home, { recursive: true });
+      yield* fs.writeFileString(`${home}/my-set.json`, contents);
+      yield* fs.writeFileString(`${dir}/set.json`, contents);
+      yield* fs.writeFileString(
+        `${dir}/skillset.json`,
+        JSON.stringify({ $schema: SCHEMA_URL, skills: [] }),
+      );
+      const previous = process.cwd();
+      try {
+        process.chdir(dir);
+        const result = yield* runCli(["install", ...args, "-y"], { upstream: up });
+        assert.strictEqual(result.code, 0);
+        assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));
+        assert.strictEqual(yield* fs.exists(`${dir}/project/universal/beta`), beta);
+      } finally {
+        process.chdir(previous);
+      }
+    }),
+  ),
+);
+
+it.effect("CLI process reads the User Skillset after a skill flag", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    yield* fs.writeFileString(
+      `${dir}/my-set.json`,
+      JSON.stringify({ $schema: SCHEMA_URL, skills: [] }),
+    );
+    yield* fs.writeFileString(`${dir}/skillset.json`, "not json");
+    const output = execFileSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("../src/bin.ts", import.meta.url)),
+        "install",
+        "-s",
+        "alpha",
+        "my-set",
+        "-y",
+      ],
+      { cwd: dir, env: { ...process.env, SKILLSET_HOME: dir }, encoding: "utf8" },
+    );
+    assert.include(output, "This Skillset is empty.");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
 for (const agents of [["opencode"], ["opencode", "claude-code"]]) {
