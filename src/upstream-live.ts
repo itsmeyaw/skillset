@@ -6,7 +6,7 @@ import { Upstream, UpstreamError } from "./upstream.ts";
 
 // Spec #1, User Story 12: never reinterpret rejected Sources as Git repositories.
 // git-remote-ext(1): ext:: executes an arbitrary helper command.
-const executableTransport = (source: string) => /^ext::/iu.test(source);
+const executableTransport = (remote: string) => /^ext::/iu.test(remote);
 
 // git-ls-remote(1): peeled tags use ^{}; prefer them to tag objects and branches.
 export const selectRemoteCommit = (output: string, ref?: string): string | undefined => {
@@ -31,23 +31,23 @@ export const UpstreamLive = Layer.effect(
     const toError = (error: unknown) =>
       new UpstreamError({ message: error instanceof Error ? error.message : String(error) });
     // skills API: installSkills cannot accept ref with a resolved source; scope owns disposal.
-    const resolvePinned = (source: string, commit: string) =>
+    const resolvePinned = (remote: string, commit: string) =>
       Effect.acquireRelease(
         Effect.tryPromise({
           try: async () => {
-            if (executableTransport(source)) throw new Error("Unsupported Git transport: ext");
+            if (executableTransport(remote)) throw new Error("Unsupported Git transport: ext");
             try {
-              return await resolveSource(source, { ref: commit });
+              return await resolveSource(remote, { ref: commit });
             } catch (error) {
               // gitremote-helpers(7): force the HTTP helper without changing the repository URL.
               if (
                 !(error instanceof Error) ||
                 error.name !== "SKILLS_INVALID_OPTION_VALUE" ||
                 error.message !== "ref must be used only with git sources" ||
-                !/^https?:\/\//iu.test(source)
+                !/^https?:\/\//iu.test(remote)
               )
                 throw error;
-              const url = new URL(source);
+              const url = new URL(remote);
               url.hash = "";
               return resolveSource(`${url.protocol.slice(0, -1)}::${url.href}`, { ref: commit });
             }
@@ -62,8 +62,8 @@ export const UpstreamLive = Layer.effect(
         ),
       );
     return Upstream.of({
-      resolveRefs: Effect.fn("Upstream.resolveRefs")(function* (source, refs) {
-        if (executableTransport(source))
+      resolveRefs: Effect.fn("Upstream.resolveRefs")(function* (remote, refs) {
+        if (executableTransport(remote))
           return yield* new UpstreamError({ message: "Unsupported Git transport: ext" });
         const patterns = refs.flatMap((name) =>
           name === undefined
@@ -73,7 +73,7 @@ export const UpstreamLive = Layer.effect(
         const result = yield* Effect.scoped(
           Effect.gen(function* () {
             const child = yield* spawner.spawn(
-              ChildProcess.make("git", ["ls-remote", "--", source, ...patterns], {
+              ChildProcess.make("git", ["ls-remote", "--", remote, ...patterns], {
                 env: { GIT_TERMINAL_PROMPT: "0" },
                 extendEnv: true,
                 stdin: "ignore",

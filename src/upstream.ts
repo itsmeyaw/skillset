@@ -17,12 +17,12 @@ export class Upstream extends Context.Service<
   Upstream,
   {
     readonly resolveRefs: (
-      source: string,
+      remote: string,
       refs: ReadonlyArray<string | undefined>,
     ) => Effect.Effect<ReadonlyArray<string | undefined>, UpstreamError>;
     // skills API: resolve with the Pin once; the caller's scope disposes the fetched source.
     readonly resolveSource: (
-      source: string,
+      remote: string,
       commit: string,
     ) => Effect.Effect<SkillSource, UpstreamError, Scope.Scope>;
     readonly install: (
