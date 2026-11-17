@@ -23,6 +23,10 @@ _Avoid_: Local skillset
 A Skillset the user keeps by name, outside any project, so it can be used from any project. A Skillset referred to by bare name is always a User Skillset.
 _Avoid_: Global skillset, saved skillset, profile
 
+**Remote Skillset**:
+A Skillset published at an `https` URL instead of kept on disk. It can only be installed, never edited.
+_Avoid_: Remote source (a Source is where an Entry comes from), URL skillset
+
 **Entry**:
 One skill inside a Skillset, identified by the skill's name.
 _Avoid_: Item, record
