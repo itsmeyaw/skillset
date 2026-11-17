@@ -1,6 +1,6 @@
 # Skillset
 
-A curated, shareable list of agent skills pinned to exact upstream versions, so a user can install all of them at once and get exactly what the curator reviewed.
+A curated, shareable list of agent skills and MCP servers, recorded exactly as the curator reviewed them, so a user can install all of them at once and get exactly that.
 
 ## Language
 
@@ -28,16 +28,28 @@ A Skillset published at an `https` URL instead of kept on disk. It can be instal
 _Avoid_: Remote source (a Source is where an Entry comes from), URL skillset
 
 **Entry**:
-One skill inside a Skillset, identified by the skill's name.
+One item inside a Skillset: a Skill Entry or an MCP Entry, identified by its name.
 _Avoid_: Item, record
 
+**Skill Entry**:
+An Entry for one agent skill, taken from a Source at a Pin.
+_Avoid_: Skill (when meaning the Entry)
+
+**MCP Entry**:
+An Entry for one MCP server: how an agent starts or reaches it, and which inputs it needs. It never holds secret values.
+_Avoid_: Server, MCP, tool, connector
+
 **Source**:
-Where an Entry comes from, written the way the curator gave it (e.g. `owner/repo`, `owner/repo#branch`).
+Where a Skill Entry comes from, written the way the curator gave it (e.g. `owner/repo`, `owner/repo#branch`).
 _Avoid_: Origin, upstream, repo
 
 **Pin**:
-The exact commit of the Source that an Entry was taken from.
+The exact commit of the Source that a Skill Entry was taken from. MCP Entries have versions, not Pins.
 _Avoid_: Version, lock, hash
+
+**Registry**:
+A service that publishes MCP servers through the MCP Registry API, such as the official MCP Registry. An MCP Entry added from one remembers it.
+_Avoid_: Marketplace, catalog, Source
 
 **Pinning**:
 The module that resolves Sources to Pins and skills. Upstream verifies Entries at their Pins during Install.
@@ -47,6 +59,10 @@ The Entries, agents, scope, and mode chosen for one Install before any skills ar
 
 **Prompter**:
 The interface that asks for user choices or supplies unattended defaults to Add, Install, and Remove.
+
+**Agent**:
+A coding tool, such as Claude Code or Cursor, that Skillset installs skills or MCP servers into.
+_Avoid_: Client, host, IDE
 
 **Universal agents**:
 The agents that read skills from the shared `.agents/skills` directory, so one install reaches all of them.
@@ -63,5 +79,5 @@ Putting an Entry into a Skillset; it changes only the Skillset file.
 _Avoid_: Install (when meaning this)
 
 **Install**:
-Placing a Skillset's Entries, at their Pins, into agent skill directories. Install always starts from a Skillset, never from a Source.
+Placing a Skillset's Entries into Agents: Skill Entries at their Pins into skill directories, MCP Entries into each Agent's MCP configuration. Install always starts from a Skillset, never from a Source or a Registry.
 _Avoid_: Add (as a synonym), sync, restore
