@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Upstream } from "../src/upstream.ts";
 import { UpstreamLive } from "../src/upstream-live.ts";
 import { fakeUpstream } from "./harness.ts";
@@ -18,6 +18,11 @@ describe.each(["live", "fake"] as const)("%s Upstream install contract", (adapte
   const previous: Record<string, string | undefined> = {};
 
   beforeEach(async () => {
+    if (adapter === "live")
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response(null, { status: 404 })),
+      );
     cwd = await mkdtemp(join(tmpdir(), "skillset-contract-"));
     const git = (...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
     git("init", "-q", "-b", "main", "work");
@@ -61,6 +66,7 @@ describe.each(["live", "fake"] as const)("%s Upstream install contract", (adapte
   });
 
   afterEach(async () => {
+    if (adapter === "live") vi.unstubAllGlobals();
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
