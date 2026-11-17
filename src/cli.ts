@@ -7,6 +7,7 @@ import { list } from "./commands/list.ts";
 import { remove } from "./commands/remove.ts";
 import { update } from "./commands/update.ts";
 import { root } from "./root.ts";
+import { RemoteFetch } from "./remote-skillset.ts";
 import { SkillsetEnvironment } from "./skillset-store.ts";
 import { Upstream } from "./upstream.ts";
 import type { Env } from "./user-skillset.ts";
@@ -26,7 +27,11 @@ export const cliConfig = CliConfig.make({
   builtIns: GlobalFlag.BuiltIns.filter((flag) => flag !== GlobalFlag.Wizard),
 });
 const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
-export const runArgv = (argv: ReadonlyArray<string>, env: Env = process.env) =>
+export const runArgv = (
+  argv: ReadonlyArray<string>,
+  env: Env = process.env,
+  fetchRemote: typeof fetch = fetch,
+) =>
   Effect.gen(function* () {
     const upstream = yield* Upstream;
     const agents = yield* upstream.getSupportedAgents;
@@ -40,6 +45,7 @@ export const runArgv = (argv: ReadonlyArray<string>, env: Env = process.env) =>
     ).pipe(
       Effect.provideService(CliConfig.CliConfig, cliConfig),
       Effect.provideService(SkillsetEnvironment, env),
+      Effect.provideService(RemoteFetch, fetchRemote),
     );
   });
 export const run = Stdio.Stdio.use((stdio) => Effect.flatMap(stdio.args, runArgv));

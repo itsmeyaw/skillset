@@ -71,12 +71,15 @@ export const cannotReadSkillset = (path: string) => (error: { readonly message: 
   new SkillsetFileError({ message: `Cannot read Skillset file ${path}: ${error.message}` });
 
 // Spec #1, Skillset file module: reject invalid content and unknown versions before acting.
+export const parseSkillset = (text: string, label: string) =>
+  Schema.decodeEffect(Schema.fromJsonString(Skillset))(text, {
+    onExcessProperty: "error",
+  }).pipe(Effect.mapError(invalidSkillset(label)));
+
 export const readSkillset = Effect.fn("readSkillset")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
   const text = yield* fs.readFileString(path).pipe(Effect.mapError(cannotReadSkillset(path)));
-  return yield* Schema.decodeEffect(Schema.fromJsonString(Skillset))(text, {
-    onExcessProperty: "error",
-  }).pipe(Effect.mapError(invalidSkillset(path)));
+  return yield* parseSkillset(text, path);
 });
 
 // Spec #1, Skillset file format: canonical order is independent of input order.

@@ -1,6 +1,13 @@
 import { Context, Effect, FileSystem, Option } from "effect";
 import { CliMessageError } from "./errors.ts";
 import { root } from "./root.ts";
+import {
+  fetchSkillset,
+  isHttpUrl,
+  isRemoteSkillset,
+  rejectRemoteSkillset,
+  RemoteFetch,
+} from "./remote-skillset.ts";
 import { cannotReadSkillset, readSkillset, SCHEMA_URL, writeSkillset } from "./skillset-file.ts";
 import type { Entry, Skillset } from "./skillset-file.ts";
 import { DEFAULT_SKILLSET_PATH, listUserSkillsets, resolveSet, userDir } from "./user-skillset.ts";
@@ -18,6 +25,7 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
     readonly install?: boolean;
   },
   env: Env,
+  fetchRemote: typeof fetch = fetch,
 ) {
   const { set, positional, missing, install } = options;
   if (positional !== undefined && Option.isSome(set))
@@ -25,6 +33,18 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
       message: `"${positional}" cannot be combined with --set.`,
     });
   const reference = positional ?? Option.getOrUndefined(set) ?? DEFAULT_SKILLSET_PATH;
+  if (isRemoteSkillset(reference)) {
+    if (!install) return yield* rejectRemoteSkillset();
+    const skillset = yield* fetchSkillset(reference, fetchRemote);
+    return {
+      path: reference,
+      skillset,
+      remote: true,
+      save: () => Effect.fail(rejectRemoteSkillset()),
+    };
+  }
+  if (isHttpUrl(reference))
+    return yield* new CliMessageError({ message: "Skillset URLs must use HTTPS." });
   const hint = install ? ". To install a skill, use `skillset add`." : "";
   const missingMessage = (location: string) =>
     `Cannot find Skillset "${reference}" in ${location}${hint}`;
@@ -45,7 +65,7 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
   const skillset: Skillset = exists
     ? yield* readSkillset(path)
     : { $schema: SCHEMA_URL, skills: [] };
-  return { path, skillset, save: (next: Skillset) => writeSkillset(path, next) };
+  return { path, skillset, remote: false, save: (next: Skillset) => writeSkillset(path, next) };
 });
 
 export const openCommandSkillset = Effect.fn("openCommandSkillset")(function* (options: {
@@ -55,7 +75,8 @@ export const openCommandSkillset = Effect.fn("openCommandSkillset")(function* (o
 }) {
   const { set } = yield* root;
   const env = yield* SkillsetEnvironment;
-  return yield* openSkillset({ ...options, set }, env);
+  const fetchRemote = yield* RemoteFetch;
+  return yield* openSkillset({ ...options, set }, env, fetchRemote);
 });
 
 export const listCommandUserSkillsets = Effect.gen(function* () {

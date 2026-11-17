@@ -2,6 +2,7 @@ import { Console, Effect, Stdio, type FileSystem, type Path, type Terminal } fro
 import { Prompt } from "effect/cli";
 import { CliMessageError } from "../errors.ts";
 import type { InstallPlan } from "../install-types.ts";
+import type { Entry } from "../skillset-file.ts";
 import { cancelOnQuit } from "./cancel.ts";
 import { searchMultiSelect, type SearchChoice } from "./search.ts";
 
@@ -25,11 +26,17 @@ export type Prompter = {
   readonly scope: () => Answer<"project" | "global">;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
   readonly confirmPlan: (plan: InstallPlan) => Answer<boolean>;
+  readonly confirmRemote: (entries: ReadonlyArray<Entry>) => Answer<boolean>;
   readonly source: () => Answer<string>;
   readonly ensureRemoveInput: () => Answer<void>;
   readonly anotherSource: (failure?: CliMessageError) => Answer<boolean>;
   readonly confirmInstall: () => Answer<boolean>;
 };
+
+const listRemoteEntries = (entries: ReadonlyArray<Entry>) =>
+  Console.log(
+    `Remote Skillset Entries:\n${entries.map((entry) => `  ${entry.name}  ${entry.source}  ${entry.commit.slice(0, 7)}`).join("\n")}`,
+  );
 
 const unattended: Prompter = {
   skills: () => Effect.undefined,
@@ -38,6 +45,15 @@ const unattended: Prompter = {
   scope: () => Effect.succeed("project"),
   mode: () => Effect.succeed("auto"),
   confirmPlan: () => Effect.succeed(true),
+  confirmRemote: (entries) =>
+    Effect.andThen(
+      listRemoteEntries(entries),
+      Effect.fail(
+        new CliMessageError({
+          message: "Remote Skillsets require confirmation; use -y for unattended installs.",
+        }),
+      ),
+    ),
   source: () => Effect.fail(new CliMessageError({ message: "Usage: skillset add <source>" })),
   ensureRemoveInput: () =>
     Effect.fail(new CliMessageError({ message: "Usage: skillset remove [skills...] [--all]" })),
@@ -82,6 +98,13 @@ const tty: Prompter = {
       );
       return yield* cancelOnQuit(
         Prompt.Confirm({ message: "Proceed with installation?", initial: true }),
+      );
+    }),
+  confirmRemote: (entries) =>
+    Effect.gen(function* () {
+      yield* listRemoteEntries(entries);
+      return yield* cancelOnQuit(
+        Prompt.Confirm({ message: "Install this Remote Skillset?", initial: false }),
       );
     }),
   source: () => cancelOnQuit(Prompt.String({ message: "Source?" })),
