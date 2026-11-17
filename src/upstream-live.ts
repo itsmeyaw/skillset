@@ -2,12 +2,13 @@ import { Effect, Layer, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { detectAgents, getSupportedAgents, installSkills, resolveSource } from "skills";
 import { PIN_PATTERN } from "./pin.ts";
-import { Upstream, UpstreamError } from "./upstream.ts";
+import { Upstream, UpstreamError, type Agent } from "./upstream.ts";
 import { withUpstreamSession } from "./upstream-session.ts";
 
 // Spec #1, User Story 12: never reinterpret rejected Sources as Git repositories.
 // git-remote-ext(1): ext:: executes an arbitrary helper command.
 const executableTransport = (remote: string) => /^ext::/iu.test(remote);
+const toAgent = ({ id, name, universal }: Agent): Agent => ({ id, name, universal });
 
 // git-ls-remote(1): peeled tags use ^{}; prefer them to tag objects and branches.
 export const selectRemoteCommit = (output: string, ref?: string): string | undefined => {
@@ -117,12 +118,10 @@ export const UpstreamLive = Layer.effect(
       detectAgents: (options) =>
         Effect.tryPromise({ try: () => detectAgents(options), catch: toError }).pipe(
           Effect.map(({ agents }) => ({
-            agents: agents.map(({ id, name, universal }) => ({ id, name, universal })),
+            agents: agents.map(toAgent),
           })),
         ),
-      getSupportedAgents: Effect.sync(() =>
-        getSupportedAgents().map(({ id, name, universal }) => ({ id, name, universal })),
-      ),
+      getSupportedAgents: Effect.sync(() => getSupportedAgents().map(toAgent)),
     });
     return adapter;
   }),

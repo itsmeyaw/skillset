@@ -14,6 +14,7 @@ export type InstallChoices = {
   readonly agents?: ReadonlyArray<string>;
   readonly scope: "project" | "global";
   readonly mode: "auto" | "copy" | "symlink";
+  // Isolates filesystem writes in adapter tests.
   readonly cwd?: string;
 };
 

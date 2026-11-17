@@ -537,7 +537,7 @@ it.effect("install reports skipped targets without claiming they were installed"
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("install does not report success when every target is skipped", () =>
+it.effect("install omits the Installed line when every target is skipped", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
