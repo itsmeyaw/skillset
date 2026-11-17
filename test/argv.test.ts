@@ -1,8 +1,27 @@
 import { assert, it } from "@effect/vitest";
+import { Command, Flag } from "effect/cli";
 import { expandSkillFlags as expand } from "../src/argv.ts";
+import { cli, cliConfig } from "../src/cli.ts";
 
 const expandSkillFlags = (argv: ReadonlyArray<string>) =>
-  expand(argv, ["universal", "fake-one", "fake-two"]);
+  expand(argv, ["universal", "fake-one", "fake-two"], cli, cliConfig.builtIns);
+
+it("expands a new repeating flag declared on a command", () => {
+  const command = Command.make("app").pipe(
+    Command.withSubcommands([
+      Command.make("publish", {
+        tags: Flag.String("tag").pipe(Flag.withAlias("t"), Flag.atLeast(0)),
+      }).pipe(Command.withAlias("p")),
+    ]),
+  );
+  assert.deepStrictEqual(expand(["p", "-t", "one", "two"], [], command), [
+    "p",
+    "-t",
+    "one",
+    "-t",
+    "two",
+  ]);
+});
 
 it("keeps a User Skillset name after a selected skill", () => {
   assert.deepStrictEqual(expandSkillFlags(["install", "-s", "alpha", "my-set"]), [

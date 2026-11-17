@@ -1,7 +1,9 @@
 import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { prepareAddition } from "../addition.ts";
+import { Expansion } from "../argv.ts";
 import { CliMessageError as AddError } from "../errors.ts";
+import { agents } from "../flags.ts";
 import { installSkillset } from "../install.ts";
 import { makePinning } from "../pinning.ts";
 import { makePrompter } from "../prompts/prompter.ts";
@@ -14,11 +16,15 @@ export const add = Command.make(
   "add",
   {
     source: Argument.String("source").pipe(Argument.optional),
-    selected: Flag.String("skill").pipe(Flag.withAlias("s"), Flag.atLeast(0)),
+    selected: Flag.String("skill").pipe(
+      Flag.withAlias("s"),
+      Flag.annotate(Expansion, { positional: (value) => /[/:]/u.test(value) }),
+      Flag.atLeast(0),
+    ),
     all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
     list: Flag.Boolean("list").pipe(Flag.withAlias("l"), Flag.withDefault(false)),
     install: Flag.Boolean("install").pipe(Flag.withDefault(false)),
-    agents: Flag.String("agent").pipe(Flag.withAlias("a"), Flag.atLeast(0)),
+    agents,
     global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
     copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),

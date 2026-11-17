@@ -34,6 +34,8 @@ export const runArgv = (argv: ReadonlyArray<string>, env: Env = process.env) =>
       expandSkillFlags(
         argv,
         agents.map((agent) => agent.id),
+        cli,
+        cliConfig.builtIns,
       ),
     ).pipe(
       Effect.provideService(CliConfig.CliConfig, cliConfig),
