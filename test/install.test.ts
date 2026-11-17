@@ -414,6 +414,7 @@ it.effect("install -y installs only selected Entries at their Pins with requeste
       ],
       {
         upstream: {
+          supportedAgents: [claude, cursor],
           skills: {
             [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha", "unlisted"],
           },

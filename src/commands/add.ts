@@ -1,7 +1,9 @@
 import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { prepareAddition } from "../addition.ts";
+import { Expansion } from "../argv.ts";
 import { CliMessageError as AddError } from "../errors.ts";
+import { agents } from "../agent-flag.ts";
 import { installSkillset } from "../install.ts";
 import { makePinning } from "../pinning.ts";
 import { makePrompter } from "../prompts/prompter.ts";
@@ -9,16 +11,24 @@ import type { Entry, Skillset } from "../skillset-file.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
 
+// Issue #11: only the add command takes a Source.
+// Spec #1, User Story 3: a Source can follow space-separated skill names.
+const isSource = (value: string) => /[/:]/u.test(value);
+
 // Spec #1, add: list skills without changing the Skillset when no selection is given.
 export const add = Command.make(
   "add",
   {
     source: Argument.String("source").pipe(Argument.optional),
-    selected: Flag.String("skill").pipe(Flag.withAlias("s"), Flag.atLeast(0)),
+    selected: Flag.String("skill").pipe(
+      Flag.withAlias("s"),
+      Flag.annotate(Expansion, { positional: isSource }),
+      Flag.atLeast(0),
+    ),
     all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
     list: Flag.Boolean("list").pipe(Flag.withAlias("l"), Flag.withDefault(false)),
     install: Flag.Boolean("install").pipe(Flag.withDefault(false)),
-    agents: Flag.String("agent").pipe(Flag.withAlias("a"), Flag.atLeast(0)),
+    agents: agents(isSource),
     global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
     copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),

@@ -208,6 +208,7 @@ it.effect.each([{ flags: ["-s", "alpha"] }, { flags: ["--all"] }])(
           tty: true,
           upstream: {
             ...upstream,
+            supportedAgents: [cursor, { ...cursor, id: "claude-code", name: "Claude Code" }],
             skills: {
               ...upstream.skills,
               [JSON.stringify(["https://github.com/other/repo.git", commit])]: ["old"],
