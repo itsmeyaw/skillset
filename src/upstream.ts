@@ -13,6 +13,12 @@ import type { Entry } from "./skillset-file.ts";
 
 export { UpstreamError };
 
+export type Agent = {
+  readonly id: string;
+  readonly name: string;
+  readonly universal: boolean;
+};
+
 export type InstallChoices = {
   readonly agents?: ReadonlyArray<string>;
   readonly scope: "project" | "global";

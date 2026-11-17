@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { expect, it } from "vitest";
 import { makePinning } from "../src/pinning.ts";
 import { fakeUpstream } from "./harness.ts";
+import { Upstream } from "../src/upstream.ts";
 
 it("allows a failed Source lookup to be retried in the same run", async () => {
   const remote = "https://github.com/owner/repo.git";
@@ -13,12 +14,14 @@ it("allows a failed Source lookup to be retried in the same run", async () => {
     },
   };
   const result = await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const pinning = yield* makePinning();
-        yield* pinning.resolve("owner/repo").pipe(Effect.flip);
-        return yield* pinning.resolve("owner/repo");
-      }),
+    Upstream.use((upstream) =>
+      upstream.withSession((session) =>
+        Effect.gen(function* () {
+          const pinning = yield* makePinning(session);
+          yield* pinning.resolve("owner/repo").pipe(Effect.flip);
+          return yield* pinning.resolve("owner/repo");
+        }),
+      ),
     ).pipe(
       Effect.provide(
         fakeUpstream({ commits, skills: { [JSON.stringify([remote, commit])]: ["alpha"] } }),

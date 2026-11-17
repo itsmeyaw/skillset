@@ -40,22 +40,26 @@ it("rejects the executable git ext transport", async () => {
       "Unsupported Git transport: ext",
     ]);
     const error = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const pinning = yield* makePinning();
-          return yield* pinning.resolve(`ext::${script}`).pipe(Effect.flip);
-        }),
+      Upstream.use((upstream) =>
+        upstream.withSession((session) =>
+          Effect.gen(function* () {
+            const pinning = yield* makePinning(session);
+            return yield* pinning.resolve(`ext::${script}`).pipe(Effect.flip);
+          }),
+        ),
       ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
     );
     expect(error.message).toContain("Unsupported Git transport");
     const installError = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const pinning = yield* makePinning();
-          return yield* pinning
-            .verify([{ name: "example", source: `ext::${script}`, commit: "a".repeat(40) }])
-            .pipe(Effect.flip);
-        }),
+      Upstream.use((upstream) =>
+        upstream.withSession((session) =>
+          session
+            .install([{ name: "example", source: `ext::${script}`, commit: "a".repeat(40) }], {
+              scope: "project",
+              mode: "copy",
+            })
+            .pipe(Effect.flip),
+        ),
       ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
     );
     expect(installError.message).toContain("Unsupported Git transport");
@@ -160,21 +164,26 @@ it("keeps a pinned source for installation and disposes it at scope exit", async
               expect(handle.source.commit).toBe(commit);
             }),
           );
-          yield* Effect.scoped(
+          yield* upstream.withSession((session) =>
             Effect.gen(function* () {
-              const pinning = yield* makePinning();
-              const rootError = yield* pinning
-                .verify([{ name: "example", source: "https://git.example.test", commit }])
+              const rootError = yield* session
+                .install([{ name: "example", source: "https://git.example.test", commit }], {
+                  scope: "project",
+                  mode: "copy",
+                })
                 .pipe(Effect.flip);
               expect(rootError.message).toMatch(/URLs cannot be pinned/);
-              const indexError = yield* pinning
-                .verify([
-                  {
-                    name: "example",
-                    source: "https://git.example.test/.well-known/agent-skills/index.json",
-                    commit,
-                  },
-                ])
+              const indexError = yield* session
+                .install(
+                  [
+                    {
+                      name: "example",
+                      source: "https://git.example.test/.well-known/agent-skills/index.json",
+                      commit,
+                    },
+                  ],
+                  { scope: "project", mode: "copy" },
+                )
                 .pipe(Effect.flip);
               expect(indexError.message).toContain("Well-known URLs cannot be pinned");
             }),

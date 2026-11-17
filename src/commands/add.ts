@@ -7,6 +7,7 @@ import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
+import { Upstream } from "../upstream.ts";
 import { installSkillset } from "./install.ts";
 
 // Spec #1, add: list skills without changing the Skillset when no selection is given.
@@ -24,7 +25,8 @@ export const add = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* ({ source, selected, all, list, install, agents, global, copy, yes }) {
-    return yield* Effect.scoped(
+    const upstream = yield* Upstream;
+    return yield* upstream.withSession((session) =>
       Effect.gen(function* () {
         // ADR 0003: install options are meaningful only when --install chains an install.
         if (!install && (agents.length > 0 || global || copy))
@@ -38,7 +40,7 @@ export const add = Command.make(
           ? source.value
           : yield* cancelOnQuit(Prompt.String({ message: "Source?" }));
         const store = yield* openCommandSkillset({ missing: "create" });
-        const pinning = yield* makePinning();
+        const pinning = yield* makePinning(session);
         let first = true;
         let pending: Skillset | undefined;
         let lastError: Effect.Error<ReturnType<typeof prepareAddition>> | undefined;
@@ -105,7 +107,7 @@ export const add = Command.make(
               copy,
               yes,
             },
-            pinning,
+            session,
           );
       }),
     );
