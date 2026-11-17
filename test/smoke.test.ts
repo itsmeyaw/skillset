@@ -1,11 +1,12 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
 import { installSkills } from "skills";
 import { describe, expect, it } from "vitest";
-import { runArgv } from "../src/cli.ts";
 import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { Upstream } from "../src/upstream.ts";
 import { UpstreamLive } from "../src/upstream-live.ts";
@@ -68,7 +69,6 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
 
     it("install -y installs a tree-URL Entry at its Pin and writes the skills lock", async () => {
       const cwd = await mkdtemp(join(tmpdir(), "skillset-cli-smoke-"));
-      const previous = process.cwd();
       try {
         const file = join(cwd, "skillset.json");
         await writeFile(
@@ -84,11 +84,19 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
             ],
           }),
         );
-        process.chdir(cwd);
-        await Effect.runPromise(
-          runArgv(["install", "-y", "-a", "universal", "--copy", "--set", file]).pipe(
-            Effect.provide(Layer.provideMerge(UpstreamLive, NodeServices.layer)),
-          ),
+        execFileSync(
+          process.execPath,
+          [
+            fileURLToPath(new URL("../src/bin.ts", import.meta.url)),
+            "install",
+            "-y",
+            "-a",
+            "universal",
+            "--copy",
+            "--set",
+            file,
+          ],
+          { cwd, env: { ...process.env, SKILLSET_HOME: cwd }, encoding: "utf8" },
         );
         expect(await readFile(join(cwd, ".agents/skills/grilling/SKILL.md"), "utf8")).toContain(
           "grilling",
@@ -96,7 +104,6 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
         const lock = JSON.parse(await readFile(join(cwd, "skills-lock.json"), "utf8"));
         expect(lock.skills.grilling).toBeDefined();
       } finally {
-        process.chdir(previous);
         await rm(cwd, { recursive: true, force: true });
       }
     }, 120_000);

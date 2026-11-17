@@ -12,6 +12,9 @@ _Avoid_: Skill set, bundle, pack, collection
 The file on disk that holds one Skillset.
 _Avoid_: Manifest, index, lockfile
 
+**Skillset store**:
+The module that resolves and loads a Skillset file, saves it, and edits its Entries.
+
 **Project Skillset**:
 A Skillset file that lives in the project the user is working in.
 _Avoid_: Local skillset

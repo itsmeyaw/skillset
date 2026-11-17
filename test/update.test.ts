@@ -278,7 +278,7 @@ it.effect("update reports unknown names while updating known Entries", () =>
       },
     });
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /unknown.*absent/i);
+    assert.include(result.err.join("\n"), "Unknown skills: unknown, absent");
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { name: "alpha", source: "owner/repo", commit: latest },
     ]);
@@ -300,7 +300,7 @@ it.effect("update rejects invalid and missing Skillset files", () =>
     const missing = `${dir}/missing.json`;
     const missingResult = yield* runCli(["update", "--set", missing]);
     assert.strictEqual(missingResult.code, 1);
-    assert.match(missingResult.err.join("\n"), /cannot read Skillset file/i);
+    assert.include(missingResult.err.join("\n"), `Cannot find Skillset "${missing}" in ${missing}`);
     assert.isFalse(yield* fs.exists(missing));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

@@ -391,7 +391,7 @@ it.effect("add -l lists skills even with --all and leaves the file unchanged", (
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const original = "do not rewrite";
+    const original = JSON.stringify({ $schema: SCHEMA_URL, skills: [] });
     yield* fs.writeFileString(file, original);
     const result = yield* runCli(["add", "owner/repo", "-l", "--all", "--set", file], { upstream });
     assert.strictEqual(result.code, 0);
@@ -487,9 +487,31 @@ it.effect("add rejects an invalid Skillset file without overwriting it", () =>
     const file = `${dir}/skillset.json`;
     const original = '{"$schema":"https://example.com/v2","skills":[]}';
     yield* fs.writeFileString(file, original);
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], { upstream });
+    const calls: Array<string> = [];
+    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+      upstream: { ...upstream, calls },
+    });
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /invalid Skillset file/i);
+    assert.deepStrictEqual(calls, []);
+    assert.strictEqual(yield* fs.readFileString(file), original);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("add -l rejects an invalid Skillset before Source lookup", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const original = "not json";
+    const calls: Array<string> = [];
+    yield* fs.writeFileString(file, original);
+    const result = yield* runCli(["add", "owner/repo", "-l", "--set", file], {
+      upstream: { ...upstream, calls },
+    });
+    assert.strictEqual(result.code, 1);
+    assert.match(result.err.join("\n"), /invalid Skillset file/i);
+    assert.deepStrictEqual(calls, []);
     assert.strictEqual(yield* fs.readFileString(file), original);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
@@ -545,11 +567,12 @@ for (const source of [
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/skillset.json`;
-      yield* fs.writeFileString(file, "unchanged");
+      const original = JSON.stringify({ $schema: SCHEMA_URL, skills: [] });
+      yield* fs.writeFileString(file, original);
       const result = yield* runCli(["add", source, "--all", "--set", file], { upstream });
       assert.strictEqual(result.code, 1);
       assert.match(result.err.join("\n"), /-s grilling/);
-      assert.strictEqual(yield* fs.readFileString(file), "unchanged");
+      assert.strictEqual(yield* fs.readFileString(file), original);
     }).pipe(Effect.provide(NodeFileSystem.layer)),
   );
 }
@@ -1046,23 +1069,25 @@ it.effect("interactive add retries after a conflict without losing earlier Entri
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-// Interactive add recovery spec: Skillset file errors warn without overwriting the file.
-it.effect("interactive add warns on an invalid Skillset and fails if no Source is added", () =>
+// Invalid Skillset files cannot be repaired by retrying the Source.
+it.effect("interactive add fails on an invalid Skillset before Source lookup", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const original = '{"$schema":"https://example.com/v2","skills":[]}';
     yield* fs.writeFileString(file, original);
+    const calls: Array<string> = [];
     const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
       keys: [key("n", "n")],
-      upstream,
+      upstream: { ...upstream, calls },
     });
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Warning:.*invalid Skillset file/i);
-    assert.match(result.screen.join(""), /Add another source\?/);
+    assert.match(result.err.join("\n"), /invalid Skillset file/i);
+    assert.notInclude(result.screen.join(""), "Add another source?");
     assert.notInclude(result.screen.join(""), "Install skillset?");
+    assert.deepStrictEqual(calls, []);
     assert.strictEqual(yield* fs.readFileString(file), original);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

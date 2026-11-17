@@ -4,12 +4,9 @@ import { prepareAddition } from "../addition.ts";
 import { CliMessageError as AddError } from "../errors.ts";
 import { cancelOnQuit } from "../prompts/cancel.ts";
 import { isInteractive } from "../prompts/interactive.ts";
-import { skillsetPath } from "../root.ts";
-import { writeSkillset } from "../skillset-file.ts";
 import type { Entry, Skillset } from "../skillset-file.ts";
+import { openCommandSkillset } from "../skillset-store.ts";
 import { installSkillset } from "./install.ts";
-
-export { AddError };
 
 // Spec #1, add: list skills without changing the Skillset when no selection is given.
 export const add = Command.make(
@@ -35,7 +32,7 @@ export const add = Command.make(
     let input = Option.isSome(source)
       ? source.value
       : yield* cancelOnQuit(Prompt.String({ message: "Source?" }));
-    const set = yield* skillsetPath;
+    const store = yield* openCommandSkillset({ missing: "create" });
     let first = true;
     let pending: Skillset | undefined;
     let lastError: Effect.Error<ReturnType<typeof prepareAddition>> | undefined;
@@ -44,10 +41,10 @@ export const add = Command.make(
       // -s/--all/-l describe the first Source only; later Sources are chosen interactively.
       const result = yield* prepareAddition(
         input,
-        set,
+        pending ?? store.skillset,
         first
           ? { selected, all, list, interactive }
-          : { selected: [], all: false, list: false, interactive, base: pending },
+          : { selected: [], all: false, list: false, interactive },
       ).pipe(Effect.result);
       first = false;
       // Interactive add recovery spec: only typed failures permit another Source.
@@ -74,9 +71,9 @@ export const add = Command.make(
     // Interactive add recovery spec: write successful rounds once, or fail with the last error.
     if (!pending && lastError) return yield* lastError;
     if (pending) {
-      yield* writeSkillset(set, pending);
+      pending = yield* store.save(pending);
       for (const added of additions)
-        yield* Console.log(`Added ${added.map((entry) => entry.name).join(", ")} to ${set}`);
+        yield* Console.log(`Added ${added.map((entry) => entry.name).join(", ")} to ${store.path}`);
     }
     // ADR 0003: write additions before either chained or prompted full-Skillset installation.
     if (
@@ -85,7 +82,7 @@ export const add = Command.make(
         (interactive &&
           (yield* cancelOnQuit(Prompt.Confirm({ message: "Install skillset?", initial: false })))))
     )
-      yield* installSkillset(set, {
+      yield* installSkillset(pending, {
         selected: [],
         agents,
         global,

@@ -1,7 +1,7 @@
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NodeFileSystem, NodePath } from "@effect/platform-node";
-import { Cause, Effect, Layer, Option, Queue, Runtime, Stdio, Terminal } from "effect";
+import { Cause, Effect, FileSystem, Layer, Option, Queue, Runtime, Stdio, Terminal } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 import type { AgentInfo, SkillSource } from "skills";
@@ -35,6 +35,7 @@ export const fakeUpstream = (
   options: {
     readonly commits?: Readonly<Record<string, string>>;
     readonly commitLookups?: Array<string>;
+    readonly calls?: Array<string>;
     readonly skills?: Readonly<
       Record<
         string,
@@ -55,6 +56,7 @@ export const fakeUpstream = (
     Upstream,
     Upstream.of({
       resolveCommit: (source, ref, treeRefs = []) => {
+        options.calls?.push("resolveCommit");
         options.commitLookups?.push(JSON.stringify([source, ref ?? null]));
         if (treeRefs.some((candidate) => options.commits?.[JSON.stringify([source, candidate])])) {
           return Effect.fail(new UpstreamError({ message: ambiguousTreeMessage }));
@@ -65,6 +67,7 @@ export const fakeUpstream = (
           : Effect.succeed(commit);
       },
       listSkills: (source, commit) => {
+        options.calls?.push("listSkills");
         const skills = options.skills?.[JSON.stringify([source, commit])];
         return skills === undefined
           ? Effect.fail(
@@ -183,9 +186,13 @@ export const runCli = Effect.fn("runCli")(function* (
     readonly keys?: ReadonlyArray<Terminal.UserInput>;
     readonly tty?: boolean;
     readonly upstream?: Parameters<typeof fakeUpstream>[0];
+    readonly env?: Readonly<Record<string, string | undefined>>;
   } = {},
 ) {
   const screen: Array<string> = [];
+  const home = yield* Effect.gen(function* () {
+    return yield* (yield* FileSystem.FileSystem).makeTempDirectoryScoped();
+  }).pipe(Effect.provide(NodeFileSystem.layer));
   const terminal = yield* fakeTerminal(options.keys ?? [], screen);
   const services = Layer.mergeAll(
     NodeFileSystem.layer,
@@ -198,7 +205,10 @@ export const runCli = Effect.fn("runCli")(function* (
     ),
     fakeUpstream(options.upstream),
   );
-  const exit = yield* runArgv(argv).pipe(Effect.provide(services), Effect.exit);
+  const exit = yield* runArgv(argv, options.env ?? { SKILLSET_HOME: home }).pipe(
+    Effect.provide(services),
+    Effect.exit,
+  );
   let code = -1;
   Runtime.defaultTeardown(exit, (value) => {
     code = value;

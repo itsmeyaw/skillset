@@ -64,22 +64,16 @@ export const skillsetJsonSchema = (): string => {
   );
 };
 
-export { SkillsetFileError };
-
 const invalidSkillset = (path: string) => (error: { readonly message: string }) =>
   new SkillsetFileError({ message: `Invalid Skillset file ${path}: ${error.message}` });
+
+export const cannotReadSkillset = (path: string) => (error: { readonly message: string }) =>
+  new SkillsetFileError({ message: `Cannot read Skillset file ${path}: ${error.message}` });
 
 // Spec #1, Skillset file module: reject invalid content and unknown versions before acting.
 export const readSkillset = Effect.fn("readSkillset")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
-  const text = yield* fs
-    .readFileString(path)
-    .pipe(
-      Effect.mapError(
-        (error) =>
-          new SkillsetFileError({ message: `Cannot read Skillset file ${path}: ${error.message}` }),
-      ),
-    );
+  const text = yield* fs.readFileString(path).pipe(Effect.mapError(cannotReadSkillset(path)));
   return yield* Schema.decodeEffect(Schema.fromJsonString(Skillset))(text, {
     onExcessProperty: "error",
   }).pipe(Effect.mapError(invalidSkillset(path)));
@@ -98,12 +92,8 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
   const validated = yield* Schema.decodeEffect(Skillset)(skillset, {
     onExcessProperty: "error",
   }).pipe(Effect.mapError(invalidSkillset(path)));
-  const content =
-    JSON.stringify(
-      { $schema: validated.$schema, skills: sortedEntries(validated.skills) },
-      null,
-      2,
-    ) + "\n";
+  const saved = { $schema: validated.$schema, skills: sortedEntries(validated.skills) };
+  const content = JSON.stringify(saved, null, 2) + "\n";
   yield* Effect.gen(function* () {
     const tmp = `${path}.tmp`;
     // Issue #12: create missing parent directories so a first write to the user directory works.
@@ -124,4 +114,5 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
         }),
     ),
   );
+  return saved;
 });

@@ -1,6 +1,8 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { runCli } from "./harness.ts";
 
 it.effect("list prints Entries sorted by name with Source and short Pin", () =>
@@ -38,15 +40,16 @@ it.effect("list reports an empty Skillset at the default path", () =>
         skills: [],
       }),
     );
-    const previous = process.cwd();
-    try {
-      process.chdir(dir);
-      const result = yield* runCli(["list"]);
-      assert.strictEqual(result.code, 0);
-      assert.match(result.out.join("\n"), /empty/i);
-    } finally {
-      process.chdir(previous);
-    }
+    const output = execFileSync(
+      process.execPath,
+      [fileURLToPath(new URL("../src/bin.ts", import.meta.url)), "list"],
+      {
+        cwd: dir,
+        env: { ...process.env, SKILLSET_HOME: dir },
+        encoding: "utf8",
+      },
+    );
+    assert.match(output, /empty/i);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
@@ -101,6 +104,9 @@ it.effect("list rejects a missing Skillset file", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const result = yield* runCli(["list", "--set", `${dir}/missing.json`]);
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /cannot read Skillset file/i);
+    assert.include(
+      result.err.join("\n"),
+      `Cannot find Skillset "${dir}/missing.json" in ${dir}/missing.json`,
+    );
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
