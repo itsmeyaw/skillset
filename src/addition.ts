@@ -31,6 +31,7 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
   // Spec #1, Source parsing: -s or --all overrides an implied tree-path selection.
   let selection: ReadonlyArray<string> =
     selected.length > 0 ? selected : !all && resolved.skill ? [resolved.skill] : [];
+  let showList = list;
   if (!list && !all && selection.length === 0) {
     const chosen = yield* prompter.skills(
       available.map((skill) => ({
@@ -42,9 +43,9 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
     if (chosen !== undefined) {
       selection = chosen;
       if (selection.length === 0) return { _tag: "NoSelection" as const };
-    } else list = true;
+    } else showList = true;
   }
-  if (list) {
+  if (showList) {
     // Issue #11: listing skills must not create or change a Skillset file.
     for (const skill of skills) yield* Console.log(skill);
     yield* Console.log("Use -s to select skills or --all to add every skill.");

@@ -47,7 +47,7 @@ const scripted = (
     source: () => Effect.die("unexpected source question"),
     ensureRemoveInput: () => Effect.die("unexpected remove question"),
     anotherSource: () => Effect.die("unexpected add question"),
-    installSkillset: () => Effect.die("unexpected install question"),
+    confirmInstall: () => Effect.die("unexpected install question"),
   };
   return { prompter, asked, offered };
 };
@@ -79,7 +79,7 @@ it.effect("explicit install flags skip their questions", () =>
       source: () => Effect.die("unexpected source question"),
       ensureRemoveInput: () => Effect.die("unexpected remove question"),
       anotherSource: () => Effect.die("unexpected add question"),
-      installSkillset: () => Effect.die("unexpected install question"),
+      confirmInstall: () => Effect.die("unexpected install question"),
     };
     const terminal = yield* fakeTerminal([], []);
     const plan = yield* buildInstallPlan(

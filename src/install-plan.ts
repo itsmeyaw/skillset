@@ -1,16 +1,12 @@
 import { Console, Effect } from "effect";
 import { CliMessageError, emptySkillsetMessage } from "./errors.ts";
+import type { InstallPlan } from "./install-types.ts";
 import type { Prompter } from "./prompts/prompter.ts";
-import type { Entry, Skillset } from "./skillset-file.ts";
+import type { Skillset } from "./skillset-file.ts";
 import { isEmpty, selectEntries, unknownNamesMessage } from "./skillset-store.ts";
-import { Upstream, type Agent, type InstallChoices } from "./upstream.ts";
+import { Upstream, type Agent } from "./upstream.ts";
 
-export type InstallPlan = {
-  readonly entries: ReadonlyArray<Entry>;
-  readonly agents: ReadonlyArray<string> | undefined;
-  readonly scope: InstallChoices["scope"];
-  readonly mode: InstallChoices["mode"];
-};
+export type { InstallPlan } from "./install-types.ts";
 
 export type InstallPlanOptions = {
   readonly selected: ReadonlyArray<string>;
@@ -63,16 +59,16 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   const { unknown } = selectEntries(skillset, options.selected);
   if (unknown.length > 0)
     return yield* new CliMessageError({ message: unknownNamesMessage(unknown) });
-  const names =
-    options.selected.length > 0
-      ? options.selected
-      : yield* prompter.requiredSkills(
-          skillset.skills.map((entry) => ({
-            title: entry.name,
-            value: entry.name,
-            selected: true,
-          })),
-        );
+  let names = options.selected;
+  if (names.length === 0) {
+    names = yield* prompter.requiredSkills(
+      skillset.skills.map((entry) => ({
+        title: entry.name,
+        value: entry.name,
+        selected: true,
+      })),
+    );
+  }
   let agents: ReadonlyArray<string> | undefined =
     options.agents.length > 0 ? options.agents : undefined;
   if (options.agents.length === 0) {
@@ -82,11 +78,19 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     const { defaults, choices } = agentChoices(supported, detected.agents);
     agents = yield* prompter.agents(choices, defaults, supported.length > 0);
   }
+  let scope: InstallPlan["scope"] = "global";
+  if (!options.global) {
+    scope = yield* prompter.scope();
+  }
+  let mode: InstallPlan["mode"] = "copy";
+  if (!options.copy) {
+    mode = yield* prompter.mode();
+  }
   const plan: InstallPlan = {
     entries: selectEntries(skillset, names).entries,
     agents,
-    scope: options.global ? "global" : yield* prompter.scope(),
-    mode: options.copy ? "copy" : yield* prompter.mode(),
+    scope,
+    mode,
   };
   if (yield* prompter.confirmPlan(plan)) return plan;
 });

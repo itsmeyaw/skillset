@@ -76,7 +76,7 @@ export const add = Command.make(
             );
         }
         // ADR 0003: write additions before either chained or prompted full-Skillset installation.
-        if (pending && (install || (yield* prompter.installSkillset())))
+        if (pending && (install || (yield* prompter.confirmInstall())))
           yield* installSkillset(
             pending,
             {

@@ -1,7 +1,7 @@
 import { Console, Effect, Stdio, type FileSystem, type Path, type Terminal } from "effect";
 import { Prompt } from "effect/cli";
 import { CliMessageError } from "../errors.ts";
-import type { InstallPlan } from "../install-plan.ts";
+import type { InstallPlan } from "../install-types.ts";
 import { cancelOnQuit } from "./cancel.ts";
 import { searchMultiSelect, type SearchChoice } from "./search.ts";
 
@@ -28,7 +28,7 @@ export type Prompter = {
   readonly source: () => Answer<string>;
   readonly ensureRemoveInput: () => Answer<void>;
   readonly anotherSource: (failure?: CliMessageError) => Answer<boolean>;
-  readonly installSkillset: () => Answer<boolean>;
+  readonly confirmInstall: () => Answer<boolean>;
 };
 
 const unattended: Prompter = {
@@ -42,7 +42,7 @@ const unattended: Prompter = {
   ensureRemoveInput: () =>
     Effect.fail(new CliMessageError({ message: "Usage: skillset remove [skills...] [--all]" })),
   anotherSource: () => Effect.succeed(false),
-  installSkillset: () => Effect.succeed(false),
+  confirmInstall: () => Effect.succeed(false),
 };
 
 const tty: Prompter = {
@@ -93,7 +93,7 @@ const tty: Prompter = {
         Prompt.Confirm({ message: "Add another source?", initial: failure !== undefined }),
       );
     }),
-  installSkillset: () =>
+  confirmInstall: () =>
     cancelOnQuit(Prompt.Confirm({ message: "Install skillset?", initial: false })),
 };
 
