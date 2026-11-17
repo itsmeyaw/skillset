@@ -4,6 +4,10 @@ import { detectAgents, getSupportedAgents, installSkills, resolveSource } from "
 import { PIN_PATTERN } from "./pin.ts";
 import { Upstream, UpstreamError } from "./upstream.ts";
 
+// Spec #1, User Story 12: never reinterpret rejected Sources as Git repositories.
+// git-remote-ext(1): ext:: executes an arbitrary helper command.
+const executableTransport = (source: string) => /^ext::/iu.test(source);
+
 // git-ls-remote(1): peeled tags use ^{}; prefer them to tag objects and branches.
 export const selectRemoteCommit = (output: string, ref?: string): string | undefined => {
   const refs = new Map<string, string>();
@@ -31,6 +35,7 @@ export const UpstreamLive = Layer.effect(
       Effect.acquireRelease(
         Effect.tryPromise({
           try: async () => {
+            if (executableTransport(source)) throw new Error("Unsupported Git transport: ext");
             try {
               return await resolveSource(source, { ref: commit });
             } catch (error) {
@@ -58,6 +63,8 @@ export const UpstreamLive = Layer.effect(
       );
     return Upstream.of({
       resolveRefs: Effect.fn("Upstream.resolveRefs")(function* (source, refs) {
+        if (executableTransport(source))
+          return yield* new UpstreamError({ message: "Unsupported Git transport: ext" });
         const patterns = refs.flatMap((name) =>
           name === undefined
             ? ["HEAD"]

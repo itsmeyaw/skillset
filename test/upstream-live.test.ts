@@ -25,6 +25,20 @@ it("rejects the executable git ext transport", async () => {
     const script = join(cwd, "remote-helper");
     await writeFile(script, `#!/bin/sh\nprintf ran > '${marker}'\n`, { mode: 0o755 });
     process.env.GIT_ALLOW_PROTOCOL = "ext";
+    const boundaryErrors = await Effect.runPromise(
+      Upstream.use((upstream) =>
+        Effect.scoped(
+          Effect.all([
+            upstream.resolveRefs(`ext::${script}`, [undefined]).pipe(Effect.flip),
+            upstream.resolveSource(`ext::${script}`, "a".repeat(40)).pipe(Effect.flip),
+          ]),
+        ),
+      ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
+    );
+    expect(boundaryErrors.map((error) => error.message)).toEqual([
+      "Unsupported Git transport: ext",
+      "Unsupported Git transport: ext",
+    ]);
     const error = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
