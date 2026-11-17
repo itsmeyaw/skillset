@@ -89,6 +89,13 @@
     "zenflow"
   ],
   "license": "MIT",
+  "maintainers": [
+    {
+      "name": "Yudhistira Arief Wibowo",
+      "email": "yudhistira.wibowo@itsmeyaw.id",
+      "url": "https://github.com/itsmeyaw"
+    }
+  ],
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/itsmeyaw/skillset.git"
