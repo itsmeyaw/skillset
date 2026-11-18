@@ -5,6 +5,7 @@ import { add } from "./commands/add.ts";
 import { install } from "./commands/install.ts";
 import { list } from "./commands/list.ts";
 import { mcpAdd } from "./commands/mcp-add.ts";
+import { mcpRemove } from "./commands/mcp-remove.ts";
 import { remove } from "./commands/remove.ts";
 import { update } from "./commands/update.ts";
 import { root } from "./root.ts";
@@ -37,7 +38,7 @@ export const cli = root.pipe(
     ),
     Command.make("mcp").pipe(
       Command.withDescription("Add and remove MCP Entries"),
-      Command.withSubcommands([mcpAdd]),
+      Command.withSubcommands([mcpAdd, mcpRemove]),
     ),
   ]),
 );

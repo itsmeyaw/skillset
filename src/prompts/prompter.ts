@@ -17,6 +17,9 @@ export type Prompter = {
   readonly skills: (
     choices: ReadonlyArray<SearchChoice>,
   ) => Answer<ReadonlyArray<string> | undefined>;
+  readonly mcpServers: (
+    choices: ReadonlyArray<SearchChoice>,
+  ) => Answer<ReadonlyArray<string> | undefined>;
   readonly requiredSkills: (choices: ReadonlyArray<SearchChoice>) => Answer<ReadonlyArray<string>>;
   readonly agents: (
     choices: ReadonlyArray<SearchChoice>,
@@ -40,6 +43,7 @@ const listRemoteSkillEntries = (skillEntries: ReadonlyArray<SkillEntry>) =>
 
 const unattended: Prompter = {
   skills: () => Effect.undefined,
+  mcpServers: () => Effect.undefined,
   requiredSkills: (choices) => Effect.succeed(choices.map((choice) => choice.value)),
   agents: (_choices, defaults) => Effect.succeed(defaults.length > 0 ? defaults : undefined),
   scope: () => Effect.succeed("project"),
@@ -63,6 +67,8 @@ const unattended: Prompter = {
 
 const tty: Prompter = {
   skills: (choices) => cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices })),
+  mcpServers: (choices) =>
+    cancelOnQuit(searchMultiSelect({ message: "Which MCP servers?", choices })),
   requiredSkills: (choices) =>
     cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices, min: 1 })),
   agents: (choices, _defaults, supported) =>

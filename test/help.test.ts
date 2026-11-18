@@ -95,6 +95,21 @@ it.effect("root help and completions list the skill group", () =>
   }),
 );
 
+it.effect("root help and completions list the mcp group", () =>
+  Effect.gen(function* () {
+    const help = yield* runCli(["--help"]);
+    assert.match(help.out.join("\n"), /\bmcp\b/);
+    const group = yield* runCli(["mcp", "--help"]);
+    assert.strictEqual(group.code, 0);
+    for (const name of ["add", "rm"])
+      assert.match(group.out.join("\n"), new RegExp(`\\b${name}\\b`));
+    for (const shell of ["bash", "zsh", "fish"]) {
+      const completions = yield* runCli(["--completions", shell]);
+      assert.match(completions.out.join("\n"), /\bmcp\b/);
+    }
+  }),
+);
+
 it.effect("skill commands print no deprecation notice", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
