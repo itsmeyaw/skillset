@@ -14,10 +14,12 @@ const httpsUrl = entryText.check(
 
 // ADR 0006: package types name an exact version, not a range or a moving tag. Digits-led, so
 // dist-tags (`next`, `latest`) fail; wildcard segments (`1.x`) and range characters fail too.
+// A sha256 digest is exact as well.
 const exactVersion = entryText.check(
-  Schema.isPattern(/^(?!.*(?:^|[.-])[xX*](?:[.-]|$))v?\d[0-9A-Za-z.+!_-]*$/u, {
-    message: "Expected an exact version such as 1.2.3, not a range or a tag like 'latest'",
-  }),
+  Schema.isPattern(
+    /^(?:sha256:[0-9a-fA-F]+|(?!.*(?:^|[.-])[xX*](?:[.-]|$))v?\d[0-9A-Za-z.+!_-]*)$/u,
+    { message: "Expected an exact version such as 1.2.3, not a range or a tag like 'latest'" },
+  ),
 );
 
 // ADR 0006: arguments are lists of tokens, never shell strings.

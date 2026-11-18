@@ -148,6 +148,7 @@ for (const version of [
   "2.0.0rc1",
   "1!2.0.post1",
   "v1.2.3",
+  `sha256:${"ab12".repeat(16)}`,
 ])
   it.effect(`readSkillset accepts the exact package version ${version}`, () =>
     withFile(
