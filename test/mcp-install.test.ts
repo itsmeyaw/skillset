@@ -200,27 +200,28 @@ it.effect("secrets never reach a written file", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("an identical server is left alone and a different one is kept with a warning", () =>
-  Effect.gen(function* () {
-    const { fs, cwd, run, read } = yield* setup;
-    const first = yield* run(["-y", "-m", "docs"]);
-    const written = yield* read(`${cwd}/.mcp.json`);
-    const again = yield* run(["-y", "-m", "docs"]);
-    assert.strictEqual(again.code, 0);
-    assert.strictEqual(yield* read(`${cwd}/.mcp.json`), written);
-    assert.deepStrictEqual(again.out.slice(first.out.length), [
-      "Set these environment variables:\n  docs: DOCS_KEY",
-    ]);
-    const edited = written.replace("mcp.example.com", "mcp.mine.example");
-    yield* fs.writeFileString(`${cwd}/.mcp.json`, edited);
-    const differing = yield* run(["-y", "-m", "docs"]);
-    assert.strictEqual(differing.code, 0);
-    assert.strictEqual(yield* read(`${cwd}/.mcp.json`), edited);
-    assert.include(
-      differing.err.slice(again.err.length).join("\n"),
-      "kept the existing MCP server docs",
-    );
-  }).pipe(Effect.provide(NodeFileSystem.layer)),
+it.effect(
+  "an identical server is left alone and a different one is kept with a warning and a failing exit",
+  () =>
+    Effect.gen(function* () {
+      const { fs, cwd, run, read } = yield* setup;
+      const first = yield* run(["-y", "-m", "docs"]);
+      const written = yield* read(`${cwd}/.mcp.json`);
+      const again = yield* run(["-y", "-m", "docs"]);
+      assert.strictEqual(again.code, 0);
+      assert.strictEqual(yield* read(`${cwd}/.mcp.json`), written);
+      assert.deepStrictEqual(again.out.slice(first.out.length), [
+        "Set these environment variables:\n  docs: DOCS_KEY",
+      ]);
+      const edited = written.replace("mcp.example.com", "mcp.mine.example");
+      yield* fs.writeFileString(`${cwd}/.mcp.json`, edited);
+      const differing = yield* run(["-y", "-m", "docs"]);
+      assert.strictEqual(differing.code, 1);
+      assert.strictEqual(yield* read(`${cwd}/.mcp.json`), edited);
+      const errors = differing.err.slice(again.err.length).join("\n");
+      assert.include(errors, "kept the existing MCP server docs");
+      assert.include(errors, "MCP server docs not installed for claude-code");
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
 it.effect("a Skillset without MCP Entries prints and writes nothing MCP-related", () =>

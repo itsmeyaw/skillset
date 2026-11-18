@@ -36,10 +36,15 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (plan:
     }
     const outcomes = (status: McpOutcome["status"]) =>
       result.success.filter((outcome) => outcome.status === status);
-    for (const kept of outcomes("kept"))
+    // Spec #37, User Story 78: a server skipped for any reason but "not supported" fails the exit code.
+    for (const kept of outcomes("kept")) {
       yield* Console.error(
         `Warning: kept the existing MCP server ${kept.name} in ${kept.file}; it differs from the Skillset's entry.`,
       );
+      failures.push(
+        `MCP server ${kept.name} not installed for ${id}: a different one exists in ${kept.file}`,
+      );
+    }
     const written = outcomes("written");
     if (written.length === 0) continue;
     yield* Console.log(
