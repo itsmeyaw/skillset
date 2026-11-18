@@ -89,16 +89,16 @@ Re-run `skillset install my-set` in a project to pick up the changes.
 
 ## Concepts
 
-| Term          | Meaning                                                                                                          |
-| ------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Skillset      | A shareable list of skills and MCP servers to install together, stored as a JSON file.                           |
-| Entry         | One item in a Skillset: a Skill Entry or an MCP Entry, identified by its name.                                   |
-| Skill Entry   | One skill in a Skillset: its name, Source, and Pin.                                                              |
-| MCP Entry     | One MCP server in a Skillset: how an agent starts or reaches it, and which inputs it needs. Never holds secrets. |
-| Source        | Where a Skill Entry comes from, such as `owner/repo`.                                                            |
-| Pin           | The exact commit of the Source that a Skill Entry was taken from. MCP Entries have versions, not Pins.           |
-| Registry      | A service that publishes MCP servers through the MCP Registry API, such as the official MCP Registry.            |
-| User Skillset | A Skillset kept by name outside any project, such as `my-set`, so every project can use it.                      |
+| Term          | Meaning                                                                                                         |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| Skillset      | A shareable list of skills and MCP servers to install together, stored as a JSON file.                          |
+| Entry         | One item in a Skillset: a Skill Entry or an MCP Entry, identified by its name.                                  |
+| Skill Entry   | One skill in a Skillset: its name, Source, and Pin.                                                             |
+| MCP Entry     | An Entry for one MCP server: how an agent starts or reaches it, and which inputs it needs. Never holds secrets. |
+| Source        | Where a Skill Entry comes from, such as `owner/repo`.                                                           |
+| Pin           | The exact commit of the Source that a Skill Entry was taken from. MCP Entries have versions, not Pins.          |
+| Registry      | A service that publishes MCP servers through the MCP Registry API, such as the official MCP Registry.           |
+| User Skillset | A Skillset kept by name outside any project, such as `my-set`, so every project can use it.                     |
 
 `skill add|rm|up` and `mcp add|rm|up` only change a Skillset. `install` only installs one. `skill add --install` and `mcp add --install` run both steps, one after the other. A Skill Entry and an MCP Entry may share a name; names are unique within each kind.
 
@@ -115,7 +115,7 @@ Commands that edit Entries take a noun first, `skill` or `mcp`. `install` and `l
 | `mcp add <name> -- <command> [args...]` | Add a local MCP server by hand.                                                   |
 | `mcp add <name> --url <https-url>`      | Add a remote MCP server by hand.                                                  |
 | `mcp rm [names...]`                     | Remove MCP Entries from the Skillset (`--all` removes everything).                |
-| `mcp up [names...]`                     | Move Registry MCP Entries to the latest active version.                           |
+| `mcp up [names...]`                     | Move Registry MCP Entries to the Registry's latest version.                       |
 | `list`, `ls`                            | Show Skill Entries and MCP Entries, or User Skillset names with `--user`.         |
 | `install [set]`, `i`                    | Install the Skillset: skills at their Pins, MCP servers into each agent's config. |
 
@@ -196,13 +196,13 @@ A Skillset can hold MCP servers next to skills. Each is an MCP Entry: a reviewed
 **From the official Registry.** Give the Registry name, optionally with an exact version:
 
 ```sh
-skillset mcp add io.github.example/weather            # latest active version
+skillset mcp add io.github.example/weather            # the version the Registry marks latest
 skillset mcp add io.github.example/weather@1.4.2      # a specific version
 skillset mcp add                                      # asks for a search term, then lists matches
 ```
 
 - The Entry is named after the part of the Registry name after the last `/`. Use `--name` to pick another name. Names may use letters, digits, `.`, `_` and `-`, and must be unique among MCP Entries.
-- A deprecated or deleted version is refused.
+- A deprecated or deleted version is refused, including when it is the one marked latest.
 - If the server offers several packages or remotes, you pick one. With `-y` the first package wins, or the first remote if there is no package.
 - Package types `npm`, `pypi`, `nuget` and `oci` are supported, plus remotes (`streamable-http` and `sse`). `cargo` and `mcpb` packages are rejected; choose a remote or another package, or add the server by hand.
 - A search term must be at least 3 characters.
@@ -229,7 +229,7 @@ The command is stored as an argument list and never run through a shell. `--env`
 
 ### Updating and removing
 
-`mcp up [names...]` moves Registry Entries to the latest active version, including those added with `@version`. It takes a fresh snapshot of the same kind of package or remote. It leaves an Entry that is already current alone, skips manual Entries with a note, and skips with a warning an Entry whose newer version no longer offers the stored package type. If you edited the env var name of a secret, it is kept.
+`mcp up [names...]` moves Registry Entries to the version the Registry marks latest, including those added with `@version`. If that version is deprecated or deleted, the Entry is left alone with a warning and the command exits non-zero; it does not look for an older active version. It takes a fresh snapshot of the same kind of package or remote. It leaves an Entry that is already current alone, skips manual Entries with a note, and skips with a warning an Entry whose newer version no longer offers the stored package type. If you edited the env var name of a secret, it is kept.
 
 `mcp rm [names...]` (or `--all`) removes MCP Entries from the Skillset file only. It never edits an agent's config; remove servers from the agent yourself.
 
@@ -239,7 +239,7 @@ The command is stored as an argument list and never run through a shell. `--env`
 
 - An identical server already in the file is left alone.
 - A different server with the same name is shown next to the new one and you are asked before it is overwritten, with "no" as the default. With `-y` the existing server is kept and a warning is printed.
-- A failure for one agent does not stop the others. Any failure gives a non-zero exit code. A selected agent that cannot take MCP servers gets a "not supported" notice and no error.
+- A failure for one agent does not stop the others. Any failure, and any server skipped because a different one was kept, gives a non-zero exit code. A selected agent that cannot take MCP servers gets a "not supported" notice and no error.
 - A file that is not valid JSON is left untouched and reported.
 - Files are written with a temporary file and an atomic rename, keeping the file's mode.
 
@@ -248,7 +248,7 @@ The command is stored as an argument list and never run through a shell. `--env`
 Skillset files are shared and agent project files such as `.mcp.json` are often committed, so no secret value is ever saved. An MCP Entry declares its inputs (env vars, headers, and `{var}` placeholders in arguments, URLs and headers) by name only. On install:
 
 - A **secret** input is never prompted for. It is written as an env reference in the agent's own syntax: `${VAR}` for Claude Code, GitHub Copilot, Gemini CLI, Kiro and Amp; `${env:VAR}` for Cursor, Roo Code and Windsurf; `{env:VAR}` for OpenCode.
-- A **non-secret** input uses its default, or the value you type when asked. Under `-y` or without a terminal, a required input with no value is written as an env reference too, so unattended installs never fail on inputs.
+- A **non-secret** input uses its default, or the value you type when asked. Under `-y`, a required input with no value is written as an env reference too, so unattended installs never fail on inputs. Without a terminal and without `-y` there is nobody to ask, so such an input fails the install and the message suggests `-y`.
 - The install ends with a list of the env vars to set, naming each server.
 - A secret `{var}` in an argument, header or URL defaults to the env var `<ENTRY>_<VAR>` in upper snake case, such as `DOCS_AUTHORIZATION`. Edit the input's `env` in the Skillset file to match your conventions. An `env` input uses its own name.
 
