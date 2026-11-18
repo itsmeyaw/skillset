@@ -1,6 +1,7 @@
 import { Context, type Effect, type FileSystem, type Path, type Terminal } from "effect";
 import type { CliMessageError } from "../errors.ts";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
+import type { Env } from "../user-skillset.ts";
 
 export type McpScope = "project" | "global";
 
@@ -29,6 +30,7 @@ export type AgentRuntime = FileSystem.FileSystem | Path.Path | Terminal.Terminal
 export type McpInstallContext = {
   readonly scope: McpScope;
   readonly paths: { readonly cwd: string; readonly home: string };
+  readonly env: Env;
   // ADR 0007: a different server of the same name is overwritten only with consent.
   readonly confirmOverwrite: (
     conflict: McpConflict,
@@ -45,4 +47,6 @@ export type Agent = {
   ) => Effect.Effect<ReadonlyArray<McpOutcome>, CliMessageError, AgentRuntime>;
   // A warning shown after the Agent's configuration was changed in this scope.
   readonly warning?: (scope: McpScope) => string | undefined;
+  // Agents that read the same file declare it, so install writes it once for all of them.
+  readonly file?: (scope: McpScope, context: Pick<McpInstallContext, "paths" | "env">) => string;
 };
