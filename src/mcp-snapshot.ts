@@ -89,10 +89,25 @@ const packageEntry = (
   if (pkg.transport !== undefined && pkg.transport.type !== "stdio")
     throw new Unsupported(`Package transport "${pkg.transport.type}" is not supported.`);
   if (!pkg.version) throw new Unsupported(`Package ${pkg.identifier} names no exact version.`);
-  // shortcut: the first declaration of an input name wins, a clash between two arguments is not reported.
-  const inputs = new Map<string, Input>();
+  // ADR 0008: two declarations of one input merge conservatively, so a secret is never downgraded
+  // (and then keeps no default) and a required input stays required. Other fields: the first wins.
+  // shortcut: a clash between two arguments is merged silently, report it when it confuses curators.
+  const declared = new Map<string, { kind: Input["kind"]; from: RegistryVariable }>();
   const declare = (kind: Input["kind"]) => (name: string, from: RegistryVariable) => {
-    if (!inputs.has(name)) inputs.set(name, declaration(entryName, kind, name, from));
+    const first = declared.get(name);
+    declared.set(
+      name,
+      first === undefined
+        ? { kind, from }
+        : {
+            kind: first.kind,
+            from: {
+              ...first.from,
+              isSecret: first.from.isSecret || from.isSecret,
+              isRequired: first.from.isRequired || from.isRequired,
+            },
+          },
+    );
   };
   const tokens = (arguments_: ReadonlyArray<RegistryInput> | null | undefined) =>
     (arguments_ ?? []).flatMap((argument) => argumentTokens(argument, declare("variable")));
@@ -119,7 +134,13 @@ const packageEntry = (
       ...(packageArguments.length > 0 ? { packageArguments } : {}),
       transport: "stdio",
     },
-    ...(inputs.size > 0 ? { inputs: [...inputs.values()] } : {}),
+    ...(declared.size > 0
+      ? {
+          inputs: [...declared].map(([name, { kind, from }]) =>
+            declaration(entryName, kind, name, from),
+          ),
+        }
+      : {}),
   };
 };
 

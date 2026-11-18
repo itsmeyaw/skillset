@@ -226,6 +226,50 @@ it.effect("mcp add refuses a duplicate Entry name", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("a secret declaration is never downgraded by an earlier plain one", () =>
+  Effect.gen(function* () {
+    const { file, read } = yield* setup;
+    const base = npmServer("2.0.0");
+    const server = {
+      ...base,
+      packages: [
+        {
+          ...base.packages[0],
+          packageArguments: [
+            {
+              type: "named",
+              name: "--a",
+              value: "{token}",
+              variables: { token: { description: "Token", default: "hunter2" } },
+            },
+            {
+              type: "named",
+              name: "--b",
+              value: "{token}",
+              variables: { token: { isRequired: true, isSecret: true } },
+            },
+          ],
+          environmentVariables: [],
+        },
+      ],
+    };
+    const result = yield* runCli(["mcp", "add", name, "--set", file], {
+      fetch: cannedFetch({ [versionUrl("latest")]: json(versionResponse(server)) }),
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual((yield* read).mcp[0].inputs, [
+      {
+        name: "token",
+        kind: "variable",
+        description: "Token",
+        required: true,
+        secret: true,
+        env: "SERVER_TOKEN",
+      },
+    ]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("mcp add saves no secret value and ls and install need no Registry", () =>
   Effect.gen(function* () {
     const { file, fs } = yield* setup;
