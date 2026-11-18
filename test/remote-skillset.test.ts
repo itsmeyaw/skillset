@@ -232,9 +232,9 @@ it.effect("unattended Remote Skillset installation requires -y", () =>
 );
 
 it.effect.each([
-  ["add", "owner/repo", "--set", url, "--install", "-y"],
-  ["remove", "alpha", "--set", url, "-y"],
-  ["update", "--set", url],
+  ["skill", "add", "owner/repo", "--set", url, "--install", "-y"],
+  ["skill", "rm", "alpha", "--set", url, "-y"],
+  ["skill", "up", "--set", url],
 ])("rejects Remote Skillsets outside install: %s", (argv) =>
   Effect.gen(function* () {
     const result = yield* runCli(argv, {

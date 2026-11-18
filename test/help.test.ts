@@ -78,3 +78,61 @@ for (const [command, alias] of [
     }),
   );
 }
+
+it.effect("root help and completions list the skill group", () =>
+  Effect.gen(function* () {
+    const help = yield* runCli(["--help"]);
+    assert.match(help.out.join("\n"), /\bskill\b/);
+    const group = yield* runCli(["skill", "--help"]);
+    assert.strictEqual(group.code, 0);
+    const text = group.out.join("\n");
+    for (const name of ["add", "rm", "up"]) assert.match(text, new RegExp(`\\b${name}\\b`));
+    for (const shell of ["bash", "zsh", "fish"]) {
+      const completions = yield* runCli(["--completions", shell]);
+      assert.strictEqual(completions.code, 0);
+      assert.match(completions.out.join("\n"), /\bskill\b/);
+    }
+  }),
+);
+
+it.effect("skill commands print no deprecation notice", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [] }));
+    for (const command of ["rm", "up"]) {
+      const result = yield* runCli(["skill", command, "--set", file]);
+      assert.notInclude(result.err.join("\n"), "Deprecated");
+    }
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect.each([
+  ["add", "add", "add"],
+  ["a", "add", "add"],
+  ["remove", "remove", "rm"],
+  ["rm", "remove", "rm"],
+  ["update", "update", "up"],
+  ["up", "update", "up"],
+] as const)("top-level %s prints one deprecation notice", ([alias, name, group]) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const commit = "a".repeat(40);
+    yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [] }));
+    const upstream = {
+      commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: commit },
+      skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
+    };
+    const extra = name === "add" ? ["owner/repo", "--all"] : [];
+    const result = yield* runCli([alias, ...extra, "--set", file], { upstream });
+    assert.deepStrictEqual(
+      result.err.map(String).filter((line) => line.includes("Deprecated")),
+      [
+        `Deprecated: "skillset ${name}" is now "skillset skill ${group}"; it will be removed in 1.0.`,
+      ],
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);

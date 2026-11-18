@@ -24,7 +24,7 @@ it.effect("update moves every Skill Entry and changes only the Skillset file", (
       }),
     );
     yield* fs.writeFileString(`${dir}/installed-skill`, "untouched");
-    const result = yield* runCli(["update", "--set", file], {
+    const result = yield* runCli(["skill", "up", "--set", file], {
       upstream: {
         commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest },
         skills: {
@@ -66,7 +66,7 @@ it.effect("update resolves each distinct Source once and follows its branch", ()
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: entries }));
     const commitLookups: Array<string> = [];
     const calls: Array<string> = [];
-    const result = yield* runCli(["update", "--set", file], {
+    const result = yield* runCli(["skill", "up", "--set", file], {
       upstream: {
         commitLookups,
         calls,
@@ -111,7 +111,7 @@ it.effect("update with names changes only selected Skill Entries", () =>
       { name: "gamma", source: "owner/repo", commit: old },
     ];
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: entries }));
-    const result = yield* runCli(["--set", file, "update", "alpha", "gamma"], {
+    const result = yield* runCli(["--set", file, "skill", "up", "alpha", "gamma"], {
       upstream: {
         commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest },
         skills: {
@@ -143,7 +143,7 @@ it.effect("update skips version-pinned Sources without resolving or rewriting th
     });
     yield* fs.writeFileString(file, original);
     const commitLookups: Array<string> = [];
-    const result = yield* runCli(["update", "--set", file], { upstream: { commitLookups } });
+    const result = yield* runCli(["skill", "up", "--set", file], { upstream: { commitLookups } });
     assert.strictEqual(result.code, 0);
     assert.deepStrictEqual(commitLookups, []);
     assert.deepStrictEqual(result.out, []);
@@ -163,7 +163,7 @@ it.effect("update warns for missing skills, keeps their Pins, and updates others
       { name: "zeta", source: "other/repo", commit: old },
     ];
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: entries }));
-    const result = yield* runCli(["update", "--set", file], {
+    const result = yield* runCli(["skill", "up", "--set", file], {
       upstream: {
         commits: {
           [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest,
@@ -199,7 +199,7 @@ it.effect("update does not report or rewrite unchanged Pins", () =>
       skills: [{ name: "alpha", source: "owner/repo", commit: latest }],
     });
     yield* fs.writeFileString(file, original);
-    const result = yield* runCli(["update", "--set", file], {
+    const result = yield* runCli(["skill", "up", "--set", file], {
       upstream: {
         commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest },
         skills: { [JSON.stringify(["https://github.com/owner/repo.git", latest])]: ["alpha"] },
@@ -221,7 +221,7 @@ it.effect("update rejects an encoded slash in a tree ref and keeps its Pin", () 
       file,
       JSON.stringify({ $schema: schemaUrl, skills: [{ name: "alpha", source, commit: old }] }),
     );
-    const result = yield* runCli(["update", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "up", "alpha", "--set", file], {
       upstream: {
         commits: { [JSON.stringify(["https://github.com/owner/repo", "feature%2Fdocs"])]: latest },
         skills: { [JSON.stringify(["https://github.com/owner/repo", latest])]: ["alpha"] },
@@ -251,7 +251,7 @@ it.effect("update keeps failed Source Pins and updates other Sources", () =>
     });
     yield* fs.writeFileString(file, original);
     const commitLookups: Array<string> = [];
-    const result = yield* runCli(["update", "--set", file], {
+    const result = yield* runCli(["skill", "up", "--set", file], {
       upstream: {
         commitLookups,
         commits: {
@@ -294,7 +294,7 @@ it.effect("update reports unknown names while updating known Skill Entries", () 
         skills: [{ name: "alpha", source: "owner/repo", commit: old }],
       }),
     );
-    const result = yield* runCli(["update", "alpha", "unknown", "absent", "--set", file], {
+    const result = yield* runCli(["skill", "up", "alpha", "unknown", "absent", "--set", file], {
       upstream: {
         commits: { [JSON.stringify(["https://github.com/owner/repo.git", null])]: latest },
         skills: { [JSON.stringify(["https://github.com/owner/repo.git", latest])]: ["alpha"] },
@@ -315,13 +315,13 @@ it.effect("update rejects invalid and missing Skillset files", () =>
     const file = `${dir}/set.json`;
     const original = JSON.stringify({ $schema: "https://example.com/v2", skills: [] });
     yield* fs.writeFileString(file, original);
-    const result = yield* runCli(["update", "--set", file]);
+    const result = yield* runCli(["skill", "up", "--set", file]);
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /invalid Skillset file/i);
     assert.strictEqual(yield* fs.readFileString(file), original);
 
     const missing = `${dir}/missing.json`;
-    const missingResult = yield* runCli(["update", "--set", missing]);
+    const missingResult = yield* runCli(["skill", "up", "--set", missing]);
     assert.strictEqual(missingResult.code, 1);
     assert.include(missingResult.err.join("\n"), `Cannot find Skillset "${missing}" in ${missing}`);
     assert.isFalse(yield* fs.exists(missing));
@@ -330,7 +330,7 @@ it.effect("update rejects invalid and missing Skillset files", () =>
 
 it.effect("update --help shows usage without reading a file", () =>
   Effect.gen(function* () {
-    const result = yield* runCli(["update", "--help"]);
+    const result = yield* runCli(["skill", "up", "--help"]);
     assert.strictEqual(result.code, 0);
     assert.match(result.out.join("\n"), /skills/i);
   }),

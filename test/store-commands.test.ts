@@ -7,7 +7,7 @@ it.effect("commands report the same missing Skillset", () =>
   Effect.gen(function* () {
     const dir = yield* (yield* FileSystem.FileSystem).makeTempDirectoryScoped();
     const file = `${dir}/missing.json`;
-    for (const args of [["install", "-y"], ["list"], ["remove", "--all"], ["update"]]) {
+    for (const args of [["install", "-y"], ["list"], ["skill", "rm", "--all"], ["skill", "up"]]) {
       const result = yield* runCli([...args, "--set", file]);
       assert.strictEqual(result.code, 1);
       const hint = args[0] === "install" ? ". To install a skill, use `skillset add`." : "";

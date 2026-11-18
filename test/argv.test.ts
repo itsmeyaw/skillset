@@ -239,3 +239,21 @@ it("finds the subcommand after shared and global option values", () => {
     ["--set", "a", "--log-level", "info", "a", "-s", "alpha", "owner/repo"],
   );
 });
+
+it.each([
+  {
+    input: ["skill", "add", "-s", "a", "b", "owner/repo"],
+    expected: ["skill", "add", "-s", "a", "-s", "b", "owner/repo"],
+  },
+  {
+    input: ["skill", "add", "owner/repo", "-s", "a", "b"],
+    expected: ["skill", "add", "owner/repo", "-s", "a", "-s", "b"],
+  },
+  {
+    input: ["--set", "x", "skill", "add", "-a", "fake-one", "fake-two", "owner/repo"],
+    expected: ["--set", "x", "skill", "add", "-a", "fake-one", "-a", "fake-two", "owner/repo"],
+  },
+  { input: ["skill", "rm", "a", "b"], expected: ["skill", "rm", "a", "b"] },
+])("expands flags under the skill group: $input", ({ input, expected }) => {
+  assert.deepStrictEqual(expandSkillFlags(input), expected);
+});
