@@ -134,11 +134,31 @@ invalid(
   withLaunch({ ...packageEntry.launch, registryType: "cargo" }),
   /registryType|cargo/,
 );
-invalid(
-  "a package version range",
-  withLaunch({ ...packageEntry.launch, version: "^1.0.0" }),
-  /exact version/,
-);
+for (const version of ["^1.0.0", "latest", "next", "stable", "1.x", "1.2.X", "*", ">=1", "1 - 2"])
+  invalid(
+    `a moving package version ${JSON.stringify(version)}`,
+    withLaunch({ ...packageEntry.launch, version }),
+    /exact version/,
+  );
+
+for (const version of [
+  "1.2.3",
+  "1.0.0-beta.1",
+  "1.2.3+build.5",
+  "2.0.0rc1",
+  "1!2.0.post1",
+  "v1.2.3",
+])
+  it.effect(`readSkillset accepts the exact package version ${version}`, () =>
+    withFile(
+      {
+        $schema: SCHEMA_URL,
+        skills: [],
+        mcp: withLaunch({ ...packageEntry.launch, version }),
+      },
+      (path) => readSkillset(path).pipe(Effect.asVoid),
+    ),
+  );
 invalid(
   "a literal token in arguments",
   withLaunch({ type: "command", command: "node", args: ["--token", `ghp_${"a".repeat(36)}`] }),

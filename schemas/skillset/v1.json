@@ -106,7 +106,7 @@
                         }
                       }
                     ],
-                    "pattern": "^(?!latest$)[^\\s^~*<>=|,]+$"
+                    "pattern": "^(?!.*(?:^|[.-])[xX*](?:[.-]|$))v?\\d[0-9A-Za-z.+!_-]*$"
                   },
                   "runtimeHint": {
                     "type": "string",

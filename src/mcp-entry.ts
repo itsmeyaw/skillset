@@ -12,10 +12,11 @@ const httpsUrl = entryText.check(
   Schema.isPattern(/^https:\/\/\S+$/u, { message: "Expected an https:// URL without spaces" }),
 );
 
-// ADR 0006: package types name an exact version, not a range or a moving tag.
+// ADR 0006: package types name an exact version, not a range or a moving tag. Digits-led, so
+// dist-tags (`next`, `latest`) fail; wildcard segments (`1.x`) and range characters fail too.
 const exactVersion = entryText.check(
-  Schema.isPattern(/^(?!latest$)[^\s^~*<>=|,]+$/u, {
-    message: "Expected an exact version, not a range or 'latest'",
+  Schema.isPattern(/^(?!.*(?:^|[.-])[xX*](?:[.-]|$))v?\d[0-9A-Za-z.+!_-]*$/u, {
+    message: "Expected an exact version such as 1.2.3, not a range or a tag like 'latest'",
   }),
 );
 
