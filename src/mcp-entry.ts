@@ -147,13 +147,30 @@ export type McpEntry = typeof McpEntry.Type;
 
 // Issue #40: display forms of how each package type is started; install builds the real command.
 const PACKAGE_RUNNERS = {
-  npm: "npx",
-  pypi: "uvx",
-  nuget: "dnx",
-  oci: "docker run -i --rm",
+  npm: ["npx"],
+  pypi: ["uvx"],
+  nuget: ["dnx"],
+  oci: ["docker", "run", "-i", "--rm"],
 } as const;
 
 export const mcpKind = (entry: McpEntry) => (entry.origin ? "registry" : "manual");
+
+type PackageLaunch = Extract<McpEntry["launch"], { readonly type: "package" }>;
+
+export const packageArgv = (launch: PackageLaunch): ReadonlyArray<string> => {
+  const target =
+    launch.registryType === "oci"
+      ? launch.identifier
+      : `${launch.identifier}${launch.registryType === "pypi" ? "==" : "@"}${launch.version}`;
+  return [
+    ...(launch.runtimeHint === undefined
+      ? PACKAGE_RUNNERS[launch.registryType]
+      : [launch.runtimeHint]),
+    ...(launch.runtimeArguments ?? []),
+    target,
+    ...(launch.packageArguments ?? []),
+  ];
+};
 
 export const describeMcpLaunch = ({ launch }: McpEntry): string => {
   switch (launch.type) {
@@ -161,17 +178,7 @@ export const describeMcpLaunch = ({ launch }: McpEntry): string => {
       return launch.url;
     case "command":
       return [launch.command, ...(launch.args ?? [])].join(" ");
-    case "package": {
-      const target =
-        launch.registryType === "oci"
-          ? launch.identifier
-          : `${launch.identifier}${launch.registryType === "pypi" ? "==" : "@"}${launch.version}`;
-      return [
-        launch.runtimeHint ?? PACKAGE_RUNNERS[launch.registryType],
-        ...(launch.runtimeArguments ?? []),
-        target,
-        ...(launch.packageArguments ?? []),
-      ].join(" ");
-    }
+    case "package":
+      return packageArgv(launch).join(" ");
   }
 };
