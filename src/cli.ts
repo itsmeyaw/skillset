@@ -1,5 +1,7 @@
+import { homedir } from "node:os";
 import { Console, Effect, Stdio } from "effect";
 import { CliConfig, Command, GlobalFlag } from "effect/cli";
+import { AgentPaths } from "./agents/agent.ts";
 import { expandSkillFlags } from "./argv.ts";
 import { add } from "./commands/add.ts";
 import { install } from "./commands/install.ts";
@@ -51,6 +53,10 @@ export const runArgv = (
   argv: ReadonlyArray<string>,
   env: Env = process.env,
   fetchRemote: typeof fetch = fetch,
+  paths: { readonly cwd: string; readonly home: string } = {
+    cwd: process.cwd(),
+    home: homedir(),
+  },
 ) =>
   Effect.gen(function* () {
     const upstream = yield* Upstream;
@@ -66,6 +72,7 @@ export const runArgv = (
       Effect.provideService(CliConfig.CliConfig, cliConfig),
       Effect.provideService(SkillsetEnvironment, env),
       Effect.provideService(RemoteFetch, fetchRemote),
+      Effect.provideService(AgentPaths, paths),
     );
   });
 export const run = Stdio.Stdio.use((stdio) => Effect.flatMap(stdio.args, runArgv));
