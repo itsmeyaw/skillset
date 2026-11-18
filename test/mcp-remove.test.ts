@@ -55,7 +55,7 @@ it.effect("mcp rm removes known names then reports unknown ones", () =>
     const { file, read } = yield* setup;
     const result = yield* runCli(["mcp", "rm", "one", "nope", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.include(result.err.join("\n"), "Unknown MCP servers: nope");
+    assert.include(result.err.join("\n"), "Unknown MCP servers: nope (available: one, three, two)");
     assert.deepStrictEqual(
       (yield* read).mcp.map((entry: { name: string }) => entry.name),
       ["three", "two"],

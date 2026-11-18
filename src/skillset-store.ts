@@ -103,8 +103,9 @@ export const isEmpty = (skillset: Skillset) => skillset.skills.length === 0;
 export const unknownNamesMessage = (names: ReadonlyArray<string>) =>
   `Unknown skills: ${names.join(", ")}`;
 
-export const unknownMcpNamesMessage = (names: ReadonlyArray<string>) =>
-  `Unknown MCP servers: ${names.join(", ")}`;
+// Spec #37, User Story 87: an invalid selection lists what exists.
+export const unknownMcpNamesMessage = (skillset: Skillset, names: ReadonlyArray<string>) =>
+  `Unknown MCP servers: ${names.join(", ")} (available: ${(skillset.mcp ?? []).map((mcpEntry) => mcpEntry.name).join(", ") || "none"})`;
 
 export const upsertSkillEntries = (skillset: Skillset, added: ReadonlyArray<SkillEntry>) => {
   const conflict = skillset.skills.find((skillEntry) =>

@@ -69,7 +69,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     return yield* new CliMessageError({
       message: [
         ...(unknownSkills.length > 0 ? [unknownNamesMessage(unknownSkills)] : []),
-        ...(unknownMcp.length > 0 ? [unknownMcpNamesMessage(unknownMcp)] : []),
+        ...(unknownMcp.length > 0 ? [unknownMcpNamesMessage(skillset, unknownMcp)] : []),
       ].join("; "),
     });
   // Spec #37, User Story 53: any selection flag limits the install to the selected Entries of either kind.

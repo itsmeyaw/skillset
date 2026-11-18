@@ -180,7 +180,7 @@ it.effect("an unknown MCP Entry name fails before anything is written", () =>
     const { fs, cwd, run, installCalls } = yield* setup;
     const result = yield* run(["-y", "-m", "nope"]);
     assert.strictEqual(result.code, 1);
-    assert.include(result.err.join("\n"), "Unknown MCP servers: nope");
+    assert.include(result.err.join("\n"), "Unknown MCP servers: nope (available: github, docs)");
     assert.deepStrictEqual(installCalls, []);
     assert.isFalse(yield* fs.exists(`${cwd}/.mcp.json`));
   }).pipe(Effect.provide(NodeFileSystem.layer)),

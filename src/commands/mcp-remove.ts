@@ -45,6 +45,6 @@ export const mcpRemove = Command.make(
       );
     }
     if (unknown.length > 0)
-      return yield* new CliMessageError({ message: unknownMcpNamesMessage(unknown) });
+      return yield* new CliMessageError({ message: unknownMcpNamesMessage(skillset, unknown) });
   }),
 ).pipe(Command.withDescription("Remove MCP Entries from a Skillset"));
