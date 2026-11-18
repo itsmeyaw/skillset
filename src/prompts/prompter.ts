@@ -37,6 +37,15 @@ export type Prompter = {
   ) => Answer<ReadonlyArray<string> | undefined>;
   readonly scope: () => Answer<"project" | "global">;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
+  // Spec #37, User Stories 11-13: search the Registry, pick one server, then one package or remote.
+  readonly searchTerm: () => Answer<string>;
+  // Undefined means "load more results".
+  readonly registryServer: (
+    names: ReadonlyArray<string>,
+    hasMore: boolean,
+  ) => Answer<string | undefined>;
+  // Resolves to the index of the chosen title.
+  readonly launchChoice: (titles: ReadonlyArray<string>) => Answer<number>;
   readonly confirmPlan: (plan: InstallPlan) => Answer<boolean>;
   readonly confirmRemote: (skillset: Skillset) => Answer<boolean>;
   readonly source: () => Answer<string>;
@@ -68,6 +77,8 @@ const listRemoteEntries = ({ skills, mcp = [] }: Skillset) =>
     ].join("\n"),
   );
 
+const mcpAddUsage = "Usage: skillset mcp add <registry-name>[@version] (a search needs a terminal)";
+
 const unattended: Prompter = {
   skills: () => Effect.undefined,
   mcpServers: () => Effect.undefined,
@@ -77,6 +88,9 @@ const unattended: Prompter = {
   agents: (_choices, defaults) => Effect.succeed(defaults.length > 0 ? defaults : undefined),
   scope: () => Effect.succeed("project"),
   mode: () => Effect.succeed("auto"),
+  searchTerm: () => Effect.fail(new CliMessageError({ message: mcpAddUsage })),
+  registryServer: () => Effect.fail(new CliMessageError({ message: mcpAddUsage })),
+  launchChoice: () => Effect.succeed(0),
   confirmPlan: () => Effect.succeed(true),
   confirmRemote: (skillset) =>
     Effect.andThen(
@@ -151,6 +165,24 @@ const tty: Prompter = {
           { title: "Symlink", value: "symlink" as const },
           { title: "Copy", value: "copy" as const },
         ],
+      }),
+    ),
+  searchTerm: () => cancelOnQuit(Prompt.String({ message: "Search the Registry for?" })),
+  registryServer: (names, hasMore) =>
+    cancelOnQuit(
+      Prompt.Select<string | undefined>({
+        message: "Which MCP server?",
+        choices: [
+          ...names.map((name) => ({ title: name, value: name })),
+          ...(hasMore ? [{ title: "Load more results…", value: undefined }] : []),
+        ],
+      }),
+    ),
+  launchChoice: (titles) =>
+    cancelOnQuit(
+      Prompt.Select({
+        message: "Which package or remote?",
+        choices: titles.map((title, index) => ({ title, value: index })),
       }),
     ),
   confirmPlan: (plan) =>

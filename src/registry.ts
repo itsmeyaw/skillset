@@ -111,6 +111,7 @@ const getJson = <A>(
   path: string,
   decode: (text: string) => Effect.Effect<A, Schema.SchemaError>,
   notFound: string,
+  rejected?: string,
 ) =>
   Effect.gen(function* () {
     const fetchRemote = yield* RemoteFetch;
@@ -119,6 +120,8 @@ const getJson = <A>(
       catch: (error) => {
         if (error instanceof HttpStatusError && error.status === 404)
           return fail(`${notFound} in Registry ${base}.`);
+        if (error instanceof HttpStatusError && error.status === 422 && rejected !== undefined)
+          return fail(`Registry ${base} rejected the request: ${rejected}`);
         if (error instanceof HttpStatusError && error.status === 429)
           return fail(`Registry ${base} is rate limiting requests (HTTP 429); try again later.`);
         return fail(
@@ -160,7 +163,13 @@ export const listServers = (
   const params = new URLSearchParams({ version: "latest" });
   if (query.search !== undefined) params.set("search", query.search);
   if (query.cursor !== undefined) params.set("cursor", query.cursor);
-  return getJson(base, `/servers?${params.toString()}`, decodeServerList, "Servers not found").pipe(
+  return getJson(
+    base,
+    `/servers?${params.toString()}`,
+    decodeServerList,
+    "Servers not found",
+    "the search term must be at least 3 characters.",
+  ).pipe(
     Effect.map((list) => ({
       servers: (list.servers ?? []).map(toServerVersion),
       nextCursor: list.metadata?.nextCursor || undefined,
