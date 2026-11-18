@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { runCli } from "./harness.ts";
 
-it.effect("list prints Entries sorted by name with Source and short Pin", () =>
+it.effect("list prints Skill Entries sorted by name with Source and short Pin", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -53,7 +53,7 @@ it.effect("list reports an empty Skillset at the default path", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-const validEntry = { name: "one", source: "owner/repo", commit: "a".repeat(40) };
+const validSkillEntry = { name: "one", source: "owner/repo", commit: "a".repeat(40) };
 const schemaUrl =
   "https://raw.githubusercontent.com/itsmeyaw/skillset/main/schemas/skillset/v1.json";
 
@@ -61,27 +61,27 @@ for (const [description, contents, message] of [
   ["unknown schema", { $schema: "https://example.com/v2", skills: [] }, /\$schema/],
   [
     "duplicate names",
-    { $schema: schemaUrl, skills: [validEntry, { ...validEntry, source: "other/repo" }] },
+    { $schema: schemaUrl, skills: [validSkillEntry, { ...validSkillEntry, source: "other/repo" }] },
     /duplicate skill name/i,
   ],
   [
     "short Pin",
-    { $schema: schemaUrl, skills: [{ ...validEntry, commit: "abcdef" }] },
+    { $schema: schemaUrl, skills: [{ ...validSkillEntry, commit: "abcdef" }] },
     /40-character lowercase/i,
   ],
   [
     "uppercase Pin",
-    { $schema: schemaUrl, skills: [{ ...validEntry, commit: "A".repeat(40) }] },
+    { $schema: schemaUrl, skills: [{ ...validSkillEntry, commit: "A".repeat(40) }] },
     /40-character lowercase/i,
   ],
   [
     "Pin with a trailing newline",
-    { $schema: schemaUrl, skills: [{ ...validEntry, commit: "a".repeat(40) + "\n" }] },
+    { $schema: schemaUrl, skills: [{ ...validSkillEntry, commit: "a".repeat(40) + "\n" }] },
     /40-character lowercase/i,
   ],
   [
     "extra fields",
-    { $schema: schemaUrl, skills: [{ ...validEntry, extra: true }] },
+    { $schema: schemaUrl, skills: [{ ...validSkillEntry, extra: true }] },
     /excess property/i,
   ],
 ] as const) {

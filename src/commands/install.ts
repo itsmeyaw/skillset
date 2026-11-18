@@ -37,5 +37,5 @@ export const install = Command.make(
     );
   }),
 ).pipe(
-  Command.withDescription("Install pinned Skillset Entries from a name, .json path, or HTTPS URL"),
+  Command.withDescription("Install pinned Skill Entries from a name, .json path, or HTTPS URL"),
 );

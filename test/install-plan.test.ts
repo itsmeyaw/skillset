@@ -90,7 +90,7 @@ it.effect("explicit install flags skip their questions", () =>
       prompter,
     ).pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, terminal)));
     assert.deepStrictEqual(plan, {
-      entries: [beta],
+      skillEntries: [beta],
       agents: ["cursor"],
       scope: "global",
       mode: "copy",
@@ -99,7 +99,7 @@ it.effect("explicit install flags skip their questions", () =>
   }).pipe(Effect.provide(fakeUpstream())),
 );
 
-it.effect("plan uses scripted answers and offers all Entries selected", () =>
+it.effect("plan uses scripted answers and offers all Skill Entries selected", () =>
   Effect.gen(function* () {
     const script = scripted({ skills: ["beta"], agents: ["cursor"] });
     const plan = yield* runPlan(skillset, options, script.prompter, {
@@ -114,7 +114,7 @@ it.effect("plan uses scripted answers and offers all Entries selected", () =>
       ],
     });
     assert.deepStrictEqual(plan, {
-      entries: [beta],
+      skillEntries: [beta],
       agents: ["cursor"],
       scope: "global",
       mode: "symlink",
@@ -223,7 +223,7 @@ it.effect("unattended plans leave agents undefined when no defaults exist", () =
       ],
     });
     assert.deepStrictEqual(plan, {
-      entries: [alpha, beta],
+      skillEntries: [alpha, beta],
       agents: undefined,
       scope: "project",
       mode: "auto",

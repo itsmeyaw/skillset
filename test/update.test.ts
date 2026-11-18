@@ -8,7 +8,7 @@ const schemaUrl =
 const old = "a".repeat(40);
 const latest = "b".repeat(40);
 
-it.effect("update moves every Entry and changes only the Skillset file", () =>
+it.effect("update moves every Skill Entry and changes only the Skillset file", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -100,7 +100,7 @@ it.effect("update resolves each distinct Source once and follows its branch", ()
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("update with names changes only selected Entries", () =>
+it.effect("update with names changes only selected Skill Entries", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -282,7 +282,7 @@ it.effect("update keeps failed Source Pins and updates other Sources", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("update reports unknown names while updating known Entries", () =>
+it.effect("update reports unknown names while updating known Skill Entries", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();

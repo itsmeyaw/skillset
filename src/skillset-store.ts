@@ -9,7 +9,7 @@ import {
   RemoteFetch,
 } from "./remote-skillset.ts";
 import { cannotReadSkillset, readSkillset, SCHEMA_URL, writeSkillset } from "./skillset-file.ts";
-import type { Entry, Skillset } from "./skillset-file.ts";
+import type { SkillEntry, Skillset } from "./skillset-file.ts";
 import { DEFAULT_SKILLSET_PATH, listUserSkillsets, resolveSet, userDir } from "./user-skillset.ts";
 import type { Env } from "./user-skillset.ts";
 
@@ -89,12 +89,12 @@ export const listCommandUserSkillsets = Effect.gen(function* () {
   return yield* listUserSkillsets(env);
 });
 
-export const selectEntries = (skillset: Skillset, names: ReadonlyArray<string>) => ({
-  entries:
+export const selectSkillEntries = (skillset: Skillset, names: ReadonlyArray<string>) => ({
+  skillEntries:
     names.length === 0
       ? skillset.skills
-      : skillset.skills.filter((entry) => names.includes(entry.name)),
-  unknown: names.filter((name) => !skillset.skills.some((entry) => entry.name === name)),
+      : skillset.skills.filter((skillEntry) => names.includes(skillEntry.name)),
+  unknown: names.filter((name) => !skillset.skills.some((skillEntry) => skillEntry.name === name)),
 });
 
 export const isEmpty = (skillset: Skillset) => skillset.skills.length === 0;
@@ -102,9 +102,9 @@ export const isEmpty = (skillset: Skillset) => skillset.skills.length === 0;
 export const unknownNamesMessage = (names: ReadonlyArray<string>) =>
   `Unknown skills: ${names.join(", ")}`;
 
-export const upsertEntries = (skillset: Skillset, added: ReadonlyArray<Entry>) => {
-  const conflict = skillset.skills.find((entry) =>
-    added.some((next) => next.name === entry.name && next.source !== entry.source),
+export const upsertSkillEntries = (skillset: Skillset, added: ReadonlyArray<SkillEntry>) => {
+  const conflict = skillset.skills.find((skillEntry) =>
+    added.some((next) => next.name === skillEntry.name && next.source !== skillEntry.source),
   );
   if (conflict)
     return Effect.fail(
@@ -115,18 +115,22 @@ export const upsertEntries = (skillset: Skillset, added: ReadonlyArray<Entry>) =
   return Effect.succeed({
     ...skillset,
     skills: [
-      ...skillset.skills.filter((entry) => !added.some((next) => next.name === entry.name)),
+      ...skillset.skills.filter(
+        (skillEntry) => !added.some((next) => next.name === skillEntry.name),
+      ),
       ...added,
     ],
   });
 };
 
-export const removeEntries = (skillset: Skillset, names: ReadonlyArray<string>): Skillset => ({
+export const removeSkillEntries = (skillset: Skillset, names: ReadonlyArray<string>): Skillset => ({
   ...skillset,
-  skills: skillset.skills.filter((entry) => !names.includes(entry.name)),
+  skills: skillset.skills.filter((skillEntry) => !names.includes(skillEntry.name)),
 });
 
 export const movePin = (skillset: Skillset, name: string, commit: string): Skillset => ({
   ...skillset,
-  skills: skillset.skills.map((entry) => (entry.name === name ? { ...entry, commit } : entry)),
+  skills: skillset.skills.map((skillEntry) =>
+    skillEntry.name === name ? { ...skillEntry, commit } : skillEntry,
+  ),
 });

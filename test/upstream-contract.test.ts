@@ -74,7 +74,7 @@ describe.each(["live", "fake"] as const)("%s Upstream install contract", (adapte
     await rm(cwd, { recursive: true, force: true });
   });
 
-  it("installs Entries at their Pins", async () => {
+  it("installs Skill Entries at their Pins", async () => {
     const layer =
       adapter === "live"
         ? Layer.provide(UpstreamLive, NodeServices.layer)
@@ -167,7 +167,7 @@ describe.each(["live", "fake"] as const)("%s Upstream install contract", (adapte
     await expect(readFile(join(cwd, "project/universal/beta"), "utf8")).rejects.toThrow();
   });
 
-  it("preflights every Entry before writing", async () => {
+  it("preflights every Skill Entry before writing", async () => {
     const layer =
       adapter === "live"
         ? Layer.provide(UpstreamLive, NodeServices.layer)

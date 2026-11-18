@@ -6,9 +6,9 @@ import {
   isEmpty,
   movePin,
   openSkillset,
-  removeEntries,
-  selectEntries,
-  upsertEntries,
+  removeSkillEntries,
+  selectSkillEntries,
+  upsertSkillEntries,
 } from "../src/skillset-store.ts";
 
 const alpha = { name: "alpha", source: "owner/repo", commit: "a".repeat(40) };
@@ -58,22 +58,25 @@ it.effect("reports missing references and rejects conflicting selectors", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it("selects known Entries and reports unknown names", () => {
-  assert.deepStrictEqual(selectEntries(skillset, ["beta", "missing"]), {
-    entries: [beta],
+it("selects known Skill Entries and reports unknown names", () => {
+  assert.deepStrictEqual(selectSkillEntries(skillset, ["beta", "missing"]), {
+    skillEntries: [beta],
     unknown: ["missing"],
   });
-  assert.deepStrictEqual(selectEntries(skillset, []), { entries: [alpha, beta], unknown: [] });
+  assert.deepStrictEqual(selectSkillEntries(skillset, []), {
+    skillEntries: [alpha, beta],
+    unknown: [],
+  });
 });
 
-it("upserts Entries from the same Source and rejects conflicts", () => {
+it("upserts Skill Entries from the same Source and rejects conflicts", () => {
   const updated = { ...alpha, commit: "c".repeat(40) };
-  assert.deepStrictEqual(Effect.runSync(upsertEntries(skillset, [updated])), {
+  assert.deepStrictEqual(Effect.runSync(upsertSkillEntries(skillset, [updated])), {
     ...skillset,
     skills: [beta, updated],
   });
   const result = Effect.runSync(
-    upsertEntries(skillset, [{ ...alpha, source: "another/repo" }]).pipe(Effect.result),
+    upsertSkillEntries(skillset, [{ ...alpha, source: "another/repo" }]).pipe(Effect.result),
   );
   assert.strictEqual(result._tag, "Failure");
   if (result._tag === "Failure") {
@@ -82,12 +85,12 @@ it("upserts Entries from the same Source and rejects conflicts", () => {
   }
 });
 
-it("removes Entries and moves a Pin without changing other Entries", () => {
-  assert.deepStrictEqual(removeEntries(skillset, ["alpha"]), { ...skillset, skills: [beta] });
+it("removes Skill Entries and moves a Pin without changing other Skill Entries", () => {
+  assert.deepStrictEqual(removeSkillEntries(skillset, ["alpha"]), { ...skillset, skills: [beta] });
   assert.deepStrictEqual(movePin(skillset, "alpha", "c".repeat(40)), {
     ...skillset,
     skills: [{ ...alpha, commit: "c".repeat(40) }, beta],
   });
-  assert.isTrue(isEmpty(removeEntries(skillset, ["alpha", "beta"])));
+  assert.isTrue(isEmpty(removeSkillEntries(skillset, ["alpha", "beta"])));
   assert.isFalse(isEmpty(skillset));
 });

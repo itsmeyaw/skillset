@@ -6,7 +6,7 @@ import { Upstream } from "../upstream.ts";
 import {
   movePin,
   openCommandSkillset,
-  selectEntries,
+  selectSkillEntries,
   unknownNamesMessage,
 } from "../skillset-store.ts";
 
@@ -21,33 +21,37 @@ export const update = Command.make(
         const store = yield* openCommandSkillset({ missing: "fail" });
         let skillset = store.skillset;
         const pinning = yield* makePinning(session);
-        // Spec #1, User Story 22: named updates leave all other Entries alone.
-        const { entries, unknown } = selectEntries(skillset, skills);
+        // Spec #1, User Story 22: named updates leave all other Skill Entries alone.
+        const { skillEntries, unknown } = selectSkillEntries(skillset, skills);
         const changes: Array<string> = [];
         const warnings: Array<string> = [];
         if (unknown.length > 0) warnings.push(unknownNamesMessage(unknown));
         // Spec #1, User Story 24: resolve each distinct Source only once.
         const failed = new Set<string>();
-        for (const entry of entries) {
-          if (failed.has(entry.source)) continue;
-          const result = yield* pinning.latest(entry.source).pipe(
+        for (const skillEntry of skillEntries) {
+          if (failed.has(skillEntry.source)) continue;
+          const result = yield* pinning.latest(skillEntry.source).pipe(
             Effect.catch((error) => {
-              warnings.push(`Warning: ${entry.source}: ${error.message}`);
-              failed.add(entry.source);
+              warnings.push(`Warning: ${skillEntry.source}: ${error.message}`);
+              failed.add(skillEntry.source);
               return Effect.undefined;
             }),
           );
           if (result === undefined) continue;
           const { commit } = result;
-          // Spec #1, User Story 26: retain missing Entries and continue updating others.
-          if (!result.skills.some((skill) => skill.name === entry.name)) {
-            warnings.push(`Warning: ${entry.name} not found in ${entry.source} at ${commit}`);
+          // Spec #1, User Story 26: retain missing Skill Entries and continue updating others.
+          if (!result.skills.some((skill) => skill.name === skillEntry.name)) {
+            warnings.push(
+              `Warning: ${skillEntry.name} not found in ${skillEntry.source} at ${commit}`,
+            );
             continue;
           }
           // Spec #1, User Story 23: report only changed Pins.
-          if (entry.commit === commit) continue;
-          skillset = movePin(skillset, entry.name, commit);
-          changes.push(`${entry.name}  ${entry.commit.slice(0, 7)} → ${commit.slice(0, 7)}`);
+          if (skillEntry.commit === commit) continue;
+          skillset = movePin(skillset, skillEntry.name, commit);
+          changes.push(
+            `${skillEntry.name}  ${skillEntry.commit.slice(0, 7)} → ${commit.slice(0, 7)}`,
+          );
         }
         if (changes.length > 0) yield* store.save(skillset);
         for (const change of changes) yield* Console.log(change);

@@ -2,7 +2,7 @@ import { Console, Effect, Stdio, type FileSystem, type Path, type Terminal } fro
 import { Prompt } from "effect/cli";
 import { CliMessageError } from "../errors.ts";
 import type { InstallPlan } from "../install-types.ts";
-import type { Entry } from "../skillset-file.ts";
+import type { SkillEntry } from "../skillset-file.ts";
 import { cancelOnQuit } from "./cancel.ts";
 import { searchMultiSelect, type SearchChoice } from "./search.ts";
 
@@ -26,16 +26,16 @@ export type Prompter = {
   readonly scope: () => Answer<"project" | "global">;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
   readonly confirmPlan: (plan: InstallPlan) => Answer<boolean>;
-  readonly confirmRemote: (entries: ReadonlyArray<Entry>) => Answer<boolean>;
+  readonly confirmRemote: (skillEntries: ReadonlyArray<SkillEntry>) => Answer<boolean>;
   readonly source: () => Answer<string>;
   readonly ensureRemoveInput: () => Answer<void>;
   readonly anotherSource: (failure?: CliMessageError) => Answer<boolean>;
   readonly confirmInstall: () => Answer<boolean>;
 };
 
-const listRemoteEntries = (entries: ReadonlyArray<Entry>) =>
+const listRemoteSkillEntries = (skillEntries: ReadonlyArray<SkillEntry>) =>
   Console.log(
-    `Remote Skillset Entries:\n${entries.map((entry) => `  ${entry.name}  ${entry.source}  ${entry.commit.slice(0, 7)}`).join("\n")}`,
+    `Remote Skillset Skill Entries:\n${skillEntries.map((skillEntry) => `  ${skillEntry.name}  ${skillEntry.source}  ${skillEntry.commit.slice(0, 7)}`).join("\n")}`,
   );
 
 const unattended: Prompter = {
@@ -45,9 +45,9 @@ const unattended: Prompter = {
   scope: () => Effect.succeed("project"),
   mode: () => Effect.succeed("auto"),
   confirmPlan: () => Effect.succeed(true),
-  confirmRemote: (entries) =>
+  confirmRemote: (skillEntries) =>
     Effect.andThen(
-      listRemoteEntries(entries),
+      listRemoteSkillEntries(skillEntries),
       Effect.fail(
         new CliMessageError({
           message: "Remote Skillsets require confirmation; use -y for unattended installs.",
@@ -92,7 +92,7 @@ const tty: Prompter = {
   confirmPlan: (plan) =>
     Effect.gen(function* () {
       yield* Console.log(
-        `Skills:\n${plan.entries.map((entry) => `  ${entry.name} (${entry.source}@${entry.commit})`).join(",\n")}\n` +
+        `Skills:\n${plan.skillEntries.map((skillEntry) => `  ${skillEntry.name} (${skillEntry.source}@${skillEntry.commit})`).join(",\n")}\n` +
           `Agents: ${plan.agents?.join(", ") ?? "default"}\n` +
           `Scope: ${plan.scope}\nMode: ${plan.mode}`,
       );
@@ -100,9 +100,9 @@ const tty: Prompter = {
         Prompt.Confirm({ message: "Proceed with installation?", initial: true }),
       );
     }),
-  confirmRemote: (entries) =>
+  confirmRemote: (skillEntries) =>
     Effect.gen(function* () {
-      yield* listRemoteEntries(entries);
+      yield* listRemoteSkillEntries(skillEntries);
       return yield* cancelOnQuit(
         Prompt.Confirm({ message: "Install this Remote Skillset?", initial: false }),
       );

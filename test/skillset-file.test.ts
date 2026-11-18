@@ -35,7 +35,7 @@ for (const field of ["name", "source"] as const) {
   }
 }
 
-it.effect("readSkillset accepts ordinary Unicode Entry names and Sources", () =>
+it.effect("readSkillset accepts ordinary Unicode Skill Entry names and Sources", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();

@@ -5,12 +5,12 @@ import { makePrompter } from "../prompts/prompter.ts";
 import {
   isEmpty,
   openCommandSkillset,
-  removeEntries,
-  selectEntries,
+  removeSkillEntries,
+  selectSkillEntries,
   unknownNamesMessage,
 } from "../skillset-store.ts";
 
-// Spec #1, User Story 17: removing Entries changes only the Skillset file.
+// Spec #1, User Story 17: removing Skill Entries changes only the Skillset file.
 export const remove = Command.make(
   "remove",
   {
@@ -25,35 +25,38 @@ export const remove = Command.make(
     const store = yield* openCommandSkillset({ missing: "fail" });
     const { skillset } = store;
     let skills: ReadonlyArray<string> = supplied;
-    // Issue #11: select Entries only when an interactive removal is ambiguous.
+    // Issue #11: select Skill Entries only when an interactive removal is ambiguous.
     if (!all && skills.length === 0) {
       if (isEmpty(skillset)) {
         yield* Console.log(emptySkillsetMessage);
         return;
       }
       const chosen = yield* prompter.skills(
-        skillset.skills.map((entry) => ({
-          title: entry.name,
-          value: entry.name,
-          description: entry.source,
+        skillset.skills.map((skillEntry) => ({
+          title: skillEntry.name,
+          value: skillEntry.name,
+          description: skillEntry.source,
         })),
       );
       if (!chosen || chosen.length === 0) return;
       skills = chosen;
     }
-    const { unknown } = selectEntries(skillset, skills);
-    const next = removeEntries(skillset, all ? skillset.skills.map((entry) => entry.name) : skills);
-    // Spec #1, User Story 20: report unknown names after removing known Entries.
+    const { unknown } = selectSkillEntries(skillset, skills);
+    const next = removeSkillEntries(
+      skillset,
+      all ? skillset.skills.map((skillEntry) => skillEntry.name) : skills,
+    );
+    // Spec #1, User Story 20: report unknown names after removing known Skill Entries.
     if (all || next.skills.length !== skillset.skills.length) {
       yield* store.save(next);
-      const removed = skillset.skills.filter((entry) => !next.skills.includes(entry));
+      const removed = skillset.skills.filter((skillEntry) => !next.skills.includes(skillEntry));
       if (removed.length > 0)
         yield* Console.log(
-          `Removed ${removed.map((entry) => entry.name).join(", ")} from ${store.path}`,
+          `Removed ${removed.map((skillEntry) => skillEntry.name).join(", ")} from ${store.path}`,
         );
     }
     if (unknown.length > 0) {
       return yield* new RemoveError({ message: unknownNamesMessage(unknown) });
     }
   }),
-).pipe(Command.withDescription("Remove Entries from a Skillset"));
+).pipe(Command.withDescription("Remove Skill Entries from a Skillset"));

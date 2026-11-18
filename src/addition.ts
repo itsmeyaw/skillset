@@ -3,7 +3,7 @@ import { CliMessageError as AddError, missingSkillsMessage } from "./errors.ts";
 import type { Pinning } from "./pinning.ts";
 import type { Prompter } from "./prompts/prompter.ts";
 import type { Skillset } from "./skillset-file.ts";
-import { upsertEntries } from "./skillset-store.ts";
+import { upsertSkillEntries } from "./skillset-store.ts";
 
 // ADR 0003: adding resolves Sources, checks conflicts, and refreshes Pins.
 export const prepareAddition = Effect.fn("prepareAddition")(function* (
@@ -57,13 +57,13 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
     return yield* new AddError({
       message: missingSkillsMessage(commit, missing),
     });
-  // Spec #1, User Story 16: re-adding an Entry from the same Source moves its Pin.
+  // Spec #1, User Story 16: re-adding a Skill Entry from the same Source moves its Pin.
   // Spec #1, User Story 4: --all selects every skill at the resolved commit.
   const names = new Set(all ? skills : selection);
   const added = Array.from(names, (name) => ({ name, source: resolved.source, commit }));
   return {
     _tag: "Addition" as const,
     added,
-    skillset: yield* upsertEntries(skillset, added),
+    skillset: yield* upsertSkillEntries(skillset, added),
   };
 });

@@ -3,7 +3,7 @@ import { CliMessageError, emptySkillsetMessage } from "./errors.ts";
 import type { InstallPlan } from "./install-types.ts";
 import type { Prompter } from "./prompts/prompter.ts";
 import type { Skillset } from "./skillset-file.ts";
-import { isEmpty, selectEntries, unknownNamesMessage } from "./skillset-store.ts";
+import { isEmpty, selectSkillEntries, unknownNamesMessage } from "./skillset-store.ts";
 import { Upstream, type Agent } from "./upstream.ts";
 
 export type { InstallPlan } from "./install-types.ts";
@@ -56,15 +56,15 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     yield* Console.log(emptySkillsetMessage);
     return;
   }
-  const { unknown } = selectEntries(skillset, options.selected);
+  const { unknown } = selectSkillEntries(skillset, options.selected);
   if (unknown.length > 0)
     return yield* new CliMessageError({ message: unknownNamesMessage(unknown) });
   let names = options.selected;
   if (names.length === 0) {
     names = yield* prompter.requiredSkills(
-      skillset.skills.map((entry) => ({
-        title: entry.name,
-        value: entry.name,
+      skillset.skills.map((skillEntry) => ({
+        title: skillEntry.name,
+        value: skillEntry.name,
         selected: true,
       })),
     );
@@ -87,7 +87,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     mode = yield* prompter.mode();
   }
   const plan: InstallPlan = {
-    entries: selectEntries(skillset, names).entries,
+    skillEntries: selectSkillEntries(skillset, names).skillEntries,
     agents,
     scope,
     mode,

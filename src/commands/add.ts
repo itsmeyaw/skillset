@@ -7,7 +7,7 @@ import { agents } from "../agent-flag.ts";
 import { installSkillset } from "../install.ts";
 import { makePinning } from "../pinning.ts";
 import { makePrompter } from "../prompts/prompter.ts";
-import type { Entry, Skillset } from "../skillset-file.ts";
+import type { SkillEntry, Skillset } from "../skillset-file.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
 
@@ -49,7 +49,7 @@ export const add = Command.make(
         let first = true;
         let pending: Skillset | undefined;
         let lastError: Effect.Error<ReturnType<typeof prepareAddition>> | undefined;
-        const additions: Array<ReadonlyArray<Entry>> = [];
+        const additions: Array<ReadonlyArray<SkillEntry>> = [];
         for (;;) {
           // -s/--all/-l describe the first Source only; later Sources are chosen interactively.
           const result = yield* prepareAddition(
@@ -82,7 +82,7 @@ export const add = Command.make(
           pending = yield* store.save(pending);
           for (const added of additions)
             yield* Console.log(
-              `Added ${added.map((entry) => entry.name).join(", ")} to ${store.path}`,
+              `Added ${added.map((skillEntry) => skillEntry.name).join(", ")} to ${store.path}`,
             );
         }
         // ADR 0003: write additions before either chained or prompted full-Skillset installation.

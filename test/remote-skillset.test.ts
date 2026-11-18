@@ -173,7 +173,7 @@ it.effect.each([
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("declining a Remote Skillset lists all Entries and writes nothing", () =>
+it.effect("declining a Remote Skillset lists all Skill Entries and writes nothing", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();

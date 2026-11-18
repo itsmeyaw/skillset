@@ -181,7 +181,7 @@ it.effect("add -s writes without installing", () =>
 
 // ADR 0003: Source selection does not narrow the chained install.
 it.effect.each([{ flags: ["-s", "alpha"] }, { flags: ["--all"] }])(
-  "add $flags --install forwards options and installs every Entry",
+  "add $flags --install forwards options and installs every Skill Entry",
   ({ flags }) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -235,43 +235,45 @@ it.effect.each([{ flags: ["-s", "alpha"] }, { flags: ["--all"] }])(
 );
 
 // ADR 0003: declining or failing install must retain additions already written.
-it.effect("add --install prompts for the full Skillset and retains Entries when declined", () =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const dir = yield* fs.makeTempDirectoryScoped();
-    const file = `${dir}/set.json`;
-    const old = { name: "old", source: "other/repo", commit };
-    yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [old] }));
-    const result = yield* runCli(
-      [
-        "add",
-        "owner/repo",
-        "-s",
-        "alpha",
-        "--install",
-        "-a",
-        "cursor",
-        "-g",
-        "--copy",
-        "--set",
-        file,
-      ],
-      { tty: true, keys: [key("n", "n"), key("enter"), key("n", "n")], upstream },
-    );
-    assert.strictEqual(result.code, 0);
-    assert.include(result.screen.join(""), "Which skills?");
-    assert.include(result.screen.join(""), "Proceed with installation?");
-    assert.notInclude(result.screen.join(""), "Install skillset?");
-    assert.include(result.out.join("\n"), "old (other/repo@");
-    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
-      { name: "alpha", source: "owner/repo", commit },
-      old,
-    ]);
-    assert.isFalse(yield* fs.exists(`${dir}/global`));
-  }).pipe(Effect.provide(NodeFileSystem.layer)),
+it.effect(
+  "add --install prompts for the full Skillset and retains Skill Entries when declined",
+  () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const file = `${dir}/set.json`;
+      const old = { name: "old", source: "other/repo", commit };
+      yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [old] }));
+      const result = yield* runCli(
+        [
+          "add",
+          "owner/repo",
+          "-s",
+          "alpha",
+          "--install",
+          "-a",
+          "cursor",
+          "-g",
+          "--copy",
+          "--set",
+          file,
+        ],
+        { tty: true, keys: [key("n", "n"), key("enter"), key("n", "n")], upstream },
+      );
+      assert.strictEqual(result.code, 0);
+      assert.include(result.screen.join(""), "Which skills?");
+      assert.include(result.screen.join(""), "Proceed with installation?");
+      assert.notInclude(result.screen.join(""), "Install skillset?");
+      assert.include(result.out.join("\n"), "old (other/repo@");
+      assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
+        { name: "alpha", source: "owner/repo", commit },
+        old,
+      ]);
+      assert.isFalse(yield* fs.exists(`${dir}/global`));
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("add --install keeps Entries when installation fails", () =>
+it.effect("add --install keeps Skill Entries when installation fails", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -1067,7 +1069,7 @@ it.effect("interactive add repeats for another Source until declined", () =>
 );
 
 // Interactive add recovery spec: retain successful rounds when a later Source fails.
-it.effect("interactive add keeps earlier Entries when a later Source fails", () =>
+it.effect("interactive add keeps earlier Skill Entries when a later Source fails", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -1169,7 +1171,7 @@ it.effect("add -y fails without a warning or retry prompt", () =>
 );
 
 // Issue #11: quitting after a failed round still cancels without writing.
-it.effect("cancelling the retry prompt exits 130 without writing earlier Entries", () =>
+it.effect("cancelling the retry prompt exits 130 without writing earlier Skill Entries", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -1192,7 +1194,7 @@ it.effect("cancelling the retry prompt exits 130 without writing earlier Entries
 );
 
 // Interactive add recovery spec: discard conflicts while retaining the prior in-memory Skillset.
-it.effect("interactive add retries after a conflict without losing earlier Entries", () =>
+it.effect("interactive add retries after a conflict without losing earlier Skill Entries", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();

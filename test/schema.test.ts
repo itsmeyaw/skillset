@@ -11,7 +11,7 @@ it("commits the generated Skillset JSON Schema", () => {
 });
 
 // JSON Schema 2020-12 §6.4: patterns should work across regular expression implementations.
-it("exports portable control-character constraints for Entry text", () => {
+it("exports portable control-character constraints for Skill Entry text", () => {
   const schema = JSON.parse(skillsetJsonSchema());
   const properties = schema.properties.skills.items.properties;
   for (const field of ["name", "source"]) {

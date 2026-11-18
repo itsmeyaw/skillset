@@ -1,10 +1,10 @@
 import { Console, Effect } from "effect";
 import { Command, Flag } from "effect/cli";
 import { emptySkillsetMessage } from "../errors.ts";
-import { sortedEntries } from "../skillset-file.ts";
+import { sortedSkillEntries } from "../skillset-file.ts";
 import { isEmpty, listCommandUserSkillsets, openCommandSkillset } from "../skillset-store.ts";
 
-// Spec #1, User Story 27: show each Entry's name, Source, and short Pin.
+// Spec #1, User Story 27: show each Skill Entry's name, Source, and short Pin.
 export const list = Command.make(
   "list",
   { user: Flag.Boolean("user").pipe(Flag.withDefault(false)) },
@@ -15,13 +15,15 @@ export const list = Command.make(
       return;
     }
     const { skillset } = yield* openCommandSkillset({ missing: "fail", allowRemote: true });
-    const entries = sortedEntries(skillset.skills);
+    const skillEntries = sortedSkillEntries(skillset.skills);
     if (isEmpty(skillset)) {
       yield* Console.log(emptySkillsetMessage);
     } else {
-      for (const entry of entries) {
-        yield* Console.log(`${entry.name}  ${entry.source}  ${entry.commit.slice(0, 7)}`);
+      for (const skillEntry of skillEntries) {
+        yield* Console.log(
+          `${skillEntry.name}  ${skillEntry.source}  ${skillEntry.commit.slice(0, 7)}`,
+        );
       }
     }
   }),
-).pipe(Command.withDescription("List Entries in a Skillset"));
+).pipe(Command.withDescription("List Skill Entries in a Skillset"));
