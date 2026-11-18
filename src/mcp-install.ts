@@ -5,10 +5,15 @@ import type { InstallPlan } from "./install-types.ts";
 import { envVarsOf, resolveMcp } from "./mcp-inputs.ts";
 import type { Prompter } from "./prompts/prompter.ts";
 
-// Spec #37, User Story 57: MCP servers go to the same Agents as skills; Universal is not an Agent.
-const mcpAgentIds = (plan: InstallPlan) => [
-  ...new Set((plan.agents ?? ["claude-code"]).filter((id) => id !== "universal")),
-];
+// Spec #37, User Story 57: MCP servers go to the same Agents as skills; Universal is not an Agent,
+// so a chosen Universal stands for the detected Universal Agents that can receive MCP Entries.
+const mcpAgentIds = (plan: InstallPlan) => {
+  const chosen = plan.agents ?? ["claude-code"];
+  const detected = chosen.includes("universal")
+    ? (plan.detectedUniversalAgents ?? []).filter((id) => findMcpAgent(id) !== undefined)
+    : [];
+  return [...new Set([...chosen.filter((id) => id !== "universal"), ...detected])];
+};
 
 // Spec #37, User Stories 66-78: write each MCP Entry for every chosen Agent, then list env vars to set.
 // Returns the failures so the caller can merge them with skill failures into one exit code.
