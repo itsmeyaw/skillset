@@ -1,6 +1,7 @@
 import { Console, Effect } from "effect";
 import { CliMessageError, emptySkillsetMessage } from "./errors.ts";
 import type { InstallPlan } from "./install-types.ts";
+import { promptableInputs } from "./mcp-inputs.ts";
 import type { Prompter } from "./prompts/prompter.ts";
 import type { Skillset } from "./skillset-file.ts";
 import {
@@ -84,6 +85,30 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
       })),
     );
   }
+  // Spec #37, User Story 55: the MCP question appears only when the Skillset has MCP Entries.
+  let mcpEntries =
+    options.selectedMcp.length > 0
+      ? selectMcpEntries(skillset, options.selectedMcp).mcpEntries
+      : selecting
+        ? []
+        : (skillset.mcp ?? []);
+  if (!selecting && mcpEntries.length > 0) {
+    const chosen = yield* prompter.mcpServers(
+      mcpEntries.map((mcpEntry) => ({
+        title: mcpEntry.name,
+        value: mcpEntry.name,
+        selected: true,
+      })),
+    );
+    if (chosen !== undefined)
+      mcpEntries = mcpEntries.filter((entry) => chosen.includes(entry.name));
+  }
+  const mcpAnswers: Record<string, Record<string, string>> = {};
+  for (const mcpEntry of mcpEntries)
+    for (const input of promptableInputs(mcpEntry)) {
+      const answer = yield* prompter.mcpInput(mcpEntry, input);
+      if (answer !== undefined) (mcpAnswers[mcpEntry.name] ??= {})[input.name] = answer;
+    }
   let agents: ReadonlyArray<string> | undefined =
     options.agents.length > 0 ? options.agents : undefined;
   if (options.agents.length === 0) {
@@ -106,10 +131,8 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
       selecting && options.selected.length === 0
         ? []
         : selectSkillEntries(skillset, names).skillEntries,
-    mcpEntries:
-      selecting && options.selectedMcp.length === 0
-        ? []
-        : selectMcpEntries(skillset, options.selectedMcp).mcpEntries,
+    mcpEntries,
+    mcpAnswers,
     agents,
     scope,
     mode,

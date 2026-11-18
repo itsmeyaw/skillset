@@ -276,7 +276,7 @@ it.effect("an interactive install of an MCP-only Skillset asks no skills questio
       cwd,
       home,
       tty: true,
-      keys: [key("enter"), key("enter"), key("enter"), key("enter")],
+      keys: Array.from({ length: 6 }, () => key("enter")),
     });
     assert.strictEqual(result.code, 0);
     const screen = result.screen.join("");
