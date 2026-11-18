@@ -155,12 +155,26 @@ const PACKAGE_RUNNERS = {
 
 export const mcpKind = (entry: McpEntry) => (entry.origin ? "registry" : "manual");
 
+// OCI identifiers carry the version: "host/name:tag" or "host/name@sha256:digest".
+// https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/generic-server-json.md
+export const ociVersion = (identifier: string) => {
+  const last = identifier.slice(identifier.lastIndexOf("/") + 1);
+  const digest = last.indexOf("@");
+  const tag = last.indexOf(":");
+  return digest >= 0 ? last.slice(digest + 1) : tag >= 0 ? last.slice(tag + 1) : undefined;
+};
+
 type PackageLaunch = Extract<McpEntry["launch"], { readonly type: "package" }>;
 
 export const packageArgv = (launch: PackageLaunch): ReadonlyArray<string> => {
+  // ADR 0006: an OCI identifier without a tag or digest is pinned to the reviewed version.
+  const ociTarget =
+    ociVersion(launch.identifier) !== undefined
+      ? launch.identifier
+      : `${launch.identifier}${launch.version.startsWith("sha256:") ? "@" : ":"}${launch.version}`;
   const target =
     launch.registryType === "oci"
-      ? launch.identifier
+      ? ociTarget
       : `${launch.identifier}${launch.registryType === "pypi" ? "==" : "@"}${launch.version}`;
   return [
     // The hint names the program; docker keeps its "run -i --rm".

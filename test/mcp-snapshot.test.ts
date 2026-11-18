@@ -337,6 +337,16 @@ it.effect.each([
     argv: ["docker", "run", "-i", "--rm", "h/i:1"],
   },
   {
+    title: "an oci identifier without a tag is pinned to the reviewed version",
+    pkg: { registryType: "oci", identifier: "h/i", version: "1.0.2", ...stdio },
+    argv: ["docker", "run", "-i", "--rm", "h/i:1.0.2"],
+  },
+  {
+    title: "an oci identifier without a digest is pinned to the reviewed digest",
+    pkg: { registryType: "oci", identifier: "localhost:5000/i", version: "sha256:abc", ...stdio },
+    argv: ["docker", "run", "-i", "--rm", "localhost:5000/i@sha256:abc"],
+  },
+  {
     title: "pypi runs through uvx",
     pkg: { registryType: "pypi", identifier: "p", version: "2.0", ...stdio },
     argv: ["uvx", "p==2.0"],

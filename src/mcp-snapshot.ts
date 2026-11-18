@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { CliMessageError } from "./errors.ts";
-import type { McpEntry } from "./mcp-entry.ts";
+import { type McpEntry, ociVersion } from "./mcp-entry.ts";
 import { defaultEnvVarName } from "./mcp-inputs.ts";
 import type {
   RegistryInput,
@@ -106,15 +106,6 @@ const collectInputs = (entryName: string) => {
 };
 
 const withInputs = (inputs: ReadonlyArray<Input>) => (inputs.length > 0 ? { inputs } : {});
-
-// OCI identifiers carry the version: "host/name:tag" or "host/name@sha256:digest".
-// https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/generic-server-json.md
-const ociVersion = (identifier: string) => {
-  const last = identifier.slice(identifier.lastIndexOf("/") + 1);
-  const digest = last.indexOf("@");
-  const tag = last.indexOf(":");
-  return digest >= 0 ? last.slice(digest + 1) : tag >= 0 ? last.slice(tag + 1) : undefined;
-};
 
 const packageEntry = (
   pkg: RegistryPackage,
