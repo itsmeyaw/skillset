@@ -68,7 +68,7 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
         `Warning: kept the existing MCP server ${kept.name} in ${kept.file}; it differs from the Skillset's entry.`,
       );
       failures.push(
-        `MCP server ${kept.name} not installed for ${id}: a different one exists in ${kept.file}`,
+        `MCP server ${kept.name} not installed for ${label}: a different one exists in ${kept.file}`,
       );
     }
     const written = outcomes("written");
