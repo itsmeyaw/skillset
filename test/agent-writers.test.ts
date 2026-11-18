@@ -3,6 +3,7 @@ import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
 import { parse } from "jsonc-parser";
 import { cursorEntry } from "../src/agents/cursor.ts";
+import { geminiEntry } from "../src/agents/gemini-cli.ts";
 import { resolveMcp } from "../src/mcp-inputs.ts";
 import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { runCli } from "./harness.ts";
@@ -30,6 +31,13 @@ const agents: ReadonlyArray<{
     project: ".cursor/mcp.json",
     global: ".cursor/mcp.json",
     toEntry: cursorEntry,
+  },
+  {
+    id: "gemini-cli",
+    universal: true,
+    project: ".gemini/settings.json",
+    global: ".gemini/settings.json",
+    toEntry: geminiEntry,
   },
 ];
 

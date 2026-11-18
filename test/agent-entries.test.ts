@@ -1,5 +1,6 @@
 import { assert, it } from "@effect/vitest";
 import { cursorEntry } from "../src/agents/cursor.ts";
+import { geminiEntry } from "../src/agents/gemini-cli.ts";
 import type { McpEntry } from "../src/mcp-entry.ts";
 import { resolveMcp } from "../src/mcp-inputs.ts";
 import { docs, events, github } from "./mcp-fixtures.ts";
@@ -30,6 +31,28 @@ const agents: ReadonlyArray<{
         expected: {
           url: "https://mcp.example.com/mcp",
           headers: { Authorization: "Bearer ${env:DOCS_KEY}" },
+        },
+      },
+      { entry: events, expected: { url: "https://mcp.example.com/sse" } },
+    ],
+  },
+  {
+    id: "gemini-cli",
+    toEntry: geminiEntry,
+    cases: [
+      {
+        entry: github,
+        expected: {
+          command: "npx",
+          args: ["-y", "@scope/server-github@1.2.3", "--token", "${GITHUB_TOKEN}"],
+          env: { LOG_LEVEL: "info" },
+        },
+      },
+      {
+        entry: docs,
+        expected: {
+          httpUrl: "https://mcp.example.com/mcp",
+          headers: { Authorization: "Bearer ${DOCS_KEY}" },
         },
       },
       { entry: events, expected: { url: "https://mcp.example.com/sse" } },
