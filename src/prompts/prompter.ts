@@ -76,6 +76,20 @@ const unattended: Prompter = {
   confirmInstall: () => Effect.succeed(false),
 };
 
+// ADR 0008: only -y turns a required input without a value into an env reference; without a
+// terminal and without -y there is nobody to ask, so a required input is an error.
+const nonInteractive: Prompter = {
+  ...unattended,
+  mcpInput: (entry, input) =>
+    input.required === true
+      ? Effect.fail(
+          new CliMessageError({
+            message: `MCP server ${entry.name} needs a value for ${input.name}; use -y for unattended installs.`,
+          }),
+        )
+      : Effect.undefined,
+};
+
 const tty: Prompter = {
   skills: (choices) => cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices })),
   mcpServers: (choices) =>
@@ -168,5 +182,5 @@ export const makePrompter = (yes: boolean) =>
   yes
     ? Effect.succeed(unattended)
     : Stdio.Stdio.use((stdio) =>
-        Effect.map(stdio.stdinIsTerminal, (isTTY) => (isTTY ? tty : unattended)),
+        Effect.map(stdio.stdinIsTerminal, (isTTY) => (isTTY ? tty : nonInteractive)),
       );

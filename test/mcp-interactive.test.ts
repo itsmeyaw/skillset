@@ -181,7 +181,7 @@ it.effect("declining the overwrite keeps the existing server and shows both vers
       ["-m", "docs", "-a", "claude-code", "--copy"],
       [enter, enter, enter, enter],
     );
-    assert.strictEqual(result.code, 0);
+    assert.strictEqual(result.code, 1);
     const shown = result.out.join("\n") + result.screen.join("");
     assert.include(shown, "mcp.mine.example");
     assert.include(shown, "mcp.example.com");
@@ -237,14 +237,33 @@ it.effect("quitting at an input or MCP prompt installs nothing", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("without a terminal and without -y no MCP prompt runs and the install proceeds", () =>
-  Effect.gen(function* () {
-    const { fs, file, cwd, home, config, upstream } = yield* setup;
-    const result = yield* runCli(["install", "--set", file], { cwd, home, upstream });
-    assert.strictEqual(result.code, 0);
-    assert.deepStrictEqual(Object.keys(JSON.parse(yield* fs.readFileString(config)).mcpServers), [
-      "github",
-      "docs",
-    ]);
-  }).pipe(Effect.provide(NodeFileSystem.layer)),
+it.effect(
+  "without a terminal and without -y a required input fails instead of becoming an env reference",
+  () =>
+    Effect.gen(function* () {
+      const { fs, file, cwd, home, config, upstream, installCalls } = yield* setup;
+      const result = yield* runCli(["install", "--set", file], { cwd, home, upstream });
+      assert.strictEqual(result.code, 1);
+      assert.include(result.err.join("\n"), "MCP server docs needs a value for key");
+      assert.include(result.err.join("\n"), "use -y for unattended installs");
+      assert.isFalse(yield* fs.exists(config));
+      assert.deepStrictEqual(installCalls, []);
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect(
+  "without a terminal and without -y an MCP server that needs no typed input installs",
+  () =>
+    Effect.gen(function* () {
+      const { fs, file, cwd, home, config, upstream } = yield* setup;
+      const result = yield* runCli(["install", "-m", "github", "--set", file], {
+        cwd,
+        home,
+        upstream,
+      });
+      assert.strictEqual(result.code, 0);
+      assert.deepStrictEqual(Object.keys(JSON.parse(yield* fs.readFileString(config)).mcpServers), [
+        "github",
+      ]);
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
