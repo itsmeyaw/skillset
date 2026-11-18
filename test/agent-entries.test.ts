@@ -3,6 +3,7 @@ import { cursorEntry } from "../src/agents/cursor.ts";
 import { geminiEntry } from "../src/agents/gemini-cli.ts";
 import { kiroEntry } from "../src/agents/kiro.ts";
 import { rooEntry, rooGlobalFile } from "../src/agents/roo.ts";
+import { windsurfEntry, windsurfGlobalFile } from "../src/agents/windsurf.ts";
 import type { McpEntry } from "../src/mcp-entry.ts";
 import { resolveMcp } from "../src/mcp-inputs.ts";
 import { docs, events, github } from "./mcp-fixtures.ts";
@@ -105,6 +106,29 @@ const agents: ReadonlyArray<{
       { entry: events, expected: { type: "sse", url: "https://mcp.example.com/sse" } },
     ],
   },
+  {
+    id: "windsurf",
+    toEntry: windsurfEntry,
+    cases: [
+      {
+        entry: github,
+        expected: {
+          command: "npx",
+          args: ["-y", "@scope/server-github@1.2.3", "--token", "${env:GITHUB_TOKEN}"],
+          env: { LOG_LEVEL: "info" },
+        },
+      },
+      {
+        entry: docs,
+        expected: {
+          url: "https://mcp.example.com/mcp",
+          transport: "http",
+          headers: { Authorization: "Bearer ${env:DOCS_KEY}" },
+        },
+      },
+      { entry: events, expected: { url: "https://mcp.example.com/sse", transport: "sse" } },
+    ],
+  },
 ];
 
 for (const { id, toEntry, cases } of agents)
@@ -122,3 +146,14 @@ it.each([
 ] as const)("roo keeps its global servers in VS Code storage on %s", (platform, expected) => {
   assert.strictEqual(rooGlobalFile("/home/me", platform), expected);
 });
+
+it.each([
+  ["darwin", "/home/me/.config/devin/mcp_config.json"],
+  ["linux", "/home/me/.config/devin/mcp_config.json"],
+  ["win32", "/home/me/AppData/Roaming/devin/mcp_config.json"],
+] as const)(
+  "windsurf keeps its global servers in the Devin config directory on %s",
+  (platform, expected) => {
+    assert.strictEqual(windsurfGlobalFile("/home/me", platform), expected);
+  },
+);

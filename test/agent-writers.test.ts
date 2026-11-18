@@ -6,6 +6,7 @@ import { cursorEntry } from "../src/agents/cursor.ts";
 import { geminiEntry } from "../src/agents/gemini-cli.ts";
 import { kiroEntry } from "../src/agents/kiro.ts";
 import { rooEntry } from "../src/agents/roo.ts";
+import { windsurfEntry } from "../src/agents/windsurf.ts";
 import { resolveMcp } from "../src/mcp-inputs.ts";
 import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { runCli } from "./harness.ts";
@@ -61,6 +62,13 @@ const agents: ReadonlyArray<{
     project: ".roo/mcp.json",
     global: `${rooGlobalDir[process.platform] ?? rooGlobalDir.linux}/${rooStorage}`,
     toEntry: rooEntry,
+  },
+  {
+    id: "windsurf",
+    universal: false,
+    project: ".devin/mcp_config.json",
+    global: `${process.platform === "win32" ? "AppData/Roaming" : ".config"}/devin/mcp_config.json`,
+    toEntry: windsurfEntry,
   },
 ];
 
