@@ -1,8 +1,12 @@
 import { Schema } from "effect";
 import { entryText } from "./entry-text.ts";
 
+export const MCP_NAME_PATTERN = /^[A-Za-z0-9._-]+$/u;
+export const ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/u;
+export const HEADER_NAME_PATTERN = /^[A-Za-z0-9-]+$/u;
+
 const mcpName = entryText.check(
-  Schema.isPattern(/^[A-Za-z0-9._-]+$/u, {
+  Schema.isPattern(MCP_NAME_PATTERN, {
     message: "Expected letters, digits, '.', '_' or '-'",
   }),
 );
@@ -43,7 +47,7 @@ const remoteLaunch = Schema.Struct({
   headers: Schema.optionalKey(
     Schema.Array(
       Schema.Struct({
-        name: entryText.check(Schema.isPattern(/^[A-Za-z0-9-]+$/u)),
+        name: entryText.check(Schema.isPattern(HEADER_NAME_PATTERN)),
         value: entryText,
       }),
     ),
@@ -66,7 +70,7 @@ const input = Schema.Struct({
   format: Schema.optionalKey(Schema.Literals(["string", "number", "boolean", "filepath"])),
   default: Schema.optionalKey(entryText),
   choices: Schema.optionalKey(Schema.Array(entryText)),
-  env: Schema.optionalKey(entryText.check(Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*$/u))),
+  env: Schema.optionalKey(entryText.check(Schema.isPattern(ENV_NAME_PATTERN))),
 });
 
 const origin = Schema.Struct({ registry: httpsUrl, name: entryText, version: entryText });
