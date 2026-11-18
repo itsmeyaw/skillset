@@ -311,3 +311,105 @@ it.effect("an interactive install of an MCP-only Skillset asks no skills questio
     assert.isTrue(yield* fs.exists(`${cwd}/.mcp.json`));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
+
+// ADR 0003 mirrored for MCP: write the Entry first, then install the whole Skillset.
+it.effect("mcp add --install -y adds the Entry and installs both kinds", () =>
+  Effect.gen(function* () {
+    const { fs, cwd, dir, upstream } = yield* setup;
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      ["mcp", "add", "files", "--install", "-y", "--set", file, "--", "npx", "-y", "pkg"],
+      { cwd, home: `${dir}/home`, upstream },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(
+      JSON.parse(yield* fs.readFileString(file)).mcp.map((entry: McpEntry) => entry.name),
+      ["docs", "files", "github"],
+    );
+    assert.strictEqual(
+      yield* fs.readFileString(`${dir}/skills/project/universal/alpha`),
+      `${commit}:auto`,
+    );
+    assert.deepStrictEqual(
+      Object.keys(JSON.parse(yield* fs.readFileString(`${cwd}/.mcp.json`)).mcpServers),
+      ["docs", "files", "github"],
+    );
+    assert.isBelow(
+      result.out.findIndex((line) => String(line).startsWith("Added ")),
+      result.out.findIndex((line) => String(line).startsWith("Installed ")),
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect.each([
+  { flags: ["-a", "claude-code"] },
+  { flags: ["--agent", "claude-code"] },
+  { flags: ["-g"] },
+  { flags: ["--global"] },
+  { flags: ["--copy"] },
+])("mcp add rejects $flags without --install", ({ flags }) =>
+  Effect.gen(function* () {
+    const { fs, dir, upstream } = yield* setup;
+    const file = `${dir}/skillset.json`;
+    const before = yield* fs.readFileString(file);
+    const result = yield* runCli(["mcp", "add", "files", ...flags, "--set", file, "--", "npx"], {
+      upstream,
+    });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), "--install");
+    assert.strictEqual(yield* fs.readFileString(file), before);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("mcp add --install keeps the Entry when installation fails", () =>
+  Effect.gen(function* () {
+    const { fs, dir, upstream } = yield* setup;
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      ["mcp", "add", "files", "--install", "-y", "--set", file, "--", "npx"],
+      { cwd: `${dir}/project`, upstream: { ...upstream, failedInstalls: [remote] } },
+    );
+    assert.strictEqual(result.code, 1);
+    assert.include(
+      JSON.parse(yield* fs.readFileString(file)).mcp.map((entry: McpEntry) => entry.name),
+      "files",
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("mcp add --install keeps the Entry when installation is declined", () =>
+  Effect.gen(function* () {
+    const { fs, dir, cwd, upstream } = yield* setup;
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(
+      [
+        "mcp",
+        "add",
+        "files",
+        "--install",
+        "-a",
+        "claude-code",
+        "-g",
+        "--copy",
+        "--set",
+        file,
+        "--",
+        "npx",
+      ],
+      {
+        cwd,
+        home: `${dir}/home`,
+        upstream,
+        tty: true,
+        keys: [key("space"), key("enter"), key("space"), key("enter"), key("n", "n")],
+      },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.include(result.screen.join(""), "Proceed with installation?");
+    assert.include(
+      JSON.parse(yield* fs.readFileString(file)).mcp.map((entry: McpEntry) => entry.name),
+      "files",
+    );
+    assert.isFalse(yield* fs.exists(`${dir}/home/.claude.json`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
