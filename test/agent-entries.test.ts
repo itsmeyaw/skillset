@@ -1,6 +1,7 @@
 import { assert, it } from "@effect/vitest";
 import { cursorEntry } from "../src/agents/cursor.ts";
 import { geminiEntry } from "../src/agents/gemini-cli.ts";
+import { kiroEntry } from "../src/agents/kiro.ts";
 import type { McpEntry } from "../src/mcp-entry.ts";
 import { resolveMcp } from "../src/mcp-inputs.ts";
 import { docs, events, github } from "./mcp-fixtures.ts";
@@ -52,6 +53,28 @@ const agents: ReadonlyArray<{
         entry: docs,
         expected: {
           httpUrl: "https://mcp.example.com/mcp",
+          headers: { Authorization: "Bearer ${DOCS_KEY}" },
+        },
+      },
+      { entry: events, expected: { url: "https://mcp.example.com/sse" } },
+    ],
+  },
+  {
+    id: "kiro-cli",
+    toEntry: kiroEntry,
+    cases: [
+      {
+        entry: github,
+        expected: {
+          command: "npx",
+          args: ["-y", "@scope/server-github@1.2.3", "--token", "${GITHUB_TOKEN}"],
+          env: { LOG_LEVEL: "info" },
+        },
+      },
+      {
+        entry: docs,
+        expected: {
+          url: "https://mcp.example.com/mcp",
           headers: { Authorization: "Bearer ${DOCS_KEY}" },
         },
       },

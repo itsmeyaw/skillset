@@ -4,6 +4,7 @@ import { Effect, FileSystem } from "effect";
 import { parse } from "jsonc-parser";
 import { cursorEntry } from "../src/agents/cursor.ts";
 import { geminiEntry } from "../src/agents/gemini-cli.ts";
+import { kiroEntry } from "../src/agents/kiro.ts";
 import { resolveMcp } from "../src/mcp-inputs.ts";
 import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { runCli } from "./harness.ts";
@@ -38,6 +39,13 @@ const agents: ReadonlyArray<{
     project: ".gemini/settings.json",
     global: ".gemini/settings.json",
     toEntry: geminiEntry,
+  },
+  {
+    id: "kiro-cli",
+    universal: false,
+    project: ".kiro/settings/mcp.json",
+    global: ".kiro/settings/mcp.json",
+    toEntry: kiroEntry,
   },
 ];
 
@@ -111,6 +119,15 @@ it.effect("a detected Agent receives MCP servers by default", () =>
     assert.strictEqual(result.code, 0);
     assert.isTrue(yield* fs.exists(`${cwd}/.cursor/mcp.json`));
     assert.isTrue(yield* fs.exists(`${cwd}/.mcp.json`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("a detected non-Universal Agent receives MCP servers by default", () =>
+  Effect.gen(function* () {
+    const { fs, cwd, run } = yield* setup;
+    const result = yield* run(["-y"], { detectedAgents: [info("kiro-cli", false)] });
+    assert.strictEqual(result.code, 0);
+    assert.isTrue(yield* fs.exists(`${cwd}/.kiro/settings/mcp.json`));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
