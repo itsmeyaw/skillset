@@ -163,9 +163,9 @@ export const packageArgv = (launch: PackageLaunch): ReadonlyArray<string> => {
       ? launch.identifier
       : `${launch.identifier}${launch.registryType === "pypi" ? "==" : "@"}${launch.version}`;
   return [
-    ...(launch.runtimeHint === undefined
-      ? PACKAGE_RUNNERS[launch.registryType]
-      : [launch.runtimeHint]),
+    // The hint names the program; docker keeps its "run -i --rm".
+    launch.runtimeHint ?? PACKAGE_RUNNERS[launch.registryType][0],
+    ...PACKAGE_RUNNERS[launch.registryType].slice(1),
     ...(launch.runtimeArguments ?? []),
     target,
     ...(launch.packageArguments ?? []),
