@@ -5,6 +5,7 @@ import { parse } from "jsonc-parser";
 import { cursorEntry } from "../src/agents/cursor.ts";
 import { geminiEntry } from "../src/agents/gemini-cli.ts";
 import { kiroEntry } from "../src/agents/kiro.ts";
+import { rooEntry } from "../src/agents/roo.ts";
 import { resolveMcp } from "../src/mcp-inputs.ts";
 import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { runCli } from "./harness.ts";
@@ -17,6 +18,13 @@ const info = (id: string, universal: boolean) => ({
   globalSkillsDir: null,
   universal,
 });
+
+const rooStorage = "Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json";
+const rooGlobalDir: Record<string, string> = {
+  darwin: "Library/Application Support",
+  win32: "AppData/Roaming",
+  linux: ".config",
+};
 
 // Where each Agent keeps its MCP servers, in project and global scope, and what it writes for them.
 const agents: ReadonlyArray<{
@@ -46,6 +54,13 @@ const agents: ReadonlyArray<{
     project: ".kiro/settings/mcp.json",
     global: ".kiro/settings/mcp.json",
     toEntry: kiroEntry,
+  },
+  {
+    id: "roo",
+    universal: false,
+    project: ".roo/mcp.json",
+    global: `${rooGlobalDir[process.platform] ?? rooGlobalDir.linux}/${rooStorage}`,
+    toEntry: rooEntry,
   },
 ];
 

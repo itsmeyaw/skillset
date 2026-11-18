@@ -2,6 +2,7 @@ import { assert, it } from "@effect/vitest";
 import { cursorEntry } from "../src/agents/cursor.ts";
 import { geminiEntry } from "../src/agents/gemini-cli.ts";
 import { kiroEntry } from "../src/agents/kiro.ts";
+import { rooEntry, rooGlobalFile } from "../src/agents/roo.ts";
 import type { McpEntry } from "../src/mcp-entry.ts";
 import { resolveMcp } from "../src/mcp-inputs.ts";
 import { docs, events, github } from "./mcp-fixtures.ts";
@@ -81,6 +82,29 @@ const agents: ReadonlyArray<{
       { entry: events, expected: { url: "https://mcp.example.com/sse" } },
     ],
   },
+  {
+    id: "roo",
+    toEntry: rooEntry,
+    cases: [
+      {
+        entry: github,
+        expected: {
+          command: "npx",
+          args: ["-y", "@scope/server-github@1.2.3", "--token", "${env:GITHUB_TOKEN}"],
+          env: { LOG_LEVEL: "info" },
+        },
+      },
+      {
+        entry: docs,
+        expected: {
+          type: "streamable-http",
+          url: "https://mcp.example.com/mcp",
+          headers: { Authorization: "Bearer ${env:DOCS_KEY}" },
+        },
+      },
+      { entry: events, expected: { type: "sse", url: "https://mcp.example.com/sse" } },
+    ],
+  },
 ];
 
 for (const { id, toEntry, cases } of agents)
@@ -88,3 +112,13 @@ for (const { id, toEntry, cases } of agents)
     it(`${id} maps ${entry.name}`, () => {
       assert.deepStrictEqual(toEntry(resolveMcp(entry)), expected);
     });
+
+const rooStorage = "Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json";
+
+it.each([
+  ["darwin", `/home/me/Library/Application Support/${rooStorage}`],
+  ["linux", `/home/me/.config/${rooStorage}`],
+  ["win32", `/home/me/AppData/Roaming/${rooStorage}`],
+] as const)("roo keeps its global servers in VS Code storage on %s", (platform, expected) => {
+  assert.strictEqual(rooGlobalFile("/home/me", platform), expected);
+});
