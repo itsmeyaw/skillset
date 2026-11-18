@@ -68,8 +68,19 @@ const setup = Effect.gen(function* () {
     skills: { [JSON.stringify([remote, commit])]: ["alpha", "bar"] },
     supportedAgents: [agent("universal", true), agent("claude-code"), agent("goose")],
   };
-  const run = (argv: ReadonlyArray<string>, env?: Record<string, string>) =>
-    runCli(["install", ...argv, "--set", file], { cwd, home, upstream, ...(env ? { env } : {}) });
+  const run = (
+    argv: ReadonlyArray<string>,
+    env?: Record<string, string>,
+    override: typeof upstream & {
+      detectedAgents?: ReadonlyArray<ReturnType<typeof agent>>;
+    } = upstream,
+  ) =>
+    runCli(["install", ...argv, "--set", file], {
+      cwd,
+      home,
+      upstream: override,
+      ...(env ? { env } : {}),
+    });
   const read = (path: string) => fs.readFileString(path);
   return { fs, dir, cwd, home, installCalls, run, read, upstream };
 });
@@ -107,6 +118,21 @@ it.effect("install -y installs skills and MCP Entries into the project config", 
     );
     assert.include(result.err.join("\n"), "approve project MCP servers");
     assert.notInclude(result.err.join("\n"), "overwrite");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("--agent universal installs MCP servers for each detected Universal agent", () =>
+  Effect.gen(function* () {
+    const { cwd, run, read, upstream } = yield* setup;
+    const result = yield* run(["-y", "-m", "docs", "-a", "universal"], undefined, {
+      ...upstream,
+      detectedAgents: [agent("cursor", true)],
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(
+      Object.keys(JSON.parse(yield* read(`${cwd}/.cursor/mcp.json`)).mcpServers),
+      ["docs"],
+    );
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 

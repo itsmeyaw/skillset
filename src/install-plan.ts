@@ -112,15 +112,21 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   let agents: ReadonlyArray<string> | undefined =
     options.agents.length > 0 ? options.agents : undefined;
   let detectedUniversalAgents: ReadonlyArray<string> = [];
-  if (options.agents.length === 0) {
+  // Spec #37, User Story 57: a chosen Universal stands for the detected Universal Agents, also with -a.
+  if (
+    options.agents.length === 0 ||
+    (mcpEntries.length > 0 && options.agents.includes("universal"))
+  ) {
     const upstream = yield* Upstream;
-    const supported = yield* upstream.getSupportedAgents;
     const detected = yield* upstream.detectAgents();
-    const { defaults, choices } = agentChoices(supported, detected.agents);
     detectedUniversalAgents = detected.agents
       .filter((agent) => agent.universal && agent.id !== "universal")
       .map((agent) => agent.id);
-    agents = yield* prompter.agents(choices, defaults, supported.length > 0);
+    if (options.agents.length === 0) {
+      const supported = yield* upstream.getSupportedAgents;
+      const { defaults, choices } = agentChoices(supported, detected.agents);
+      agents = yield* prompter.agents(choices, defaults, supported.length > 0);
+    }
   }
   let scope: InstallPlan["scope"] = "global";
   if (!options.global) {
