@@ -17,6 +17,11 @@ export const install = Command.make(
       Flag.annotate(Expansion, { reserveLast: true }),
       Flag.atLeast(0),
     ),
+    selectedMcp: Flag.String("mcp").pipe(
+      Flag.withAlias("m"),
+      Flag.annotate(Expansion, { reserveLast: true }),
+      Flag.atLeast(0),
+    ),
     agents: agents(),
     global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
     copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
@@ -37,5 +42,7 @@ export const install = Command.make(
     );
   }),
 ).pipe(
-  Command.withDescription("Install pinned Skill Entries from a name, .json path, or HTTPS URL"),
+  Command.withDescription(
+    "Install Skill Entries and MCP Entries from a name, .json path, or HTTPS URL",
+  ),
 );

@@ -103,6 +103,9 @@ export const isEmpty = (skillset: Skillset) => skillset.skills.length === 0;
 export const unknownNamesMessage = (names: ReadonlyArray<string>) =>
   `Unknown skills: ${names.join(", ")}`;
 
+export const unknownMcpNamesMessage = (names: ReadonlyArray<string>) =>
+  `Unknown MCP servers: ${names.join(", ")}`;
+
 export const upsertSkillEntries = (skillset: Skillset, added: ReadonlyArray<SkillEntry>) => {
   const conflict = skillset.skills.find((skillEntry) =>
     added.some((next) => next.name === skillEntry.name && next.source !== skillEntry.source),

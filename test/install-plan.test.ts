@@ -10,7 +10,7 @@ import { fakeTerminal, fakeUpstream } from "./harness.ts";
 const alpha = { name: "alpha", source: "owner/repo", commit: "a".repeat(40) };
 const beta = { name: "beta", source: "owner/repo", commit: "b".repeat(40) };
 const skillset = { $schema: SCHEMA_URL, skills: [alpha, beta] } as const;
-const options = { selected: [], agents: [], global: false, copy: false };
+const options = { selected: [], selectedMcp: [], agents: [], global: false, copy: false };
 
 const scripted = (
   answers: {
@@ -93,6 +93,7 @@ it.effect("explicit install flags skip their questions", () =>
     ).pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, terminal)));
     assert.deepStrictEqual(plan, {
       skillEntries: [beta],
+      mcpEntries: [],
       agents: ["cursor"],
       scope: "global",
       mode: "copy",
@@ -117,6 +118,7 @@ it.effect("plan uses scripted answers and offers all Skill Entries selected", ()
     });
     assert.deepStrictEqual(plan, {
       skillEntries: [beta],
+      mcpEntries: [],
       agents: ["cursor"],
       scope: "global",
       mode: "symlink",
@@ -226,6 +228,7 @@ it.effect("unattended plans leave agents undefined when no defaults exist", () =
     });
     assert.deepStrictEqual(plan, {
       skillEntries: [alpha, beta],
+      mcpEntries: [],
       agents: undefined,
       scope: "project",
       mode: "auto",

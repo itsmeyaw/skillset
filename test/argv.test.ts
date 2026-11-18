@@ -257,3 +257,27 @@ it.each([
 ])("expands flags under the skill group: $input", ({ input, expected }) => {
   assert.deepStrictEqual(expandSkillFlags(input), expected);
 });
+
+it("expands -m values and reserves the last value of the final selection flag", () => {
+  assert.deepStrictEqual(expandSkillFlags(["install", "-m", "a", "b", "-s", "c", "d"]), [
+    "install",
+    "-m",
+    "a",
+    "-m",
+    "b",
+    "-s",
+    "c",
+    "d",
+  ]);
+  assert.deepStrictEqual(expandSkillFlags(["install", "--mcp", "a", "-s", "b", "c", "-m", "d"]), [
+    "install",
+    "--mcp",
+    "a",
+    "-s",
+    "b",
+    "-s",
+    "c",
+    "-m",
+    "d",
+  ]);
+});

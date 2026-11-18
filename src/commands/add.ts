@@ -91,6 +91,7 @@ export const add = Command.make(
             pending,
             {
               selected: [],
+              selectedMcp: [],
               agents,
               global,
               copy,
