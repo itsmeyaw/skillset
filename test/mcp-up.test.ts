@@ -232,7 +232,7 @@ it.effect("mcp up reports unknown names", () =>
     yield* add([name], older);
     const result = yield* runCli(["mcp", "up", "nope", "--set", file], { fetch: cannedFetch({}) });
     assert.strictEqual(result.code, 1);
-    assert.include(result.err.join("\n"), "Unknown MCP servers: nope");
+    assert.include(result.err.join("\n"), "Unknown MCP servers: nope (available: server)");
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 

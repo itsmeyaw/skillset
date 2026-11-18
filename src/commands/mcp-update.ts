@@ -44,7 +44,7 @@ export const mcpUpdate = Command.make(
     const changes: Array<string> = [];
     const notes: Array<string> = [];
     const warnings: Array<string> = [];
-    if (unknown.length > 0) warnings.push(unknownMcpNamesMessage(unknown));
+    if (unknown.length > 0) warnings.push(unknownMcpNamesMessage(skillset, unknown));
     for (const entry of mcpEntries) {
       const { origin, launch } = entry;
       // A command launch has no Registry package or remote to renew.
