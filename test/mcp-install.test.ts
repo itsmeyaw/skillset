@@ -66,7 +66,7 @@ const setup = Effect.gen(function* () {
     installDir: `${dir}/skills`,
     installCalls,
     skills: { [JSON.stringify([remote, commit])]: ["alpha", "bar"] },
-    supportedAgents: [agent("universal", true), agent("claude-code"), agent("cursor")],
+    supportedAgents: [agent("universal", true), agent("claude-code"), agent("goose")],
   };
   const run = (argv: ReadonlyArray<string>, env?: Record<string, string>) =>
     runCli(["install", ...argv, "--set", file], { cwd, home, upstream, ...(env ? { env } : {}) });
@@ -147,10 +147,10 @@ it.effect("an invalid config is left untouched with an error, and skills still i
     const { fs, cwd, run, read, installCalls } = yield* setup;
     yield* fs.makeDirectory(cwd, { recursive: true });
     yield* fs.writeFileString(`${cwd}/.mcp.json`, '{ "mcpServers": { ');
-    const result = yield* run(["-y", "-a", "claude-code", "cursor"]);
+    const result = yield* run(["-y", "-a", "claude-code", "goose"]);
     assert.strictEqual(result.code, 1);
     assert.include(result.err.join("\n"), `Cannot update ${cwd}/.mcp.json`);
-    assert.include(result.out.join("\n"), "MCP Entries not installed for cursor: not supported");
+    assert.include(result.out.join("\n"), "MCP Entries not installed for goose: not supported");
     assert.strictEqual(yield* read(`${cwd}/.mcp.json`), '{ "mcpServers": { ');
     assert.lengthOf(installCalls, 1);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
