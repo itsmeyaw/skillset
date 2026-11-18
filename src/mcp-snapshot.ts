@@ -27,8 +27,9 @@ export const launchChoices = (server: RegistryServer): ReadonlyArray<LaunchChoic
 export const defaultEntryName = (serverName: string) =>
   serverName.slice(serverName.lastIndexOf("/") + 1);
 
-// shortcut: only npm packages so far, #49 adds pypi, nuget and oci and remotes.
-const SUPPORTED_PACKAGES: ReadonlyArray<string> = ["npm"];
+// ADR 0006: cargo has no runner and mcpb needs unpacking executables, so only these four are kept.
+// shortcut: cargo, mcpb and unknown package types are rejected, store such a server by hand or choose a remote.
+const SUPPORTED_PACKAGES: ReadonlyArray<string> = ["npm", "pypi", "nuget", "oci"];
 
 const FORMATS: ReadonlyArray<string> = ["string", "number", "boolean", "filepath"];
 
@@ -78,20 +79,10 @@ const argumentTokens = (
   return named ? [argument.name!, value] : [value];
 };
 
-const packageEntry = (
-  pkg: RegistryPackage,
-  entryName: string,
-): Pick<McpEntry, "launch" | "inputs"> => {
-  if (!SUPPORTED_PACKAGES.includes(pkg.registryType))
-    throw new Unsupported(
-      `Package type "${pkg.registryType}" is not supported yet; choose another package or a remote.`,
-    );
-  if (pkg.transport !== undefined && pkg.transport.type !== "stdio")
-    throw new Unsupported(`Package transport "${pkg.transport.type}" is not supported.`);
-  if (!pkg.version) throw new Unsupported(`Package ${pkg.identifier} names no exact version.`);
-  // ADR 0008: two declarations of one input merge conservatively, so a secret is never downgraded
-  // (and then keeps no default) and a required input stays required. Other fields: the first wins.
-  // shortcut: a clash between two arguments is merged silently, report it when it confuses curators.
+// ADR 0008: two declarations of one input merge conservatively, so a secret is never downgraded
+// (and then keeps no default) and a required input stays required. Other fields: the first wins.
+// shortcut: a clash between two arguments is merged silently, report it when it confuses curators.
+const collectInputs = (entryName: string) => {
   const declared = new Map<string, { kind: Input["kind"]; from: RegistryVariable }>();
   const declare = (kind: Input["kind"]) => (name: string, from: RegistryVariable) => {
     const first = declared.get(name);
@@ -109,6 +100,36 @@ const packageEntry = (
           },
     );
   };
+  const inputs = () =>
+    [...declared].map(([name, { kind, from }]) => declaration(entryName, kind, name, from));
+  return { inputs, declare };
+};
+
+const withInputs = (inputs: ReadonlyArray<Input>) => (inputs.length > 0 ? { inputs } : {});
+
+// OCI identifiers carry the version: "host/name:tag" or "host/name@sha256:digest".
+// https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/generic-server-json.md
+const ociVersion = (identifier: string) => {
+  const last = identifier.slice(identifier.lastIndexOf("/") + 1);
+  const digest = last.indexOf("@");
+  const tag = last.indexOf(":");
+  return digest >= 0 ? last.slice(digest + 1) : tag >= 0 ? last.slice(tag + 1) : undefined;
+};
+
+const packageEntry = (
+  pkg: RegistryPackage,
+  entryName: string,
+): Pick<McpEntry, "launch" | "inputs"> => {
+  if (!SUPPORTED_PACKAGES.includes(pkg.registryType))
+    throw new Unsupported(
+      `Package type "${pkg.registryType}" is not supported; choose a remote or a package of type ${SUPPORTED_PACKAGES.join(", ")}.`,
+    );
+  if (pkg.transport !== undefined && pkg.transport.type !== "stdio")
+    throw new Unsupported(`Package transport "${pkg.transport.type}" is not supported.`);
+  const version = pkg.version ?? (pkg.registryType === "oci" ? ociVersion(pkg.identifier) : "");
+  if (!version || version === "latest")
+    throw new Unsupported(`Package ${pkg.identifier} names no exact version.`);
+  const { inputs, declare } = collectInputs(entryName);
   const tokens = (arguments_: ReadonlyArray<RegistryInput> | null | undefined) =>
     (arguments_ ?? []).flatMap((argument) => argumentTokens(argument, declare("variable")));
   const runtimeArguments = tokens(pkg.runtimeArguments);
@@ -122,25 +143,56 @@ const packageEntry = (
       env.name,
       env.value !== undefined && !env.isSecret ? { ...env, default: env.value } : env,
     );
+    // A container sees only the variables docker is told to pass on.
+    if (pkg.registryType === "oci") runtimeArguments.push("-e", env.name);
   }
+  // dnx takes its options after the package and the package's own arguments after "--".
+  // https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/generic-server-json.md
+  const launchArguments =
+    pkg.registryType === "nuget"
+      ? ["--yes", ...(packageArguments.length > 0 ? ["--", ...packageArguments] : [])]
+      : packageArguments;
   return {
     launch: {
       type: "package",
-      registryType: pkg.registryType as "npm",
+      registryType: pkg.registryType as "npm" | "pypi" | "nuget" | "oci",
       identifier: pkg.identifier,
-      version: pkg.version,
+      version,
       ...(pkg.runtimeHint ? { runtimeHint: pkg.runtimeHint } : {}),
       ...(runtimeArguments.length > 0 ? { runtimeArguments } : {}),
-      ...(packageArguments.length > 0 ? { packageArguments } : {}),
+      ...(launchArguments.length > 0 ? { packageArguments: launchArguments } : {}),
       transport: "stdio",
     },
-    ...(declared.size > 0
-      ? {
-          inputs: [...declared].map(([name, { kind, from }]) =>
-            declaration(entryName, kind, name, from),
-          ),
-        }
-      : {}),
+    ...withInputs(inputs()),
+  };
+};
+
+// A header without a value takes its value from an input named after the header.
+const remoteEntry = (
+  remote: RegistryRemote,
+  entryName: string,
+): Pick<McpEntry, "launch" | "inputs"> => {
+  if (remote.type !== "streamable-http" && remote.type !== "sse")
+    throw new Unsupported(`Remote transport "${remote.type}" is not supported.`);
+  if (!remote.url.startsWith("https://"))
+    throw new Unsupported(`Remote URL ${remote.url} must start with https://.`);
+  const { inputs, declare } = collectInputs(entryName);
+  const variable = declare("variable");
+  for (const [name, from] of Object.entries(remote.variables ?? {})) variable(name, from);
+  const headers = (remote.headers ?? []).map((header) => {
+    if (!header.name) throw new Unsupported("A header has no name.");
+    if (header.value === undefined) variable(header.name, header);
+    else for (const [name, from] of Object.entries(header.variables ?? {})) variable(name, from);
+    return { name: header.name, value: header.value ?? `{${header.name}}` };
+  });
+  return {
+    launch: {
+      type: "remote",
+      transport: remote.type,
+      url: remote.url,
+      ...(headers.length > 0 ? { headers } : {}),
+    },
+    ...withInputs(inputs()),
   };
 };
 
@@ -153,11 +205,11 @@ export const snapshotRegistryEntry = (input: {
 }) =>
   Effect.try({
     try: (): McpEntry => {
-      if (input.choice.kind === "remote")
-        throw new Unsupported("Remote servers are not supported yet; choose a package.");
       return {
         name: input.name,
-        ...packageEntry(input.choice.package, input.name),
+        ...(input.choice.kind === "remote"
+          ? remoteEntry(input.choice.remote, input.name)
+          : packageEntry(input.choice.package, input.name)),
         origin: {
           registry: input.registry,
           name: input.server.name,
