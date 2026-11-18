@@ -31,3 +31,12 @@ it("exports portable control-character constraints for Skill Entry text", () => 
     }
   }
 });
+
+// Issue #40: MCP Entry text fields share the control-character rule of Skill Entries.
+it("exports the mcp array with portable control-character constraints", () => {
+  const schema = JSON.parse(skillsetJsonSchema());
+  assert.notInclude(schema.required, "mcp");
+  const { name } = schema.properties.mcp.items.properties;
+  assert.isTrue(new RegExp(name.allOf[0].not.pattern, "u").test("a\u001b"));
+  assert.strictEqual(schema.properties.mcp.items.properties.launch.anyOf.length, 3);
+});

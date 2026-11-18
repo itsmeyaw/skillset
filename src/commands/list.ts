@@ -1,7 +1,8 @@
 import { Console, Effect } from "effect";
 import { Command, Flag } from "effect/cli";
 import { emptySkillsetMessage } from "../errors.ts";
-import { sortedSkillEntries } from "../skillset-file.ts";
+import { sortedByName } from "../skillset-file.ts";
+import { describeMcpLaunch, mcpKind } from "../mcp-entry.ts";
 import { isEmpty, listCommandUserSkillsets, openCommandSkillset } from "../skillset-store.ts";
 
 // Spec #1, User Story 27: show each Skill Entry's name, Source, and short Pin.
@@ -15,15 +16,22 @@ export const list = Command.make(
       return;
     }
     const { skillset } = yield* openCommandSkillset({ missing: "fail", allowRemote: true });
-    const skillEntries = sortedSkillEntries(skillset.skills);
-    if (isEmpty(skillset)) {
+    const mcpEntries = sortedByName(skillset.mcp ?? []);
+    if (isEmpty(skillset) && mcpEntries.length === 0) {
       yield* Console.log(emptySkillsetMessage);
-    } else {
-      for (const skillEntry of skillEntries) {
-        yield* Console.log(
-          `${skillEntry.name}  ${skillEntry.source}  ${skillEntry.commit.slice(0, 7)}`,
-        );
-      }
+      return;
+    }
+    for (const skillEntry of sortedByName(skillset.skills)) {
+      yield* Console.log(
+        `${skillEntry.name}  ${skillEntry.source}  ${skillEntry.commit.slice(0, 7)}`,
+      );
+    }
+    // Issue #40: the MCP section appears only when the Skillset has MCP Entries.
+    if (mcpEntries.length === 0) return;
+    if (!isEmpty(skillset)) yield* Console.log("");
+    yield* Console.log("MCP servers:");
+    for (const mcpEntry of mcpEntries) {
+      yield* Console.log(`${mcpEntry.name}  ${mcpKind(mcpEntry)}  ${describeMcpLaunch(mcpEntry)}`);
     }
   }),
-).pipe(Command.withDescription("List Skill Entries in a Skillset"));
+).pipe(Command.withDescription("List Skill Entries and MCP Entries in a Skillset"));

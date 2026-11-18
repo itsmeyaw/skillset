@@ -110,3 +110,80 @@ it.effect("list rejects a missing Skillset file", () =>
     );
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
+
+const mcpSkillset = {
+  $schema: schemaUrl,
+  skills: [{ name: "alpha", source: "owner/a", commit: "a".repeat(40) }],
+  mcp: [
+    {
+      name: "zeta",
+      launch: { type: "command", command: "node", args: ["server.js", "--stdio"] },
+    },
+    {
+      name: "github",
+      launch: {
+        type: "package",
+        registryType: "npm",
+        identifier: "@modelcontextprotocol/server-github",
+        version: "1.2.3",
+        runtimeHint: "npx",
+        runtimeArguments: ["-y"],
+        packageArguments: ["--stdio"],
+        transport: "stdio",
+      },
+      origin: {
+        registry: "https://registry.example.com",
+        name: "io.github.o/github",
+        version: "1.2.3",
+      },
+    },
+    {
+      name: "docs",
+      launch: { type: "remote", transport: "sse", url: "https://mcp.example.com/sse" },
+      origin: {
+        registry: "https://registry.example.com",
+        name: "io.github.o/docs",
+        version: "2.0.0",
+      },
+    },
+  ],
+};
+const mcpLines = [
+  "MCP servers:",
+  "docs  registry  https://mcp.example.com/sse",
+  "github  registry  npx -y @modelcontextprotocol/server-github@1.2.3 --stdio",
+  "zeta  manual  node server.js --stdio",
+];
+
+it.effect("list shows a separate MCP section sorted by name", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/custom.json`;
+    yield* fs.writeFileString(file, JSON.stringify(mcpSkillset));
+    const result = yield* runCli(["ls", "--set", file]);
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(result.out, ["alpha  owner/a  aaaaaaa", "", ...mcpLines]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("list shows only the MCP section when there are no skills", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/custom.json`;
+    yield* fs.writeFileString(file, JSON.stringify({ ...mcpSkillset, skills: [] }));
+    const result = yield* runCli(["ls", "--set", file]);
+    assert.deepStrictEqual(result.out, mcpLines);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("list --set <url> shows the MCP section of a Remote Skillset", () =>
+  Effect.gen(function* () {
+    const result = yield* runCli(["ls", "--set", "https://example.com/set.json"], {
+      fetch: async () => new Response(JSON.stringify(mcpSkillset)),
+    });
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(result.out, ["alpha  owner/a  aaaaaaa", "", ...mcpLines]);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
