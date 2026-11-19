@@ -102,6 +102,22 @@ it.effect("ctrl+a selects matches without losing hidden selections", () =>
   }),
 );
 
+it.effect("ctrl+n clears matches and keeps hidden selections", () =>
+  Effect.gen(function* () {
+    const ctrlN = { ...key("n"), key: { ...key("n").key, ctrl: true } };
+    const result = yield* runPrompt(searchMultiSelect({ message: "Choose", choices }), [
+      key("space"),
+      key("b", "b"),
+      key("space"),
+      ctrlN,
+      key("backspace"),
+      key("enter"),
+    ]);
+    assert.strictEqual(result.result._tag, "Success");
+    if (result.result._tag === "Success") assert.deepStrictEqual(result.result.value, ["a"]);
+  }),
+);
+
 it.effect("empty match state recovers after backspace", () =>
   Effect.gen(function* () {
     const result = yield* runPrompt(searchMultiSelect({ message: "Choose", choices, min: 1 }), [

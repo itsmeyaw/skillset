@@ -6,7 +6,7 @@ import type { InstallPlan } from "../install-types.ts";
 import { describeMcpLaunch, type McpEntry } from "../mcp-entry.ts";
 import type { Skillset } from "../skillset-file.ts";
 import { cancelOnQuit } from "./cancel.ts";
-import { searchMultiSelect, type SearchChoice } from "./search.ts";
+import { searchMultiSelect, selectHint, type SearchChoice } from "./search.ts";
 
 type Answer<A> = Effect.Effect<
   A,
@@ -123,9 +123,10 @@ const nonInteractive: Prompter = {
 };
 
 const tty: Prompter = {
-  skills: (choices) => cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices })),
+  skills: (choices) =>
+    cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices, hint: selectHint })),
   mcpServers: (choices) =>
-    cancelOnQuit(searchMultiSelect({ message: "Which MCP servers?", choices })),
+    cancelOnQuit(searchMultiSelect({ message: "Which MCP servers?", choices, hint: selectHint })),
   // ADR 0008: plain text prompt; secrets are never asked for.
   mcpInput: (entry, input) =>
     Effect.map(
@@ -142,11 +143,15 @@ const tty: Prompter = {
       );
     }),
   requiredSkills: (choices) =>
-    cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices, min: 1 })),
+    cancelOnQuit(
+      searchMultiSelect({ message: "Which skills?", choices, min: 1, hint: selectHint }),
+    ),
   agents: (choices, _defaults, supported) =>
     !supported
       ? Effect.fail(new CliMessageError({ message: "No supported agents available" }))
-      : cancelOnQuit(searchMultiSelect({ message: "Which agents?", choices, min: 1 })),
+      : cancelOnQuit(
+          searchMultiSelect({ message: "Which agents?", choices, min: 1, hint: selectHint }),
+        ),
   scope: () =>
     cancelOnQuit(
       Prompt.Select({

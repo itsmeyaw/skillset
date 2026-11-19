@@ -14,7 +14,10 @@ type SearchOptions = {
   readonly message: string;
   readonly choices: ReadonlyArray<SearchChoice>;
   readonly min?: number;
+  readonly hint?: string;
 };
+
+export const selectHint = "Ctrl+A select all, Ctrl+N select none";
 
 type SearchState = {
   readonly query: string;
@@ -76,6 +79,7 @@ export const searchMultiSelect = (options: SearchOptions): Prompt.Prompt<Readonl
     if (filtered.length === 0) lines.push("  No matches");
     const description = filtered[state.index]?.description;
     if (description) lines.push(`  ${safeText(description).replace(/\s+/gu, " ")}`);
+    if (options.hint) lines.push(`  ${options.hint}`);
     if (state.error) lines.push(state.error);
     // Issue #11: keep the scrolling window visible when descriptions are long.
     return lines
@@ -126,8 +130,10 @@ export const searchMultiSelect = (options: SearchOptions): Prompt.Prompt<Readonl
       const selected = new Set(state.selected);
       const next = (change: Partial<SearchState>) =>
         Effect.succeed({ _tag: "NextFrame" as const, state: { ...state, error: "", ...change } });
-      if (input.key.ctrl && input.key.name === "a") {
-        for (const choice of filtered) selected.add(choice.value);
+      if (input.key.ctrl && (input.key.name === "a" || input.key.name === "n")) {
+        for (const choice of filtered)
+          if (input.key.name === "a") selected.add(choice.value);
+          else selected.delete(choice.value);
         return next({ selected });
       }
       if (input.key.name === "up" || input.key.name === "down") {
