@@ -44,6 +44,7 @@ const agentChoices = (supported: ReadonlyArray<Agent>, detected: ReadonlyArray<A
       .join(", ") + (members.length > 8 ? ` +${members.length - 8} more` : "");
   const choices = supported
     .filter((agent) => !agent.universal || agent.id === "universal")
+    .sort((a, b) => Number(b.id === "universal") - Number(a.id === "universal"))
     .map((agent) => ({
       title: agent.id === "universal" ? "Universal (.agents/skills)" : agent.name,
       value: agent.id,
