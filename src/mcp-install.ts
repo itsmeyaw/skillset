@@ -27,6 +27,7 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
   const servers = plan.mcpEntries.map((entry) => resolveMcp(entry, plan.mcpAnswers[entry.name]));
   const env = yield* SkillsetEnvironment;
   const failures: Array<string> = [];
+  let present = false;
   // Agents that read one file (Claude Code and Copilot share .mcp.json) are written once, with identical entries.
   const groups: Array<{
     readonly ids: Array<string>;
@@ -46,6 +47,8 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
       shared.agents.push(agent);
     } else groups.push({ ids: [id], agents: [agent], ...(file === undefined ? {} : { file }) });
   }
+  if (groups.length === 0)
+    failures.push("MCP Entries not installed: no chosen Agent can receive them");
   for (const { ids, agents } of groups) {
     const label = ids.join(", ");
     const result = yield* agents[0]!
@@ -71,6 +74,7 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
         `MCP server ${kept.name} not installed for ${label}: a different one exists in ${kept.file}`,
       );
     }
+    present ||= result.success.some((outcome) => outcome.status !== "kept");
     const written = outcomes("written");
     if (written.length === 0) continue;
     yield* Console.log(
@@ -85,6 +89,7 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
     const names = envVarsOf(server);
     return names.length > 0 ? [`  ${server.entry.name}: ${names.join(", ")}`] : [];
   });
-  if (lines.length > 0) yield* Console.log(`Set these environment variables:\n${lines.join("\n")}`);
+  if (present && lines.length > 0)
+    yield* Console.log(`Set these environment variables:\n${lines.join("\n")}`);
   return failures;
 });
