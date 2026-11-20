@@ -179,6 +179,40 @@ it.effect.each([
     message: `Registry ${OFFICIAL} returned an invalid response`,
   },
   {
+    title: "an ESC in the server name",
+    response: () => json(versionResponse({ ...npmServer("2.0.0"), name: "evil\u001b[2Jserver" })),
+    message: `Registry ${OFFICIAL} returned an invalid response`,
+  },
+  {
+    title: "an ESC in a package identifier",
+    response: () =>
+      json(
+        versionResponse({
+          ...npmServer("2.0.0"),
+          packages: [
+            {
+              registryType: "npm",
+              identifier: "x\u001b]0;pwn\u0007",
+              transport: { type: "stdio" },
+            },
+          ],
+        }),
+      ),
+    message: `Registry ${OFFICIAL} returned an invalid response`,
+  },
+  {
+    title: "an ESC in a remote url",
+    response: () =>
+      json(
+        versionResponse({
+          ...npmServer("2.0.0"),
+          packages: undefined,
+          remotes: [{ type: "streamable-http", url: "https://x.example/\u001b[2J" }],
+        }),
+      ),
+    message: `Registry ${OFFICIAL} returned an invalid response`,
+  },
+  {
     title: "an oversize body",
     response: huge,
     message: `Cannot fetch from Registry ${OFFICIAL}: Body exceeds 1 MB`,

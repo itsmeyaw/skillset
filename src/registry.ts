@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 import { HttpStatusError, fetchBoundedText } from "./bounded-fetch.ts";
+import { entryText } from "./entry-text.ts";
 import { CliMessageError } from "./errors.ts";
 import { RemoteFetch } from "./remote-skillset.ts";
 
@@ -8,6 +9,7 @@ import { RemoteFetch } from "./remote-skillset.ts";
 // GitHub's Registry (https://api.mcp.github.com) serves the same API with other names and extra fields.
 export const OFFICIAL_REGISTRY = "https://registry.modelcontextprotocol.io";
 
+// Names, versions, types, identifiers and URLs reach the terminal unfiltered, so they use entryText (no control characters).
 // Spec #37, User Story 10: validate only the fields snapshots need and ignore the rest.
 const optionalList = <S extends Schema.Constraint>(item: S) =>
   Schema.optional(Schema.NullOr(Schema.Array(item)));
@@ -32,26 +34,26 @@ const registryInput = Schema.Struct({
 });
 
 const registryPackage = Schema.Struct({
-  registryType: Schema.String,
-  identifier: Schema.String,
+  registryType: entryText,
+  identifier: entryText,
   version: Schema.optional(Schema.String),
   runtimeHint: Schema.optional(Schema.String),
-  transport: Schema.optional(Schema.Struct({ type: Schema.String })),
+  transport: Schema.optional(Schema.Struct({ type: entryText })),
   runtimeArguments: optionalList(registryInput),
   packageArguments: optionalList(registryInput),
   environmentVariables: optionalList(registryInput),
 });
 
 const registryRemote = Schema.Struct({
-  type: Schema.String,
-  url: Schema.String,
+  type: entryText,
+  url: entryText,
   headers: optionalList(registryInput),
   variables: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, variable))),
 });
 
 const registryServer = Schema.Struct({
-  name: Schema.String,
-  version: Schema.String,
+  name: entryText,
+  version: entryText,
   packages: optionalList(registryPackage),
   remotes: optionalList(registryRemote),
 });
