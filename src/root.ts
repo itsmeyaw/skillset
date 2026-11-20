@@ -7,7 +7,7 @@ export const root = Command.make("skillset").pipe(
   Command.withSharedFlags({
     set: Flag.String("set").pipe(
       Flag.withDescription(
-        "Skillset .json path, User Skillset name, or HTTPS URL (install and ls only)",
+        "Skillset .json path or User Skillset name; an HTTPS URL works for install and ls only",
       ),
       Flag.annotate(Expansion, { blocksReserved: true }),
       Flag.optional,

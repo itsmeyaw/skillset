@@ -23,6 +23,7 @@ const scripted = (
   const offered: Record<string, ReadonlyArray<SearchChoice>> = {};
   const prompter: Prompter = {
     skills: () => Effect.die("unexpected optional skills question"),
+    mcpServers: () => Effect.die("unexpected MCP servers question"),
     requiredSkills: (choices) =>
       Effect.sync(() => {
         asked.push("skills");
@@ -72,6 +73,7 @@ it.effect("explicit install flags skip their questions", () =>
     const asked: Array<string> = [];
     const prompter: Prompter = {
       skills: () => Effect.die("unexpected skills question"),
+      mcpServers: () => Effect.die("unexpected MCP servers question"),
       requiredSkills: () => Effect.die("unexpected skills question"),
       agents: () => Effect.die("unexpected agents question"),
       scope: () => Effect.die("unexpected scope question"),
