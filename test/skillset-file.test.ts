@@ -117,6 +117,22 @@ it.effect("Skillset write does not follow a temporary-file symlink", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("Skillset write updates a symlink target and keeps the link", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const real = `${dir}/real.json`;
+    const path = `${dir}/skillset.json`;
+    yield* fs.writeFileString(real, "{}");
+    yield* fs.symlink(real, path);
+
+    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] });
+    assert.strictEqual(yield* fs.readLink(path), real);
+    assert.deepStrictEqual((yield* readSkillset(real)).skills, []);
+    assert.include(yield* fs.readFileString(real), SCHEMA_URL);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("failed Skillset rename preserves the original file", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
