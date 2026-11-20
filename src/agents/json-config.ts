@@ -18,11 +18,21 @@ const formatting = (text: string) => {
   };
 };
 
+// An Agent that accepts both `<base>.json` and `<base>.jsonc` is written to the file that exists, else `.json`.
+export const existingJsonFile = Effect.fn("existingJsonFile")(function* (base: string) {
+  const fs = yield* FileSystem.FileSystem;
+  for (const extension of [".json", ".jsonc"])
+    if (yield* fs.exists(base + extension).pipe(Effect.orElseSucceed(() => false)))
+      return base + extension;
+  return `${base}.json`;
+});
+
 // ADR 0007: add servers to a JSON or JSONC file in place, so comments and other settings survive.
 // shortcut: edits are not merged across concurrent writers; a running Agent can still overwrite the file.
 export const installJsonMcp = Effect.fn("installJsonMcp")(function* (
   file: string,
-  keyPath: ReadonlyArray<string>,
+  // A function chooses the table from the file's content, for Agents with more than one layout.
+  keyPathOf: ReadonlyArray<string> | ((root: Record<string, unknown>) => ReadonlyArray<string>),
   servers: ReadonlyArray<{ readonly name: string; readonly value: unknown }>,
   confirmOverwrite: McpInstallContext["confirmOverwrite"],
 ) {
@@ -43,6 +53,7 @@ export const installJsonMcp = Effect.fn("installJsonMcp")(function* (
       `invalid JSON (${printParseErrorCode(errors[0]!.error)} at offset ${errors[0]!.offset})`,
     );
   if (!isObject(root)) return yield* failure("it does not hold a JSON object");
+  const keyPath = typeof keyPathOf === "function" ? keyPathOf(root) : keyPathOf;
   let table: unknown = root;
   for (const [index, key] of keyPath.entries()) {
     table = isObject(table) ? table[key] : undefined;
