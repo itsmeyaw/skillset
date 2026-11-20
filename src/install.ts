@@ -34,12 +34,13 @@ const installSkills = Effect.fn("installSkills")(function* (
 const executeInstall = Effect.fn("executeInstall")(function* (
   plan: InstallPlan,
   session: UpstreamSession,
+  prompter: Prompter,
 ) {
   const skills =
     plan.skillEntries.length > 0
       ? yield* installSkills(plan, session).pipe(Effect.result)
       : undefined;
-  const mcpFailures = yield* installMcpEntries(plan);
+  const mcpFailures = yield* installMcpEntries(plan, prompter);
   if (skills?._tag === "Failure" && mcpFailures.length === 0) return yield* skills.failure;
   const failures = [
     ...(skills?._tag === "Failure" ? [skills.failure.message] : []),
@@ -56,5 +57,5 @@ export const installSkillset = Effect.fn("installSkillset")(function* (
   prompter: Prompter,
 ) {
   const plan = yield* buildInstallPlan(skillset, options, prompter);
-  if (plan) yield* executeInstall(plan, session);
+  if (plan) yield* executeInstall(plan, session, prompter);
 });

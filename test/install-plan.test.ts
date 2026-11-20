@@ -24,6 +24,8 @@ const scripted = (
   const prompter: Prompter = {
     skills: () => Effect.die("unexpected optional skills question"),
     mcpServers: () => Effect.die("unexpected MCP servers question"),
+    mcpInput: () => Effect.die("unexpected MCP input question"),
+    confirmOverwrite: () => Effect.die("unexpected overwrite question"),
     requiredSkills: (choices) =>
       Effect.sync(() => {
         asked.push("skills");
@@ -74,6 +76,8 @@ it.effect("explicit install flags skip their questions", () =>
     const prompter: Prompter = {
       skills: () => Effect.die("unexpected skills question"),
       mcpServers: () => Effect.die("unexpected MCP servers question"),
+      mcpInput: () => Effect.die("unexpected MCP input question"),
+      confirmOverwrite: () => Effect.die("unexpected overwrite question"),
       requiredSkills: () => Effect.die("unexpected skills question"),
       agents: () => Effect.die("unexpected agents question"),
       scope: () => Effect.die("unexpected scope question"),
@@ -94,6 +98,7 @@ it.effect("explicit install flags skip their questions", () =>
     assert.deepStrictEqual(plan, {
       skillEntries: [beta],
       mcpEntries: [],
+      mcpAnswers: {},
       agents: ["cursor"],
       scope: "global",
       mode: "copy",
@@ -119,6 +124,7 @@ it.effect("plan uses scripted answers and offers all Skill Entries selected", ()
     assert.deepStrictEqual(plan, {
       skillEntries: [beta],
       mcpEntries: [],
+      mcpAnswers: {},
       agents: ["cursor"],
       scope: "global",
       mode: "symlink",
@@ -229,6 +235,7 @@ it.effect("unattended plans leave agents undefined when no defaults exist", () =
     assert.deepStrictEqual(plan, {
       skillEntries: [alpha, beta],
       mcpEntries: [],
+      mcpAnswers: {},
       agents: undefined,
       scope: "project",
       mode: "auto",

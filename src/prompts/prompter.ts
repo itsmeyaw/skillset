@@ -1,8 +1,9 @@
 import { Console, Effect, Stdio, type FileSystem, type Path, type Terminal } from "effect";
 import { Prompt } from "effect/cli";
+import type { McpConflict } from "../agents/agent.ts";
 import { CliMessageError } from "../errors.ts";
 import type { InstallPlan } from "../install-types.ts";
-import { describeMcpLaunch } from "../mcp-entry.ts";
+import { describeMcpLaunch, type McpEntry } from "../mcp-entry.ts";
 import type { SkillEntry } from "../skillset-file.ts";
 import { cancelOnQuit } from "./cancel.ts";
 import { searchMultiSelect, type SearchChoice } from "./search.ts";
@@ -21,6 +22,13 @@ export type Prompter = {
   readonly mcpServers: (
     choices: ReadonlyArray<SearchChoice>,
   ) => Answer<ReadonlyArray<string> | undefined>;
+  // Undefined means no value was given: unattended, or an empty answer.
+  readonly mcpInput: (
+    entry: McpEntry,
+    input: NonNullable<McpEntry["inputs"]>[number],
+  ) => Answer<string | undefined>;
+  // ADR 0007: a different server of the same name is overwritten only with consent.
+  readonly confirmOverwrite: (conflict: McpConflict) => Answer<boolean>;
   readonly requiredSkills: (choices: ReadonlyArray<SearchChoice>) => Answer<ReadonlyArray<string>>;
   readonly agents: (
     choices: ReadonlyArray<SearchChoice>,
@@ -45,6 +53,8 @@ const listRemoteSkillEntries = (skillEntries: ReadonlyArray<SkillEntry>) =>
 const unattended: Prompter = {
   skills: () => Effect.undefined,
   mcpServers: () => Effect.undefined,
+  mcpInput: () => Effect.undefined,
+  confirmOverwrite: () => Effect.succeed(false),
   requiredSkills: (choices) => Effect.succeed(choices.map((choice) => choice.value)),
   agents: (_choices, defaults) => Effect.succeed(defaults.length > 0 ? defaults : undefined),
   scope: () => Effect.succeed("project"),
@@ -66,10 +76,39 @@ const unattended: Prompter = {
   confirmInstall: () => Effect.succeed(false),
 };
 
+// ADR 0008: only -y turns a required input without a value into an env reference; without a
+// terminal and without -y there is nobody to ask, so a required input is an error.
+const nonInteractive: Prompter = {
+  ...unattended,
+  mcpInput: (entry, input) =>
+    input.required === true
+      ? Effect.fail(
+          new CliMessageError({
+            message: `MCP server ${entry.name} needs a value for ${input.name}; use -y for unattended installs.`,
+          }),
+        )
+      : Effect.undefined,
+};
+
 const tty: Prompter = {
   skills: (choices) => cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices })),
   mcpServers: (choices) =>
     cancelOnQuit(searchMultiSelect({ message: "Which MCP servers?", choices })),
+  // ADR 0008: plain text prompt; secrets are never asked for.
+  mcpInput: (entry, input) =>
+    Effect.map(
+      cancelOnQuit(Prompt.String({ message: `${entry.name}: ${input.description ?? input.name}` })),
+      (answer) => (answer === "" ? undefined : answer),
+    ),
+  confirmOverwrite: ({ name, file, existing, next }) =>
+    Effect.gen(function* () {
+      yield* Console.log(
+        `MCP server ${name} in ${file} differs from the Skillset's entry.\nExisting:\n${JSON.stringify(existing, null, 2)}\nNew:\n${JSON.stringify(next, null, 2)}`,
+      );
+      return yield* cancelOnQuit(
+        Prompt.Confirm({ message: `Overwrite MCP server ${name}?`, initial: false }),
+      );
+    }),
   requiredSkills: (choices) =>
     cancelOnQuit(searchMultiSelect({ message: "Which skills?", choices, min: 1 })),
   agents: (choices, _defaults, supported) =>
@@ -143,5 +182,5 @@ export const makePrompter = (yes: boolean) =>
   yes
     ? Effect.succeed(unattended)
     : Stdio.Stdio.use((stdio) =>
-        Effect.map(stdio.stdinIsTerminal, (isTTY) => (isTTY ? tty : unattended)),
+        Effect.map(stdio.stdinIsTerminal, (isTTY) => (isTTY ? tty : nonInteractive)),
       );

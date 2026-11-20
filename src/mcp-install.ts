@@ -3,6 +3,7 @@ import { AgentPaths, type McpOutcome } from "./agents/agent.ts";
 import { findMcpAgent } from "./agents/registry.ts";
 import type { InstallPlan } from "./install-types.ts";
 import { envVarsOf, resolveMcp } from "./mcp-inputs.ts";
+import type { Prompter } from "./prompts/prompter.ts";
 
 // Spec #37, User Story 57: MCP servers go to the same Agents as skills; Universal is not an Agent.
 const mcpAgentIds = (plan: InstallPlan) => [
@@ -11,10 +12,13 @@ const mcpAgentIds = (plan: InstallPlan) => [
 
 // Spec #37, User Stories 66-78: write each MCP Entry for every chosen Agent, then list env vars to set.
 // Returns the failures so the caller can merge them with skill failures into one exit code.
-export const installMcpEntries = Effect.fn("installMcpEntries")(function* (plan: InstallPlan) {
+export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
+  plan: InstallPlan,
+  prompter: Prompter,
+) {
   if (plan.mcpEntries.length === 0) return [];
   const paths = yield* AgentPaths;
-  const servers = plan.mcpEntries.map(resolveMcp);
+  const servers = plan.mcpEntries.map((entry) => resolveMcp(entry, plan.mcpAnswers[entry.name]));
   const failures: Array<string> = [];
   for (const id of mcpAgentIds(plan)) {
     const agent = findMcpAgent(id);
@@ -26,8 +30,7 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (plan:
       .installMcp(servers, {
         scope: plan.scope,
         paths,
-        // Issue #43 asks the user; until then a different server is always kept.
-        confirmOverwrite: () => Effect.succeed(false),
+        confirmOverwrite: prompter.confirmOverwrite,
       })
       .pipe(Effect.result);
     if (result._tag === "Failure") {
