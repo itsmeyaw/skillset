@@ -1,7 +1,7 @@
 import { assert, it } from "@effect/vitest";
+import { ampEntry } from "../src/agents/amp.ts";
 import { cursorEntry } from "../src/agents/cursor.ts";
 import { geminiEntry } from "../src/agents/gemini-cli.ts";
-import { kiroEntry } from "../src/agents/kiro.ts";
 import { rooEntry, rooGlobalFile } from "../src/agents/roo.ts";
 import { windsurfEntry, windsurfGlobalFile } from "../src/agents/windsurf.ts";
 import type { McpEntry } from "../src/mcp-entry.ts";
@@ -63,7 +63,7 @@ const agents: ReadonlyArray<{
   },
   {
     id: "kiro-cli",
-    toEntry: kiroEntry,
+    toEntry: ampEntry,
     cases: [
       {
         entry: github,

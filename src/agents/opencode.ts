@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 import type { Agent } from "./agent.ts";
-import { existingJsonFile, installJsonMcp } from "./json-config.ts";
+import { existingJsonFile, installJsonMcp, isObject } from "./json-config.ts";
 import { toLaunch } from "./launch.ts";
 
 // OpenCode docs, "MCP servers" (https://opencode.ai/docs/mcp-servers): {env:NAME} in environment and headers.
@@ -24,9 +24,6 @@ export const opencodeEntry = (resolved: ResolvedMcp) => {
     ...(Object.keys(launch.env).length > 0 ? { environment: launch.env } : {}),
   };
 };
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 // OpenCode docs, "V1 to V2 migration" (https://opencode.ai/docs/migrate-v1): V2 keeps servers under `mcp.servers`,
 // V1 puts them straight under `mcp`, and V2 still reads V1 files. A file whose `mcp` holds V1 servers keeps its shape;

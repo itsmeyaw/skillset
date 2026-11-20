@@ -5,7 +5,7 @@ import { writeFileAtomic } from "../atomic-write.ts";
 import { CliMessageError } from "../errors.ts";
 import type { McpInstallContext, McpOutcome } from "./agent.ts";
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
+export const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 // Match the file's own indentation and line ending for the entries we insert.
