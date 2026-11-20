@@ -201,12 +201,17 @@ export const runCli = Effect.fn("runCli")(function* (
     readonly upstream?: Parameters<typeof fakeUpstream>[0];
     readonly env?: Readonly<Record<string, string | undefined>>;
     readonly fetch?: typeof fetch;
+    // Agent configuration roots; default to fresh temporary directories.
+    readonly cwd?: string;
+    readonly home?: string;
   } = {},
 ) {
   const screen: Array<string> = [];
-  const home = yield* Effect.gen(function* () {
+  const makeDir = Effect.gen(function* () {
     return yield* (yield* FileSystem.FileSystem).makeTempDirectoryScoped();
   }).pipe(Effect.provide(NodeFileSystem.layer));
+  const home = yield* makeDir;
+  const paths = { cwd: options.cwd ?? (yield* makeDir), home: options.home ?? (yield* makeDir) };
   const terminal = yield* fakeTerminal(options.keys ?? [], screen);
   const services = Layer.mergeAll(
     NodeFileSystem.layer,
@@ -221,10 +226,12 @@ export const runCli = Effect.fn("runCli")(function* (
   );
   const fetchRemote: typeof fetch =
     options.fetch ?? (() => Promise.reject(new Error("Unexpected fetch")));
-  const exit = yield* runArgv(argv, options.env ?? { SKILLSET_HOME: home }, fetchRemote).pipe(
-    Effect.provide(services),
-    Effect.exit,
-  );
+  const exit = yield* runArgv(
+    argv,
+    options.env ?? { SKILLSET_HOME: home },
+    fetchRemote,
+    paths,
+  ).pipe(Effect.provide(services), Effect.exit);
   let code = -1;
   Runtime.defaultTeardown(exit, (value) => {
     code = value;

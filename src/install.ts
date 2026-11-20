@@ -1,11 +1,12 @@
 import { Console, Effect } from "effect";
 import { CliMessageError } from "./errors.ts";
+import { installMcpEntries } from "./mcp-install.ts";
 import { buildInstallPlan, type InstallPlan, type InstallPlanOptions } from "./install-plan.ts";
 import type { Prompter } from "./prompts/prompter.ts";
 import type { Skillset } from "./skillset-file.ts";
 import type { UpstreamSession } from "./upstream.ts";
 
-const executeInstall = Effect.fn("executeInstall")(function* (
+const installSkills = Effect.fn("installSkills")(function* (
   plan: InstallPlan,
   session: UpstreamSession,
 ) {
@@ -26,6 +27,25 @@ const executeInstall = Effect.fn("executeInstall")(function* (
     return yield* new CliMessageError({
       message: result.failed.map((failure) => failure.message).join("; "),
     });
+});
+
+// ADR 0007: skills install through the batch skills install, MCP Entries through each Agent;
+// one summary and one exit code cover both, and a failure in one kind does not block the other.
+const executeInstall = Effect.fn("executeInstall")(function* (
+  plan: InstallPlan,
+  session: UpstreamSession,
+) {
+  const skills =
+    plan.skillEntries.length > 0
+      ? yield* installSkills(plan, session).pipe(Effect.result)
+      : undefined;
+  const mcpFailures = yield* installMcpEntries(plan);
+  if (skills?._tag === "Failure" && mcpFailures.length === 0) return yield* skills.failure;
+  const failures = [
+    ...(skills?._tag === "Failure" ? [skills.failure.message] : []),
+    ...mcpFailures,
+  ];
+  if (failures.length > 0) return yield* new CliMessageError({ message: failures.join("; ") });
 });
 
 // Issue #11: existing installs preflight after confirmation.

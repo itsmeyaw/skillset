@@ -1,5 +1,5 @@
-import { dirname } from "node:path";
 import { Effect, FileSystem, JsonSchema, Schema } from "effect";
+import { writeFileAtomic } from "./atomic-write.ts";
 import { CliMessageError as SkillsetFileError } from "./errors.ts";
 import { entryText } from "./entry-text.ts";
 import { McpEntry } from "./mcp-entry.ts";
@@ -97,7 +97,6 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
   path: string,
   skillset: Skillset,
 ) {
-  const fs = yield* FileSystem.FileSystem;
   const validated = yield* Schema.decodeEffect(Skillset)(skillset, {
     onExcessProperty: "error",
   }).pipe(Effect.mapError(invalidSkillset(path)));
@@ -108,19 +107,7 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
     ...(validated.mcp?.length ? { mcp: sortedByName(validated.mcp) } : {}),
   };
   const content = JSON.stringify(saved, null, 2) + "\n";
-  yield* Effect.gen(function* () {
-    const tmp = `${path}.tmp`;
-    // Issue #12: create missing parent directories so a first write to the user directory works.
-    yield* fs.makeDirectory(dirname(path), { recursive: true });
-    // POSIX chmod(2): retain existing access permissions when replacing the file.
-    const mode = (yield* fs.exists(path)) ? (yield* fs.stat(path)).mode & 0o7777 : undefined;
-    // POSIX open(2): O_EXCL prevents following or sharing an existing temporary file.
-    // shortcut: stale temporary files block saves; use unique names to allow retries.
-    yield* fs.writeFileString(tmp, content, { flag: "wx", mode });
-    if (mode !== undefined) yield* fs.chmod(tmp, mode);
-    // POSIX rename(2): replacing a file atomically exposes either the old or new content.
-    yield* fs.rename(tmp, path);
-  }).pipe(
+  yield* writeFileAtomic(path, content).pipe(
     Effect.mapError(
       (error) =>
         new SkillsetFileError({

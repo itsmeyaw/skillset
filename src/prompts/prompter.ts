@@ -2,6 +2,7 @@ import { Console, Effect, Stdio, type FileSystem, type Path, type Terminal } fro
 import { Prompt } from "effect/cli";
 import { CliMessageError } from "../errors.ts";
 import type { InstallPlan } from "../install-types.ts";
+import { describeMcpLaunch } from "../mcp-entry.ts";
 import type { SkillEntry } from "../skillset-file.ts";
 import { cancelOnQuit } from "./cancel.ts";
 import { searchMultiSelect, type SearchChoice } from "./search.ts";
@@ -98,9 +99,20 @@ const tty: Prompter = {
   confirmPlan: (plan) =>
     Effect.gen(function* () {
       yield* Console.log(
-        `Skills:\n${plan.skillEntries.map((skillEntry) => `  ${skillEntry.name} (${skillEntry.source}@${skillEntry.commit})`).join(",\n")}\n` +
-          `Agents: ${plan.agents?.join(", ") ?? "default"}\n` +
+        [
+          ...(plan.skillEntries.length > 0
+            ? [
+                `Skills:\n${plan.skillEntries.map((skillEntry) => `  ${skillEntry.name} (${skillEntry.source}@${skillEntry.commit})`).join(",\n")}`,
+              ]
+            : []),
+          ...(plan.mcpEntries.length > 0
+            ? [
+                `MCP servers:\n${plan.mcpEntries.map((mcpEntry) => `  ${mcpEntry.name} (${describeMcpLaunch(mcpEntry)})`).join(",\n")}`,
+              ]
+            : []),
+          `Agents: ${plan.agents?.join(", ") ?? "default"}`,
           `Scope: ${plan.scope}\nMode: ${plan.mode}`,
+        ].join("\n"),
       );
       return yield* cancelOnQuit(
         Prompt.Confirm({ message: "Proceed with installation?", initial: true }),

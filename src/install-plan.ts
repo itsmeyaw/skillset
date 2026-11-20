@@ -3,13 +3,20 @@ import { CliMessageError, emptySkillsetMessage } from "./errors.ts";
 import type { InstallPlan } from "./install-types.ts";
 import type { Prompter } from "./prompts/prompter.ts";
 import type { Skillset } from "./skillset-file.ts";
-import { isEmpty, selectSkillEntries, unknownNamesMessage } from "./skillset-store.ts";
+import {
+  isEmpty,
+  selectMcpEntries,
+  selectSkillEntries,
+  unknownMcpNamesMessage,
+  unknownNamesMessage,
+} from "./skillset-store.ts";
 import { Upstream, type Agent } from "./upstream.ts";
 
 export type { InstallPlan } from "./install-types.ts";
 
 export type InstallPlanOptions = {
   readonly selected: ReadonlyArray<string>;
+  readonly selectedMcp: ReadonlyArray<string>;
   readonly agents: ReadonlyArray<string>;
   readonly global: boolean;
   readonly copy: boolean;
@@ -52,15 +59,23 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   options: InstallPlanOptions,
   prompter: Prompter,
 ) {
-  if (isEmpty(skillset)) {
+  if (isEmpty(skillset) && (skillset.mcp ?? []).length === 0) {
     yield* Console.log(emptySkillsetMessage);
     return;
   }
-  const { unknown } = selectSkillEntries(skillset, options.selected);
-  if (unknown.length > 0)
-    return yield* new CliMessageError({ message: unknownNamesMessage(unknown) });
+  const unknownSkills = selectSkillEntries(skillset, options.selected).unknown;
+  const unknownMcp = selectMcpEntries(skillset, options.selectedMcp).unknown;
+  if (unknownSkills.length > 0 || unknownMcp.length > 0)
+    return yield* new CliMessageError({
+      message: [
+        ...(unknownSkills.length > 0 ? [unknownNamesMessage(unknownSkills)] : []),
+        ...(unknownMcp.length > 0 ? [unknownMcpNamesMessage(skillset, unknownMcp)] : []),
+      ].join("; "),
+    });
+  // Spec #37, User Story 53: any selection flag limits the install to the selected Entries of either kind.
+  const selecting = options.selected.length > 0 || options.selectedMcp.length > 0;
   let names = options.selected;
-  if (names.length === 0) {
+  if (!selecting && skillset.skills.length > 0) {
     names = yield* prompter.requiredSkills(
       skillset.skills.map((skillEntry) => ({
         title: skillEntry.name,
@@ -87,7 +102,14 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     mode = yield* prompter.mode();
   }
   const plan: InstallPlan = {
-    skillEntries: selectSkillEntries(skillset, names).skillEntries,
+    skillEntries:
+      selecting && options.selected.length === 0
+        ? []
+        : selectSkillEntries(skillset, names).skillEntries,
+    mcpEntries:
+      selecting && options.selectedMcp.length === 0
+        ? []
+        : selectMcpEntries(skillset, options.selectedMcp).mcpEntries,
     agents,
     scope,
     mode,
