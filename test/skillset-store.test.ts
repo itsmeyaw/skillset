@@ -2,11 +2,16 @@ import { assert, it } from "@effect/vitest";
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect, FileSystem, Option } from "effect";
 import { SCHEMA_URL, type Skillset } from "../src/skillset-file.ts";
+import type { McpEntry } from "../src/mcp-entry.ts";
 import {
+  addMcpEntry,
   isEmpty,
   movePin,
   openSkillset,
+  removeMcpEntries,
   removeSkillEntries,
+  replaceMcpEntry,
+  selectMcpEntries,
   selectSkillEntries,
   upsertSkillEntries,
 } from "../src/skillset-store.ts";
@@ -94,3 +99,46 @@ it("removes Skill Entries and moves a Pin without changing other Skill Entries",
   assert.isTrue(isEmpty(removeSkillEntries(skillset, ["alpha", "beta"])));
   assert.isFalse(isEmpty(skillset));
 });
+
+const gamma: McpEntry = { name: "alpha", launch: { type: "command", command: "node" } };
+const delta: McpEntry = { name: "delta", launch: { type: "command", command: "bun" } };
+
+it.effect("edits MCP Entries by name, apart from Skill Entries of the same name", () =>
+  Effect.gen(function* () {
+    const added = yield* addMcpEntry(skillset, gamma);
+    assert.deepStrictEqual(added.mcp, [gamma]);
+    assert.deepStrictEqual(added.skills, skillset.skills);
+    const failure = yield* addMcpEntry(added, gamma).pipe(Effect.flip);
+    assert.strictEqual(failure.message, "MCP server alpha already exists");
+    const withDelta = yield* addMcpEntry(added, delta);
+    const replaced = replaceMcpEntry(withDelta, {
+      ...gamma,
+      launch: { type: "command", command: "deno" },
+    });
+    assert.deepStrictEqual(replaced.mcp?.[0]?.launch, { type: "command", command: "deno" });
+    assert.deepStrictEqual(selectMcpEntries(withDelta, ["delta", "nope"]), {
+      mcpEntries: [delta],
+      unknown: ["nope"],
+    });
+    assert.deepStrictEqual(removeMcpEntries(withDelta, ["alpha"]).mcp, [delta]);
+  }),
+);
+
+it.effect("saving a Skillset whose last MCP Entry was removed drops the mcp key", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const opened = yield* openSkillset(
+      { set: Option.some("team"), missing: "create" },
+      { SKILLSET_HOME: dir },
+    );
+    yield* opened.save(yield* addMcpEntry(skillset, gamma));
+    const reopened = yield* openSkillset(
+      { set: Option.some("team"), missing: "fail" },
+      { SKILLSET_HOME: dir },
+    );
+    assert.deepStrictEqual(reopened.skillset.mcp, [gamma]);
+    yield* reopened.save(removeMcpEntries(reopened.skillset, ["alpha"]));
+    assert.notInclude(yield* fs.readFileString(`${dir}/team.json`), "mcp");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);

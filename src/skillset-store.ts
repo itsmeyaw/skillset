@@ -9,6 +9,7 @@ import {
   RemoteFetch,
 } from "./remote-skillset.ts";
 import { cannotReadSkillset, readSkillset, SCHEMA_URL, writeSkillset } from "./skillset-file.ts";
+import type { McpEntry } from "./mcp-entry.ts";
 import type { SkillEntry, Skillset } from "./skillset-file.ts";
 import { DEFAULT_SKILLSET_PATH, listUserSkillsets, resolveSet, userDir } from "./user-skillset.ts";
 import type { Env } from "./user-skillset.ts";
@@ -134,3 +135,30 @@ export const movePin = (skillset: Skillset, name: string, commit: string): Skill
     skillEntry.name === name ? { ...skillEntry, commit } : skillEntry,
   ),
 });
+
+// ADR 0006: names are unique within the mcp array only, so a skill may share a name.
+export const addMcpEntry = (skillset: Skillset, added: McpEntry) =>
+  (skillset.mcp ?? []).some((mcpEntry) => mcpEntry.name === added.name)
+    ? Effect.fail(new CliMessageError({ message: `MCP server ${added.name} already exists` }))
+    : Effect.succeed({ ...skillset, mcp: [...(skillset.mcp ?? []), added] });
+
+export const replaceMcpEntry = (skillset: Skillset, next: McpEntry): Skillset => ({
+  ...skillset,
+  mcp: (skillset.mcp ?? []).map((mcpEntry) => (mcpEntry.name === next.name ? next : mcpEntry)),
+});
+
+export const removeMcpEntries = (skillset: Skillset, names: ReadonlyArray<string>): Skillset => ({
+  ...skillset,
+  mcp: (skillset.mcp ?? []).filter((mcpEntry) => !names.includes(mcpEntry.name)),
+});
+
+export const selectMcpEntries = (skillset: Skillset, names: ReadonlyArray<string>) => {
+  const mcpEntries = skillset.mcp ?? [];
+  return {
+    mcpEntries:
+      names.length === 0
+        ? mcpEntries
+        : mcpEntries.filter((mcpEntry) => names.includes(mcpEntry.name)),
+    unknown: names.filter((name) => !mcpEntries.some((mcpEntry) => mcpEntry.name === name)),
+  };
+};

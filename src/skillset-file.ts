@@ -1,24 +1,17 @@
 import { dirname } from "node:path";
 import { Effect, FileSystem, JsonSchema, Schema } from "effect";
 import { CliMessageError as SkillsetFileError } from "./errors.ts";
+import { entryText } from "./entry-text.ts";
+import { McpEntry } from "./mcp-entry.ts";
 import { PIN_PATTERN } from "./pin.ts";
 
 // Spec #1, Skillset file format: the schema URL is also the format version.
 export const SCHEMA_URL =
   "https://raw.githubusercontent.com/itsmeyaw/skillset/main/schemas/skillset/v1.json";
 
-// ECMA-48 §4.1: control characters can introduce terminal control functions.
-const skillEntryText = Schema.String.check(
-  Schema.isNonEmpty(),
-  Schema.isPattern(/^\P{Cc}+$/u, {
-    // JSON Schema 2020-12 §6.4: use portable ranges for Unicode control characters.
-    toJsonSchema: () => ({ not: { pattern: "[\\u0000-\\u001f\\u007f-\\u009f]" } }),
-  }),
-);
-
 export const SkillEntry = Schema.Struct({
-  name: skillEntryText,
-  source: skillEntryText,
+  name: entryText,
+  source: entryText,
   commit: Schema.String.check(
     Schema.isPattern(PIN_PATTERN, {
       message: "Expected a full 40-character lowercase commit SHA",
@@ -39,6 +32,19 @@ export const Skillset = Schema.Struct({
       }
       return undefined;
     }),
+  ),
+  mcp: Schema.optionalKey(
+    Schema.Array(McpEntry).check(
+      Schema.makeFilter((mcpEntries) => {
+        const names = new Set<string>();
+        for (const [index, mcpEntry] of mcpEntries.entries()) {
+          if (names.has(mcpEntry.name))
+            return { path: [index, "name"], issue: `Duplicate MCP name "${mcpEntry.name}"` };
+          names.add(mcpEntry.name);
+        }
+        return undefined;
+      }),
+    ),
   ),
 }).annotate({
   title: "Skillset",
@@ -83,8 +89,8 @@ export const readSkillset = Effect.fn("readSkillset")(function* (path: string) {
 });
 
 // Spec #1, Skillset file format: canonical order is independent of input order.
-export const sortedSkillEntries = (skillEntries: ReadonlyArray<SkillEntry>): Array<SkillEntry> =>
-  [...skillEntries].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+export const sortedByName = <T extends { readonly name: string }>(entries: ReadonlyArray<T>) =>
+  [...entries].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
 // Spec #1, Skillset file format: write sorted Skill Entries with two-space indentation and a newline.
 export const writeSkillset = Effect.fn("writeSkillset")(function* (
@@ -95,7 +101,12 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
   const validated = yield* Schema.decodeEffect(Skillset)(skillset, {
     onExcessProperty: "error",
   }).pipe(Effect.mapError(invalidSkillset(path)));
-  const saved = { $schema: validated.$schema, skills: sortedSkillEntries(validated.skills) };
+  // ADR 0006: a Skillset without MCP Entries is written exactly as before.
+  const saved = {
+    $schema: validated.$schema,
+    skills: sortedByName(validated.skills),
+    ...(validated.mcp?.length ? { mcp: sortedByName(validated.mcp) } : {}),
+  };
   const content = JSON.stringify(saved, null, 2) + "\n";
   yield* Effect.gen(function* () {
     const tmp = `${path}.tmp`;
