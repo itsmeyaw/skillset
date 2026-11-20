@@ -288,6 +288,30 @@ it.effect(
     }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect(
+  "an MCP Entry named like an Object.prototype key resolves its inputs like any other",
+  () =>
+    Effect.gen(function* () {
+      const { fs, cwd, home, dir } = yield* setup;
+      const file = `${dir}/proto.json`;
+      const entry: McpEntry = {
+        name: "constructor",
+        launch: { type: "command", command: "run", args: ["{name}"] },
+        inputs: [{ name: "name", kind: "variable", required: true }],
+      };
+      yield* fs.writeFileString(
+        file,
+        JSON.stringify({ $schema: SCHEMA_URL, skills: [], mcp: [entry] }),
+      );
+      const result = yield* runCli(["install", "-y", "--set", file], { cwd, home });
+      assert.strictEqual(result.code, 0);
+      assert.deepStrictEqual(
+        JSON.parse(yield* fs.readFileString(`${cwd}/.mcp.json`)).mcpServers.constructor.args,
+        ["${CONSTRUCTOR_NAME}"],
+      );
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("a Skillset without MCP Entries prints and writes nothing MCP-related", () =>
   Effect.gen(function* () {
     const { fs, cwd, home, dir } = yield* setup;

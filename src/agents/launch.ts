@@ -26,7 +26,7 @@ export const toLaunch = (
   // shortcut: an optional {var} with no value becomes an empty string, revisit if a server breaks on it.
   const fill = (text: string) =>
     text.replace(/\{([^{}]+)\}/gu, (match, name: string) =>
-      name in values ? render(values[name]) : match,
+      Object.hasOwn(values, name) ? render(values[name]) : match,
     );
   const { launch } = entry;
   if (launch.type === "remote")
