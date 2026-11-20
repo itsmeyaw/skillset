@@ -7,15 +7,15 @@
 [![Node.js](https://img.shields.io/badge/Node.js->=22.20.0-3c873a?style=flat-square)](https://nodejs.org)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-[Installation](#installation) • [Quick start](#quick-start) • [MCP servers](#mcp-servers) • [Commands](#commands)
+[Installation](#installation) • [Quick start](#quick-start) • [Skills](#skills) • [MCP servers](#mcp-servers) • [Commands](#commands)
 
 </div>
 
-Skillset is a CLI for curating agent skills and MCP servers into a pinned, shareable list (a **Skillset**) and installing that list into any project in one step. It wraps [Vercel's Skills CLI](https://github.com/vercel-labs/skills), so skills land in the same agent directories and `skills-lock.json` that `npx skills` uses. MCP servers are written into each agent's own MCP config.
+Skillset is a CLI for curating agent skills and MCP servers into one pinned, shareable list (a **Skillset**) and installing it into any project in one step. It wraps [Vercel's Skills CLI](https://github.com/vercel-labs/skills), so skills land in the same agent directories and `skills-lock.json` that `npx skills` uses. MCP servers are written into each agent's own MCP config.
 
-- **Pinned**: every skill records the exact Git commit it came from. Nothing changes until you run `skill up`.
-- **Skills and MCP servers together**: one list, one `install`.
-- **No secrets saved**: MCP secrets are written as env var references, never as values.
+- **Skills pinned to commits**: every skill records the exact Git commit it came from, so an install gives you what you reviewed.
+- **MCP servers alongside**: add them from the MCP Registry or by hand. Secrets are never saved.
+- **One list, every project**: keep a named Skillset in your home directory, or commit `./skillset.json` for your team.
 - **Additive**: `install` never removes anything that isn't in the Skillset.
 
 ## Installation
@@ -36,29 +36,44 @@ Or run it without installing: `npx @itsmeyaw/skillset --help`.
 
 ```sh
 skillset skill add mattpocock/skills --set my-set   # pick skills, pinned to their commits
-skillset mcp add --set my-set                       # search the MCP Registry and pick a server
+skillset mcp add --set my-set                       # search the MCP Registry, pick a server
 cd ~/projects/some-project
 skillset install my-set                             # skills and MCP servers, into your agents
 ```
 
-`--set my-set` names a Skillset kept in your home directory, usable from any project. Leave `--set` out to use `./skillset.json` in the current project, which you can commit so your team shares it.
+`--set my-set` names a Skillset kept in your home directory, usable from any project. Leave `--set` out to use `./skillset.json` in the current project.
 
-To refresh, run `skillset skill up --set my-set` (and `mcp up`), then `install` again.
+## Skills
+
+```sh
+skillset skill add mattpocock/skills -s grilling   # add one skill
+skillset skill up                                  # move pins to the latest commits
+skillset skill rm                                  # pick skills to drop
+```
+
+- **Sources:** `owner/repo`, `owner/repo#branch`, `owner/repo@v1.2.3` (tag or full SHA), GitHub tree URLs, or any Git URL. Private repositories use your Git credentials.
+- **Pins:** nothing changes until you run `skill up`. Sources pinned to a tag or SHA are kept.
+- **Install:** `install` asks which skills, which agents, project or global scope, and symlink or copy. Without `-a`, skills go to Universal agents (`.agents/skills`), Claude Code and any detected agent.
 
 ## MCP servers
 
-MCP servers live in the Skillset next to skills and are installed with the same `install` command, into each agent's own MCP config.
+MCP servers are stored in the Skillset as a reviewed snapshot of how to run or reach each one. `install` reads only the Skillset file and never contacts a Registry.
 
 ```sh
-skillset mcp add                                                     # search the MCP Registry, then pick
-skillset mcp add my-tool --env MY_TOOL_TOKEN -- npx -y my-tool-mcp   # add by hand
-skillset mcp up --set my-set                                         # move to the latest versions
+skillset mcp add io.github.example/weather@1.4.2      # from the official Registry (version optional)
+skillset mcp add                                      # search the Registry, then pick
+skillset mcp add my-tool --env MY_TOOL_TOKEN -- npx -y my-tool-mcp               # by hand, local
+skillset mcp add docs --url https://mcp.example.com/docs --header Authorization  # by hand, remote
 ```
 
-Secrets are never saved or prompted for. They are written as env var references, and `install` lists the vars to set.
+- **Registries:** use another Registry with `--registry <https-url>`. `mcp up` moves Registry servers to their latest version.
+- **Secrets:** `--env` and `--header` take names only; `NAME=value` is rejected. At install, a secret is written as an env reference in the agent's syntax (such as `${VAR}`), and the install ends with the env vars to set.
+- **Install:** each server goes into every selected agent's own config file (`-g` for global). Comments and unrelated settings are kept. A different server with the same name is shown and you are asked before it is replaced.
+- **Agents:** `claude-code`, `cursor`, `github-copilot`, `opencode`, `gemini-cli`, `windsurf`, `kiro-cli`, `roo`, `amp`. Others are skipped with a notice.
+- **Remove:** `mcp rm` edits the Skillset only, never an agent's config.
 
-> [!NOTE]
-> Agent config paths come from each agent's docs and have not been run against real agents. Supported: `claude-code`, `cursor`, `github-copilot`, `opencode`, `gemini-cli`, `windsurf`, `kiro-cli`, `roo`, `amp`.
+> [!WARNING]
+> Agent config paths come from each agent's docs and have not been run against real agents. A running Claude Code rewrites `~/.claude.json`, so close it before `install -g`. Project configs such as `.mcp.json` need your approval in the agent.
 
 ## Commands
 
@@ -69,20 +84,18 @@ Commands that edit entries take a noun first: `skill` or `mcp`. `install` and `l
 | `skill add [source]`       | Pin skills from a repository to the Skillset.                        |
 | `skill rm [skills...]`     | Remove skills from the Skillset.                                     |
 | `skill up [skills...]`     | Move pins to the latest commits.                                     |
-| `mcp add [name[@version]]` | Add an MCP server (see [MCP servers](#mcp-servers)).                 |
+| `mcp add [name[@version]]` | Add an MCP server from a Registry or by hand.                        |
 | `mcp rm [names...]`        | Remove MCP servers from the Skillset.                                |
 | `mcp up [names...]`        | Move Registry MCP servers to their latest version.                   |
 | `list`, `ls`               | Show what is in the Skillset, or your named Skillsets with `--user`. |
 | `install [set]`, `i`       | Install skills and MCP servers into your agents.                     |
 
-Common flags: `--set <name>` picks the Skillset, `-a <id>` picks agents, `-g` installs globally, `--copy` copies instead of symlinking, `--install` installs right after `skill add` or `mcp add`, and `-y` skips every prompt. Run any command with `--help` for the rest.
+Common flags: `--set <name>` picks the Skillset, `-s`/`-m` select skills/MCP servers on `install`, `-a <id>` picks agents, `-g` installs globally, `--copy` copies instead of symlinking, `--install` installs right after an `add`, and `-y` skips every prompt. Run any command with `--help` for the rest.
 
-Skill sources: `owner/repo`, `owner/repo#branch`, `owner/repo@v1.2.3`, GitHub tree URLs, or any Git URL. `install` also accepts a `.json` path or an HTTPS URL to a published Skillset; those are never saved or edited.
+`install` also accepts a `.json` path or an HTTPS URL to a published Skillset. Those are fetched each time and never saved or edited. The Skillset file is plain JSON with a [JSON Schema](schemas/skillset/v1.json) for editor validation.
 
 > [!IMPORTANT]
 > Put the Skillset name before `-s`, as in `skillset install my-set -s grilling`. Otherwise it is read as another skill name.
-
-The Skillset file is plain JSON with a [JSON Schema](schemas/skillset/v1.json) for editor validation.
 
 ## Telemetry
 
