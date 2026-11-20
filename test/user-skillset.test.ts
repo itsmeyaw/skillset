@@ -87,7 +87,7 @@ it.effect("add --set <name> creates the User Skillset and the user directory", (
   withHome((home, run) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const result = yield* run(["add", "owner/repo", "-s", "alpha", "--set", "my-set"], {
+      const result = yield* run(["skill", "add", "owner/repo", "-s", "alpha", "--set", "my-set"], {
         upstream: upstream(),
       });
       assert.strictEqual(result.code, 0);
@@ -104,7 +104,7 @@ it.effect("install <name> installs from the User Skillset and selects with -s", 
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
       const up = { ...upstream(), installDir: dir };
-      yield* run(["add", "owner/repo", "--all", "--set", "my-set"], { upstream: up });
+      yield* run(["skill", "add", "owner/repo", "--all", "--set", "my-set"], { upstream: up });
       const result = yield* run(["install", "my-set", "-s", "beta", "-y"], { upstream: up });
       assert.strictEqual(result.code, 0);
       assert.isTrue(yield* fs.exists(`${dir}/project/universal/beta`));
@@ -209,7 +209,7 @@ for (const agents of [["fake-one"], ["fake-one", "fake-two"]]) {
             universal: false,
           })),
         };
-        const added = yield* run(["add", "owner/repo", "--all", "--set", "my-set"], {
+        const added = yield* run(["skill", "add", "owner/repo", "--all", "--set", "my-set"], {
           upstream: up,
         });
         assert.strictEqual(added.code, 0);
@@ -285,7 +285,7 @@ it.effect("install accepts a positional JSON path and preserves invalid-file err
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/team.json`;
       const up = { ...upstream(), installDir: dir };
-      yield* run(["add", "owner/repo", "--all", "--set", file], { upstream: up });
+      yield* run(["skill", "add", "owner/repo", "--all", "--set", file], { upstream: up });
       const result = yield* run(["install", file, "-y"], { upstream: up });
       assert.strictEqual(result.code, 0);
       assert.isTrue(yield* fs.exists(`${dir}/project/universal/alpha`));

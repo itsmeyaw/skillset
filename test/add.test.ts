@@ -35,7 +35,9 @@ it.effect.each([
       skills: { [JSON.stringify([remote, commit])]: ["alpha"] },
       installDir: dir,
     };
-    const added = yield* runCli(["add", input, "-s", "alpha", "--set", file], { upstream });
+    const added = yield* runCli(["skill", "add", input, "-s", "alpha", "--set", file], {
+      upstream,
+    });
     assert.strictEqual(added.code, 0);
     const installed = yield* runCli(["install", "-y", "--set", file], { upstream });
     assert.strictEqual(installed.code, 0);
@@ -52,7 +54,7 @@ it.effect("add --install clones each Source and Pin once", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const calls: Array<string> = [];
     const result = yield* runCli(
-      ["add", "owner/repo", "--all", "--install", "-y", "--set", `${dir}/set.json`],
+      ["skill", "add", "owner/repo", "--all", "--install", "-y", "--set", `${dir}/set.json`],
       { upstream: { ...upstream, calls } },
     );
     assert.strictEqual(result.code, 0);
@@ -79,7 +81,7 @@ it.effect("add --install keeps different Pins of one Source in separate clones",
       }),
     );
     const result = yield* runCli(
-      ["add", "owner/repo", "-s", "alpha", "--install", "-y", "--set", file],
+      ["skill", "add", "owner/repo", "-s", "alpha", "--install", "-y", "--set", file],
       {
         upstream: {
           commits: { [JSON.stringify([remote, null])]: commit },
@@ -112,7 +114,7 @@ it.effect("add uses a full SHA without looking up the remote ref", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const calls: Array<string> = [];
     const result = yield* runCli(
-      ["add", `owner/repo@${commit}`, "--all", "--set", `${dir}/set.json`],
+      ["skill", "add", `owner/repo@${commit}`, "--all", "--set", `${dir}/set.json`],
       {
         upstream: {
           calls,
@@ -132,7 +134,7 @@ it.effect("a tree URL with a full SHA still checks for a longer ref", () =>
     const remote = "https://github.com/owner/repo";
     const calls: Array<string> = [];
     const result = yield* runCli(
-      ["add", `${remote}/tree/${commit}/alpha`, "--set", `${dir}/set.json`],
+      ["skill", "add", `${remote}/tree/${commit}/alpha`, "--set", `${dir}/set.json`],
       {
         upstream: {
           calls,
@@ -151,9 +153,12 @@ it.effect("add rejects the executable Git transport before calling Upstream", ()
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const calls: Array<string> = [];
-    const result = yield* runCli(["add", "ext::helper", "--all", "--set", `${dir}/set.json`], {
-      upstream: { calls },
-    });
+    const result = yield* runCli(
+      ["skill", "add", "ext::helper", "--all", "--set", `${dir}/set.json`],
+      {
+        upstream: { calls },
+      },
+    );
     assert.strictEqual(result.code, 1);
     assert.include(result.err.join("\n"), "Unsupported Git transport: ext");
     assert.deepStrictEqual(calls, []);
@@ -167,7 +172,7 @@ it.effect("add -s writes without installing", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/set.json`;
     const calls: Array<string> = [];
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "alpha", "--set", file], {
       upstream: { ...upstream, installCalls: calls, installDir: dir },
     });
     assert.strictEqual(result.code, 0);
@@ -191,6 +196,7 @@ it.effect.each([{ flags: ["-s", "alpha"] }, { flags: ["--all"] }])(
       yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [old] }));
       const result = yield* runCli(
         [
+          "skill",
           "add",
           "owner/repo",
           ...flags,
@@ -246,6 +252,7 @@ it.effect(
       yield* fs.writeFileString(file, JSON.stringify({ $schema: SCHEMA_URL, skills: [old] }));
       const result = yield* runCli(
         [
+          "skill",
           "add",
           "owner/repo",
           "-s",
@@ -278,9 +285,12 @@ it.effect("add --install keeps Skill Entries when installation fails", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/set.json`;
-    const result = yield* runCli(["add", "owner/repo", "--all", "--install", "-y", "--set", file], {
-      upstream: { ...upstream, failedInstalls: ["https://github.com/owner/repo.git"] },
-    });
+    const result = yield* runCli(
+      ["skill", "add", "owner/repo", "--all", "--install", "-y", "--set", file],
+      {
+        upstream: { ...upstream, failedInstalls: ["https://github.com/owner/repo.git"] },
+      },
+    );
     assert.strictEqual(result.code, 1);
     assert.lengthOf(JSON.parse(yield* fs.readFileString(file)).skills, 2);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
@@ -298,9 +308,12 @@ it.effect.each([
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/set.json`;
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", ...flags, "--set", file], {
-      upstream,
-    });
+    const result = yield* runCli(
+      ["skill", "add", "owner/repo", "-s", "alpha", ...flags, "--set", file],
+      {
+        upstream,
+      },
+    );
     assert.strictEqual(result.code, 1);
     assert.include(result.err.join("\n"), "--install");
     assert.isFalse(yield* fs.exists(file));
@@ -313,7 +326,7 @@ it.effect("add alias accepts a Source after skills and a global option", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(
-      ["--log-level", "info", "a", "-s", "alpha", "owner/repo", "--set", file],
+      ["--log-level", "info", "skill", "add", "-s", "alpha", "owner/repo", "--set", file],
       { upstream },
     );
     assert.strictEqual(result.code, 0);
@@ -328,7 +341,7 @@ it.effect("add -y keeps non-interactive listing behavior on a TTY", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/set.json`;
-    const result = yield* runCli(["add", "owner/repo", "-y", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-y", "--set", file], {
       tty: true,
       upstream,
     });
@@ -344,7 +357,7 @@ it.effect("submitting an empty interactive selection does not create a Skillset"
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/set.json`;
-    const result = yield* runCli(["add", "owner/repo", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "--set", file], {
       tty: true,
       keys: [key("enter")],
       upstream,
@@ -368,7 +381,7 @@ it.effect("interactive add asks for a Source and selects skills", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "--set", file], {
+    const result = yield* runCli(["skill", "add", "--set", file], {
       tty: true,
       keys: [
         ...Array.from("owner/repo", (char) => key(char, char)),
@@ -397,7 +410,7 @@ it.effect("cancelling interactive add leaves the file absent", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "--set", file], {
       tty: true,
       keys: [key("escape")],
       upstream,
@@ -412,12 +425,15 @@ it.effect("add reports a Source with no skills", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
-    const result = yield* runCli(["add", "owner/repo", "--all", "--set", `${dir}/set.json`], {
-      upstream: {
-        ...upstream,
-        skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: [] },
+    const result = yield* runCli(
+      ["skill", "add", "owner/repo", "--all", "--set", `${dir}/set.json`],
+      {
+        upstream: {
+          ...upstream,
+          skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: [] },
+        },
       },
-    });
+    );
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /no skills/i);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
@@ -428,7 +444,7 @@ it.effect("add without a selection lists skills without creating a Skillset file
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "--set", file], { upstream });
+    const result = yield* runCli(["skill", "add", "owner/repo", "--set", file], { upstream });
     assert.strictEqual(result.code, 0);
     assert.match(result.out.join("\n"), /alpha/);
     assert.match(result.out.join("\n"), /zeta/);
@@ -442,9 +458,12 @@ it.effect("add writes selected skills in canonical order to a new Skillset file"
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "-s", "zeta", "alpha", "--set", file], {
-      upstream,
-    });
+    const result = yield* runCli(
+      ["skill", "add", "owner/repo", "-s", "zeta", "alpha", "--set", file],
+      {
+        upstream,
+      },
+    );
     assert.strictEqual(result.code, 0);
     assert.include(result.out.join("\n"), `Added zeta, alpha to ${file}`);
     assert.strictEqual(
@@ -475,9 +494,12 @@ it.effect("add rejects missing skills without changing an existing Skillset", ()
     const file = `${dir}/skillset.json`;
     const original = `{"$schema":"https://raw.githubusercontent.com/itsmeyaw/skillset/main/schemas/skillset/v1.json","skills":[]}\n`;
     yield* fs.writeFileString(file, original);
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "missing", "--set", file], {
-      upstream,
-    });
+    const result = yield* runCli(
+      ["skill", "add", "owner/repo", "-s", "alpha", "missing", "--set", file],
+      {
+        upstream,
+      },
+    );
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /missing/i);
     assert.strictEqual(yield* fs.readFileString(file), original);
@@ -497,7 +519,9 @@ it.effect("re-adding a skill from the same Source moves its Pin", () =>
         skills: [{ name: "alpha", source: "owner/repo", commit: "b".repeat(40) }],
       }),
     );
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], { upstream });
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "alpha", "--set", file], {
+      upstream,
+    });
     assert.strictEqual(result.code, 0);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { name: "alpha", source: "owner/repo", commit },
@@ -515,9 +539,12 @@ it.effect("add refuses a name from a different Source without changing the file"
       skills: [{ name: "alpha", source: "other/repo", commit: "b".repeat(40) }],
     });
     yield* fs.writeFileString(file, original);
-    const result = yield* runCli(["add", "owner/repo", "-s", "zeta", "alpha", "--set", file], {
-      upstream,
-    });
+    const result = yield* runCli(
+      ["skill", "add", "owner/repo", "-s", "zeta", "alpha", "--set", file],
+      {
+        upstream,
+      },
+    );
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /alpha.*other\/repo/i);
     assert.strictEqual(yield* fs.readFileString(file), original);
@@ -529,7 +556,9 @@ it.effect("add --all writes every available skill", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "--all", "--set", file], { upstream });
+    const result = yield* runCli(["skill", "add", "owner/repo", "--all", "--set", file], {
+      upstream,
+    });
     assert.strictEqual(result.code, 0);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { name: "alpha", source: "owner/repo", commit },
@@ -545,7 +574,9 @@ it.effect("add -l lists skills even with --all and leaves the file unchanged", (
     const file = `${dir}/skillset.json`;
     const original = JSON.stringify({ $schema: SCHEMA_URL, skills: [] });
     yield* fs.writeFileString(file, original);
-    const result = yield* runCli(["add", "owner/repo", "-l", "--all", "--set", file], { upstream });
+    const result = yield* runCli(["skill", "add", "owner/repo", "-l", "--all", "--set", file], {
+      upstream,
+    });
     assert.strictEqual(result.code, 0);
     assert.match(result.out.join("\n"), /alpha/);
     assert.match(result.out.join("\n"), /-s.*--all/);
@@ -559,7 +590,7 @@ it.effect("add resolves a branch and preserves its Source with repeated skill fl
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(
-      ["add", "owner/repo#feature/docs", "-s", "zeta", "-s", "alpha", "--set", file],
+      ["skill", "add", "owner/repo#feature/docs", "-s", "zeta", "-s", "alpha", "--set", file],
       {
         upstream: {
           commits: {
@@ -584,9 +615,12 @@ it.effect("add accepts --skill and --set before the command", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["--set", file, "add", "owner/repo", "--skill", "alpha", "zeta"], {
-      upstream,
-    });
+    const result = yield* runCli(
+      ["--set", file, "skill", "add", "owner/repo", "--skill", "alpha", "zeta"],
+      {
+        upstream,
+      },
+    );
     assert.strictEqual(result.code, 0);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(file)).skills, [
       { name: "alpha", source: "owner/repo", commit },
@@ -600,9 +634,12 @@ it.effect("add accepts the Source after multiple skill flag values", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "-s", "alpha", "zeta", "owner/repo", "--set", file], {
-      upstream,
-    });
+    const result = yield* runCli(
+      ["skill", "add", "-s", "alpha", "zeta", "owner/repo", "--set", file],
+      {
+        upstream,
+      },
+    );
     assert.strictEqual(result.code, 0);
     assert.deepStrictEqual(
       JSON.parse(yield* fs.readFileString(file)).skills.map(
@@ -618,7 +655,7 @@ it.effect("add leaves the file absent when Source lookup fails", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "--all", "--set", file]);
+    const result = yield* runCli(["skill", "add", "owner/repo", "--all", "--set", file]);
     assert.strictEqual(result.code, 1);
     assert.include(result.err.join("\n"), "Ref HEAD not found in owner/repo");
     assert.isFalse(yield* fs.exists(file));
@@ -630,7 +667,7 @@ it.effect("add rejects an empty -s flag", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "-s", "--set", file], { upstream });
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "--set", file], { upstream });
     assert.strictEqual(result.code, 1);
     assert.isFalse(yield* fs.exists(file));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
@@ -644,7 +681,7 @@ it.effect("add rejects an invalid Skillset file without overwriting it", () =>
     const original = '{"$schema":"https://example.com/v2","skills":[]}';
     yield* fs.writeFileString(file, original);
     const calls: Array<string> = [];
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "alpha", "--set", file], {
       upstream: { ...upstream, calls },
     });
     assert.strictEqual(result.code, 1);
@@ -662,7 +699,7 @@ it.effect("add -l rejects an invalid Skillset before Source lookup", () =>
     const original = "not json";
     const calls: Array<string> = [];
     yield* fs.writeFileString(file, original);
-    const result = yield* runCli(["add", "owner/repo", "-l", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-l", "--set", file], {
       upstream: { ...upstream, calls },
     });
     assert.strictEqual(result.code, 1);
@@ -680,7 +717,7 @@ for (const ref of ["v1.2.3", "1.2-beta+build", "b".repeat(40)]) {
       const file = `${dir}/skillset.json`;
       const source = `owner/repo@${ref}`;
       const resolved = ref.length === 40 ? ref : commit;
-      const result = yield* runCli(["add", source, "-s", "alpha", "--set", file], {
+      const result = yield* runCli(["skill", "add", source, "-s", "alpha", "--set", file], {
         upstream: {
           commits: { [JSON.stringify(["https://github.com/owner/repo.git", ref])]: commit },
           skills: { [JSON.stringify(["https://github.com/owner/repo.git", resolved])]: ["alpha"] },
@@ -700,7 +737,7 @@ it.effect("add preserves an uppercase SHA while resolving its lowercase Pin", ()
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const source = `owner/repo@${"A".repeat(40)}`;
-    const result = yield* runCli(["add", source, "-s", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "add", source, "-s", "alpha", "--set", file], {
       upstream: {
         commits: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: commit },
         skills: { [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha"] },
@@ -726,7 +763,7 @@ for (const source of [
       const file = `${dir}/skillset.json`;
       const original = JSON.stringify({ $schema: SCHEMA_URL, skills: [] });
       yield* fs.writeFileString(file, original);
-      const result = yield* runCli(["add", source, "--all", "--set", file], { upstream });
+      const result = yield* runCli(["skill", "add", source, "--all", "--set", file], { upstream });
       assert.strictEqual(result.code, 1);
       assert.match(result.err.join("\n"), /-s grilling/);
       assert.strictEqual(yield* fs.readFileString(file), original);
@@ -740,7 +777,7 @@ it.effect("add selects the skill implied by a GitHub tree URL", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(
-      ["add", "https://github.com/owner/repo/tree/dev/alpha", "--set", file],
+      ["skill", "add", "https://github.com/owner/repo/tree/dev/alpha", "--set", file],
       {
         upstream: {
           commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
@@ -766,7 +803,13 @@ for (const hasShortRef of [false, true]) {
         const dir = yield* fs.makeTempDirectoryScoped();
         const file = `${dir}/skillset.json`;
         const result = yield* runCli(
-          ["add", "https://github.com/owner/repo/tree/feature/docs/skills/alpha", "--set", file],
+          [
+            "skill",
+            "add",
+            "https://github.com/owner/repo/tree/feature/docs/skills/alpha",
+            "--set",
+            file,
+          ],
           {
             upstream: {
               commits: {
@@ -796,7 +839,14 @@ for (const [flags, expected] of [
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/skillset.json`;
       const result = yield* runCli(
-        ["add", "https://github.com/owner/repo/tree/dev/skills/alpha/", ...flags, "--set", file],
+        [
+          "skill",
+          "add",
+          "https://github.com/owner/repo/tree/dev/skills/alpha/",
+          ...flags,
+          "--set",
+          file,
+        ],
         {
           upstream: {
             commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
@@ -823,7 +873,7 @@ it.effect("add -l lists a tree Source without writing", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(
-      ["add", "https://github.com/owner/repo/tree/dev/skills/alpha", "-l", "--set", file],
+      ["skill", "add", "https://github.com/owner/repo/tree/dev/skills/alpha", "-l", "--set", file],
       {
         upstream: {
           commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
@@ -845,7 +895,14 @@ it.effect("add --all ignores a missing tree-path skill", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(
-      ["add", "https://github.com/owner/repo/tree/dev/skills/missing", "--all", "--set", file],
+      [
+        "skill",
+        "add",
+        "https://github.com/owner/repo/tree/dev/skills/missing",
+        "--all",
+        "--set",
+        file,
+      ],
       {
         upstream: {
           commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
@@ -867,6 +924,7 @@ it.effect("add rejects an encoded slash in a tree ref", () =>
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(
       [
+        "skill",
         "add",
         "https://github.com/owner/repo/tree/feature%2Fdocs/skills/alpha%2Ddocs",
         "--set",
@@ -893,7 +951,7 @@ it.effect("add rejects a missing tree-path skill without writing", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const result = yield* runCli(
-      ["add", "https://github.com/owner/repo/tree/dev/skills/missing", "--set", file],
+      ["skill", "add", "https://github.com/owner/repo/tree/dev/skills/missing", "--set", file],
       {
         upstream: {
           commits: { [JSON.stringify(["https://github.com/owner/repo", "dev"])]: commit },
@@ -928,7 +986,7 @@ for (const [source, repository, ref] of [
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/skillset.json`;
-      const result = yield* runCli(["add", source, "-s", "alpha", "--set", file], {
+      const result = yield* runCli(["skill", "add", source, "-s", "alpha", "--set", file], {
         upstream: {
           commits: { [JSON.stringify([repository, ref ?? null])]: commit },
           skills: { [JSON.stringify([repository, commit])]: ["alpha"] },
@@ -948,7 +1006,7 @@ it.effect("add decodes a percent-encoded shorthand branch", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
     const source = "owner/repo#feature%2Fdocs";
-    const result = yield* runCli(["add", source, "--all", "--set", file], {
+    const result = yield* runCli(["skill", "add", source, "--all", "--set", file], {
       upstream: {
         commits: {
           [JSON.stringify(["https://github.com/owner/repo.git", "feature/docs"])]: commit,
@@ -985,7 +1043,7 @@ for (const [source, message] of [
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/skillset.json`;
-      const result = yield* runCli(["add", source, "--all", "--set", file], { upstream });
+      const result = yield* runCli(["skill", "add", source, "--all", "--set", file], { upstream });
       assert.strictEqual(result.code, 1);
       assert.match(result.err.join("\n"), message);
       assert.isFalse(yield* fs.exists(file));
@@ -1005,7 +1063,7 @@ it.effect("accepting the install prompt after add installs the Skillset", () =>
         skills: [{ name: "old", source: "other/repo", commit }],
       }),
     );
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
       keys: [
         key("n", "n"),
@@ -1036,7 +1094,7 @@ it.effect("interactive add repeats for another Source until declined", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
       keys: [
         key("y", "y"),
@@ -1074,7 +1132,7 @@ it.effect("interactive add keeps earlier Skill Entries when a later Source fails
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
       keys: [
         key("y", "y"),
@@ -1102,7 +1160,7 @@ it.effect.each([{ flags: ["-s", "missing"] }, { flags: ["--all"] }, { flags: ["-
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
       const file = `${dir}/skillset.json`;
-      const result = yield* runCli(["add", "bad/repo", ...flags, "--set", file], {
+      const result = yield* runCli(["skill", "add", "bad/repo", ...flags, "--set", file], {
         tty: true,
         keys: [
           key("enter"),
@@ -1130,7 +1188,7 @@ it.effect("interactive add fails with the last error when every round fails", ()
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "empty/repo", "--set", file], {
+    const result = yield* runCli(["skill", "add", "empty/repo", "--set", file], {
       tty: true,
       keys: [
         key("enter"),
@@ -1158,7 +1216,7 @@ it.effect("add -y fails without a warning or retry prompt", () =>
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "bad/repo", "--all", "-y", "--set", file], {
+    const result = yield* runCli(["skill", "add", "bad/repo", "--all", "-y", "--set", file], {
       tty: true,
       upstream,
     });
@@ -1176,7 +1234,7 @@ it.effect("cancelling the retry prompt exits 130 without writing earlier Skill E
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
       keys: [
         key("y", "y"),
@@ -1199,7 +1257,7 @@ it.effect("interactive add retries after a conflict without losing earlier Skill
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/skillset.json`;
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
       keys: [
         key("y", "y"),
@@ -1246,7 +1304,7 @@ it.effect("interactive add fails on an invalid Skillset before Source lookup", (
     const original = '{"$schema":"https://example.com/v2","skills":[]}';
     yield* fs.writeFileString(file, original);
     const calls: Array<string> = [];
-    const result = yield* runCli(["add", "owner/repo", "-s", "alpha", "--set", file], {
+    const result = yield* runCli(["skill", "add", "owner/repo", "-s", "alpha", "--set", file], {
       tty: true,
       keys: [key("n", "n")],
       upstream: { ...upstream, calls },

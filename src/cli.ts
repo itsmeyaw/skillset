@@ -1,4 +1,4 @@
-import { Effect, Stdio } from "effect";
+import { Console, Effect, Stdio } from "effect";
 import { CliConfig, Command, GlobalFlag } from "effect/cli";
 import { expandSkillFlags } from "./argv.ts";
 import { add } from "./commands/add.ts";
@@ -12,14 +12,28 @@ import { SkillsetEnvironment } from "./skillset-store.ts";
 import { Upstream } from "./upstream.ts";
 import type { Env } from "./user-skillset.ts";
 
+// ADR 0005: top-level add, remove and update are deprecated aliases of the skill group.
+const deprecated = (name: string, group: string) =>
+  Console.error(
+    `Deprecated: "skillset ${name}" is now "skillset skill ${group}"; it will be removed in 1.0.`,
+  );
+
 // Issue #11: aliases share the same command handlers as their long names.
 export const cli = root.pipe(
   Command.withSubcommands([
-    add.pipe(Command.withAlias("a")),
+    add.pipe(Command.provideEffectDiscard(deprecated("add", "add")), Command.withAlias("a")),
     install.pipe(Command.withAlias("i")),
     list.pipe(Command.withAlias("ls")),
-    remove.pipe(Command.withAlias("rm")),
-    update.pipe(Command.withAlias("up")),
+    remove.pipe(Command.provideEffectDiscard(deprecated("remove", "rm")), Command.withAlias("rm")),
+    update.pipe(Command.provideEffectDiscard(deprecated("update", "up")), Command.withAlias("up")),
+    Command.make("skill").pipe(
+      Command.withDescription("Add, remove and update Skill Entries"),
+      Command.withSubcommands([
+        add,
+        remove.pipe(Command.withAlias("rm")),
+        update.pipe(Command.withAlias("up")),
+      ]),
+    ),
   ]),
 );
 // Issue #11: the built-in wizard is not part of the CLI.

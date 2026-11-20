@@ -88,13 +88,13 @@ export const expandSkillFlags = (
       hasValue = true;
     } else {
       result.push(token);
-      if (!commandSeen) {
-        commandSeen = true;
-        const subcommand = spec.subcommands.find(
-          (item) => item.name === token || item.alias === token,
-        );
-        if (subcommand) spec = resolve([...spec.path, subcommand.name]);
-      } else if (!positionalSeen) positionalSeen = true;
+      // Command groups nest: descend while the next token names a subcommand.
+      const subcommand = positionalSeen
+        ? undefined
+        : spec.subcommands.find((item) => item.name === token || item.alias === token);
+      if (subcommand) spec = resolve([...spec.path, subcommand.name]);
+      if (subcommand || !commandSeen) commandSeen = true;
+      else positionalSeen = true;
     }
   }
   flush();

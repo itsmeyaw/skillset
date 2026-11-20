@@ -11,7 +11,7 @@ const zeta = { name: "zeta", source: "owner/z", commit: "c".repeat(40) };
 
 it.effect("remove -y keeps non-interactive usage behavior on a TTY", () =>
   Effect.gen(function* () {
-    const result = yield* runCli(["remove", "-y"], { tty: true });
+    const result = yield* runCli(["skill", "rm", "-y"], { tty: true });
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /Usage/);
     assert.deepStrictEqual(result.screen, []);
@@ -24,7 +24,7 @@ it.effect("interactive remove selects Skill Entries without touching others", ()
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/set.json`;
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: [alpha, beta] }));
-    const result = yield* runCli(["remove", "--set", file], {
+    const result = yield* runCli(["skill", "rm", "--set", file], {
       tty: true,
       keys: [key("b", "b"), key("space"), key("enter")],
     });
@@ -40,7 +40,7 @@ it.effect("interactive remove on an empty Skillset skips the picker", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/set.json`;
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: [] }));
-    const result = yield* runCli(["remove", "--set", file], { tty: true });
+    const result = yield* runCli(["skill", "rm", "--set", file], { tty: true });
     assert.strictEqual(result.code, 0);
     assert.include(result.out.join("\n"), "This Skillset is empty.");
     assert.deepStrictEqual(result.screen, []);
@@ -54,7 +54,10 @@ it.effect("cancelling interactive remove preserves the Skillset", () =>
     const file = `${dir}/set.json`;
     const original = JSON.stringify({ $schema: schemaUrl, skills: [alpha] });
     yield* fs.writeFileString(file, original);
-    const result = yield* runCli(["remove", "--set", file], { tty: true, keys: [key("escape")] });
+    const result = yield* runCli(["skill", "rm", "--set", file], {
+      tty: true,
+      keys: [key("escape")],
+    });
     assert.strictEqual(result.code, 130);
     assert.include(result.out.join("\n"), "Cancelled");
     assert.strictEqual(yield* fs.readFileString(file), original);
@@ -72,7 +75,7 @@ it.effect("remove deletes named Skill Entries and writes the remainder canonical
     );
     yield* fs.writeFileString(`${dir}/installed-skill.txt`, "untouched");
 
-    const result = yield* runCli(["remove", "beta", "--set", file]);
+    const result = yield* runCli(["skill", "rm", "beta", "--set", file]);
     assert.strictEqual(result.code, 0);
     assert.deepStrictEqual(result.err, []);
     assert.strictEqual(
@@ -90,7 +93,7 @@ it.effect("remove --all empties the Skillset", () =>
     const file = `${dir}/set.json`;
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: [zeta, alpha] }));
 
-    const result = yield* runCli(["remove", "--all", "--set", file]);
+    const result = yield* runCli(["skill", "rm", "--all", "--set", file]);
     assert.strictEqual(result.code, 0);
     assert.strictEqual(
       yield* fs.readFileString(file),
@@ -107,7 +110,7 @@ it.effect("remove without names or --all reports usage without changing the file
     const original = JSON.stringify({ $schema: schemaUrl, skills: [zeta, alpha] });
     yield* fs.writeFileString(file, original);
 
-    const result = yield* runCli(["remove", "--set", file]);
+    const result = yield* runCli(["skill", "rm", "--set", file]);
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /usage:.*remove.*--all/i);
     assert.strictEqual(yield* fs.readFileString(file), original);
@@ -124,7 +127,16 @@ it.effect("remove reports unknown names but still removes all known names", () =
       JSON.stringify({ $schema: schemaUrl, skills: [zeta, beta, alpha] }),
     );
 
-    const result = yield* runCli(["--set", file, "remove", "zeta", "missing", "alpha", "absent"]);
+    const result = yield* runCli([
+      "--set",
+      file,
+      "skill",
+      "rm",
+      "zeta",
+      "missing",
+      "alpha",
+      "absent",
+    ]);
     assert.strictEqual(result.code, 1);
     assert.include(result.err.join("\n"), "Unknown skills: missing, absent");
     assert.strictEqual(
@@ -142,7 +154,7 @@ it.effect("remove leaves the file unchanged when all names are unknown", () =>
     const original = JSON.stringify({ $schema: schemaUrl, skills: [zeta, alpha] });
     yield* fs.writeFileString(file, original);
 
-    const result = yield* runCli(["remove", "missing", "--set", file]);
+    const result = yield* runCli(["skill", "rm", "missing", "--set", file]);
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /missing/);
     assert.strictEqual(yield* fs.readFileString(file), original);
@@ -156,7 +168,7 @@ it.effect("remove --all empties the file and reports unknown supplied names", ()
     const file = `${dir}/set.json`;
     yield* fs.writeFileString(file, JSON.stringify({ $schema: schemaUrl, skills: [zeta, alpha] }));
 
-    const result = yield* runCli(["remove", "missing", "--all", "--set", file]);
+    const result = yield* runCli(["skill", "rm", "missing", "--all", "--set", file]);
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /missing/);
     assert.strictEqual(
@@ -174,7 +186,7 @@ it.effect("remove rejects invalid Skillset files without changing them", () =>
     const original = JSON.stringify({ $schema: "https://example.com/v2", skills: [alpha] });
     yield* fs.writeFileString(file, original);
 
-    const result = yield* runCli(["remove", "--all", "--set", file]);
+    const result = yield* runCli(["skill", "rm", "--all", "--set", file]);
     assert.strictEqual(result.code, 1);
     assert.match(result.err.join("\n"), /invalid Skillset file/i);
     assert.strictEqual(yield* fs.readFileString(file), original);
@@ -187,7 +199,7 @@ it.effect("remove rejects missing Skillset files without creating them", () =>
     const dir = yield* fs.makeTempDirectoryScoped();
     const file = `${dir}/missing.json`;
 
-    const result = yield* runCli(["remove", "--all", "--set", file]);
+    const result = yield* runCli(["skill", "rm", "--all", "--set", file]);
     assert.strictEqual(result.code, 1);
     assert.include(result.err.join("\n"), `Cannot find Skillset "${file}" in ${file}`);
     assert.isFalse(yield* fs.exists(file));
@@ -196,7 +208,7 @@ it.effect("remove rejects missing Skillset files without creating them", () =>
 
 it.effect("remove --help shows usage without reading a file", () =>
   Effect.gen(function* () {
-    const result = yield* runCli(["remove", "--help"]);
+    const result = yield* runCli(["skill", "rm", "--help"]);
     assert.strictEqual(result.code, 0);
     assert.match(result.out.join("\n"), /--all/);
     assert.match(result.out.join("\n"), /skills/);
