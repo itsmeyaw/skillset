@@ -2,9 +2,9 @@ import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
 import { parse } from "jsonc-parser";
+import { ampEntry } from "../src/agents/amp.ts";
 import { cursorEntry } from "../src/agents/cursor.ts";
 import { geminiEntry } from "../src/agents/gemini-cli.ts";
-import { kiroEntry } from "../src/agents/kiro.ts";
 import { rooEntry } from "../src/agents/roo.ts";
 import { windsurfEntry } from "../src/agents/windsurf.ts";
 import { resolveMcp } from "../src/mcp-inputs.ts";
@@ -54,7 +54,7 @@ const agents: ReadonlyArray<{
     universal: false,
     project: ".kiro/settings/mcp.json",
     global: ".kiro/settings/mcp.json",
-    toEntry: kiroEntry,
+    toEntry: ampEntry,
   },
   {
     id: "roo",
