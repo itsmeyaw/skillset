@@ -8,7 +8,14 @@ import {
   type McpEntry,
 } from "../mcp-entry.ts";
 import { launchChoices, defaultEntryName, snapshotRegistryEntry } from "../mcp-snapshot.ts";
-import { getServerVersion, refuseInactive, registryBase } from "../registry.ts";
+import { makePrompter, type Prompter } from "../prompts/prompter.ts";
+import {
+  getServerVersion,
+  listServers,
+  refuseInactive,
+  registryBase,
+  type RegistryServer,
+} from "../registry.ts";
 import { addMcpEntry, openCommandSkillset } from "../skillset-store.ts";
 
 const fail = (message: string) => Effect.fail(new CliMessageError({ message }));
@@ -28,25 +35,66 @@ const checkInputNames = (flag: string, names: ReadonlyArray<string>, pattern: Re
 const invalidName = (name: string) =>
   fail(`Invalid MCP server name "${name}": use letters, digits, '.', '_' and '-'.`);
 
-// Spec #37, User Stories 1-4 and 16-18: add the snapshot of one Registry server version.
+const MIN_SEARCH_LENGTH = 3;
+
+const describeChoice = (choice: ReturnType<typeof launchChoices>[number]) =>
+  choice.kind === "package"
+    ? `${choice.package.registryType} ${choice.package.identifier}`
+    : `${choice.remote.type} ${choice.remote.url}`;
+
+// Spec #37, User Stories 11-13: search latest active versions, paging on request.
+const searchRegistry = (base: string, prompter: Prompter) =>
+  Effect.gen(function* () {
+    const term = (yield* prompter.searchTerm()).trim();
+    if (Array.from(term).length < MIN_SEARCH_LENGTH)
+      return yield* fail(`Search term must be at least ${MIN_SEARCH_LENGTH} characters.`);
+    const found: Array<RegistryServer> = [];
+    let cursor: string | undefined;
+    for (;;) {
+      const next = yield* listServers(base, { search: term, cursor });
+      found.push(
+        ...next.servers.filter(({ status }) => status === "active").map(({ server }) => server),
+      );
+      cursor = next.nextCursor;
+      if (found.length === 0 && cursor === undefined)
+        return yield* fail(`No servers match "${term}" in Registry ${base}.`);
+      // A page of inactive servers shows nothing to pick, so keep paging.
+      if (found.length === 0) continue;
+      const names = found.map((server) => server.name);
+      const chosen = yield* prompter.registryServer(names, cursor !== undefined);
+      if (chosen !== undefined) return found[names.indexOf(chosen)]!;
+    }
+  });
+
+// Spec #37, User Stories 1-4, 11-13 and 16-18: add the snapshot of one Registry server version.
 const addFromRegistry = (
-  given: string,
+  given: string | undefined,
   registry: string | undefined,
   entryName: string | undefined,
+  prompter: Prompter,
 ) =>
   Effect.gen(function* () {
-    const at = given.lastIndexOf("@");
-    const serverName = at > 0 ? given.slice(0, at) : given;
-    const version = at > 0 ? given.slice(at + 1) : "latest";
-    if (version === "") return yield* fail(`Missing version after "@" in "${given}".`);
     const store = yield* openCommandSkillset({ missing: "create" });
     const base = yield* registryBase(registry);
-    const server = yield* getServerVersion(base, serverName, version).pipe(
-      Effect.flatMap((found) => refuseInactive(base, found)),
-    );
-    const choice = launchChoices(server)[0];
-    if (choice === undefined)
+    const server =
+      given === undefined
+        ? yield* searchRegistry(base, prompter)
+        : yield* Effect.gen(function* () {
+            const at = given.lastIndexOf("@");
+            const serverName = at > 0 ? given.slice(0, at) : given;
+            const version = at > 0 ? given.slice(at + 1) : "latest";
+            if (version === "") return yield* fail(`Missing version after "@" in "${given}".`);
+            return yield* getServerVersion(base, serverName, version).pipe(
+              Effect.flatMap((found) => refuseInactive(base, found)),
+            );
+          });
+    const choices = launchChoices(server);
+    if (choices.length === 0)
       return yield* fail(`${server.name} ${server.version} offers no package or remote.`);
+    const choice =
+      choices[
+        choices.length === 1 ? 0 : yield* prompter.launchChoice(choices.map(describeChoice))
+      ]!;
     const name = entryName ?? defaultEntryName(server.name);
     if (!MCP_NAME_PATTERN.test(name)) return yield* invalidName(name);
     const entry = yield* snapshotRegistryEntry({ registry: base, server, choice, name });
@@ -58,24 +106,29 @@ const addFromRegistry = (
 export const mcpAdd = Command.make(
   "add",
   {
-    name: Argument.String("name"),
+    name: Argument.String("name").pipe(Argument.optional),
     command: Argument.String("command").pipe(Argument.variadic()),
     url: Flag.String("url").pipe(Flag.optional),
     header: Flag.String("header").pipe(Flag.atLeast(0)),
     env: Flag.String("env").pipe(Flag.atLeast(0)),
     registry: Flag.String("registry").pipe(Flag.optional),
     entryName: Flag.String("name").pipe(Flag.optional),
+    yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
-  Effect.fn(function* ({ name, command, url, header, env, registry, entryName }) {
+  Effect.fn(function* ({ name: given, command, url, header, env, registry, entryName, yes }) {
     if (url._tag === "None" && command.length === 0) {
       if (header.length > 0 || env.length > 0)
         return yield* fail("--env and --header declare inputs of a manual server.");
       return yield* addFromRegistry(
-        name,
+        given._tag === "Some" ? given.value : undefined,
         registry._tag === "Some" ? registry.value : undefined,
         entryName._tag === "Some" ? entryName.value : undefined,
+        yield* makePrompter(yes),
       );
     }
+    if (given._tag === "None")
+      return yield* fail("A manual server needs a name: mcp add <name> ...");
+    const name = given.value;
     if (registry._tag === "Some" || entryName._tag === "Some")
       return yield* fail("--registry and --name apply to servers added from a Registry.");
     if (!MCP_NAME_PATTERN.test(name)) return yield* invalidName(name);
