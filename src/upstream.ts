@@ -1,6 +1,6 @@
 import { Context, Effect } from "effect";
 import { CliMessageError as UpstreamError } from "./errors.ts";
-import type { Entry } from "./skillset-file.ts";
+import type { SkillEntry } from "./skillset-file.ts";
 
 export { UpstreamError };
 
@@ -41,7 +41,7 @@ export type UpstreamSession = {
     UpstreamError
   >;
   readonly install: (
-    entries: ReadonlyArray<Entry>,
+    skillEntries: ReadonlyArray<SkillEntry>,
     choices: InstallChoices,
   ) => Effect.Effect<InstallOutcome, UpstreamError>;
 };

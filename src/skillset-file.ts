@@ -8,7 +8,7 @@ export const SCHEMA_URL =
   "https://raw.githubusercontent.com/itsmeyaw/skillset/main/schemas/skillset/v1.json";
 
 // ECMA-48 §4.1: control characters can introduce terminal control functions.
-const entryText = Schema.String.check(
+const skillEntryText = Schema.String.check(
   Schema.isNonEmpty(),
   Schema.isPattern(/^\P{Cc}+$/u, {
     // JSON Schema 2020-12 §6.4: use portable ranges for Unicode control characters.
@@ -16,9 +16,9 @@ const entryText = Schema.String.check(
   }),
 );
 
-export const Entry = Schema.Struct({
-  name: entryText,
-  source: entryText,
+export const SkillEntry = Schema.Struct({
+  name: skillEntryText,
+  source: skillEntryText,
   commit: Schema.String.check(
     Schema.isPattern(PIN_PATTERN, {
       message: "Expected a full 40-character lowercase commit SHA",
@@ -29,13 +29,13 @@ export const Entry = Schema.Struct({
 // Spec #1, Skillset file format: names are unique and Pins are full lowercase SHAs.
 export const Skillset = Schema.Struct({
   $schema: Schema.Literal(SCHEMA_URL),
-  skills: Schema.Array(Entry).check(
-    Schema.makeFilter((entries) => {
+  skills: Schema.Array(SkillEntry).check(
+    Schema.makeFilter((skillEntries) => {
       const names = new Set<string>();
-      for (const [index, entry] of entries.entries()) {
-        if (names.has(entry.name))
-          return { path: [index, "name"], issue: `Duplicate skill name "${entry.name}"` };
-        names.add(entry.name);
+      for (const [index, skillEntry] of skillEntries.entries()) {
+        if (names.has(skillEntry.name))
+          return { path: [index, "name"], issue: `Duplicate skill name "${skillEntry.name}"` };
+        names.add(skillEntry.name);
       }
       return undefined;
     }),
@@ -46,7 +46,7 @@ export const Skillset = Schema.Struct({
 });
 
 export type Skillset = typeof Skillset.Type;
-export type Entry = typeof Entry.Type;
+export type SkillEntry = typeof SkillEntry.Type;
 
 // Spec #1, Schema module: publish the same definition used to validate Skillset files.
 export const skillsetJsonSchema = (): string => {
@@ -71,19 +71,22 @@ export const cannotReadSkillset = (path: string) => (error: { readonly message: 
   new SkillsetFileError({ message: `Cannot read Skillset file ${path}: ${error.message}` });
 
 // Spec #1, Skillset file module: reject invalid content and unknown versions before acting.
+export const parseSkillset = (text: string, label: string) =>
+  Schema.decodeEffect(Schema.fromJsonString(Skillset))(text, {
+    onExcessProperty: "error",
+  }).pipe(Effect.mapError(invalidSkillset(label)));
+
 export const readSkillset = Effect.fn("readSkillset")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
   const text = yield* fs.readFileString(path).pipe(Effect.mapError(cannotReadSkillset(path)));
-  return yield* Schema.decodeEffect(Schema.fromJsonString(Skillset))(text, {
-    onExcessProperty: "error",
-  }).pipe(Effect.mapError(invalidSkillset(path)));
+  return yield* parseSkillset(text, path);
 });
 
 // Spec #1, Skillset file format: canonical order is independent of input order.
-export const sortedEntries = (entries: ReadonlyArray<Entry>): Array<Entry> =>
-  [...entries].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+export const sortedSkillEntries = (skillEntries: ReadonlyArray<SkillEntry>): Array<SkillEntry> =>
+  [...skillEntries].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
-// Spec #1, Skillset file format: write sorted Entries with two-space indentation and a newline.
+// Spec #1, Skillset file format: write sorted Skill Entries with two-space indentation and a newline.
 export const writeSkillset = Effect.fn("writeSkillset")(function* (
   path: string,
   skillset: Skillset,
@@ -92,7 +95,7 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
   const validated = yield* Schema.decodeEffect(Skillset)(skillset, {
     onExcessProperty: "error",
   }).pipe(Effect.mapError(invalidSkillset(path)));
-  const saved = { $schema: validated.$schema, skills: sortedEntries(validated.skills) };
+  const saved = { $schema: validated.$schema, skills: sortedSkillEntries(validated.skills) };
   const content = JSON.stringify(saved, null, 2) + "\n";
   yield* Effect.gen(function* () {
     const tmp = `${path}.tmp`;

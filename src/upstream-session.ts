@@ -42,21 +42,21 @@ export const withUpstreamSession = <Handle extends Source, A, E, R>(
               source.skills.map(({ name, description }) => ({ name, description })),
             ),
           ),
-        install: Effect.fn("Upstream.install")(function* (entries, choices) {
+        install: Effect.fn("Upstream.install")(function* (skillEntries, choices) {
           const groups = new Map<
             string,
             { remote: string; commit: string; names: Array<string> }
           >();
-          for (const entry of entries) {
-            const parsed = parseSource(entry.source);
+          for (const skillEntry of skillEntries) {
+            const parsed = parseSource(skillEntry.source);
             if ("error" in parsed) return yield* new UpstreamError({ message: parsed.error });
-            const key = JSON.stringify([entry.source, entry.commit]);
+            const key = JSON.stringify([skillEntry.source, skillEntry.commit]);
             const group = groups.get(key) ?? {
               remote: parsed.remote,
-              commit: entry.commit,
+              commit: skillEntry.commit,
               names: [],
             };
-            group.names.push(entry.name);
+            group.names.push(skillEntry.name);
             groups.set(key, group);
           }
           const checked: Array<{ source: Handle; names: Array<string> }> = [];

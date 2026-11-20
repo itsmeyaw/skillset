@@ -6,7 +6,9 @@ import { Expansion } from "./argv.ts";
 export const root = Command.make("skillset").pipe(
   Command.withSharedFlags({
     set: Flag.String("set").pipe(
-      Flag.withDescription("Skillset file path ending in .json, or a User Skillset name"),
+      Flag.withDescription(
+        "Skillset .json path, User Skillset name, or HTTPS URL (install and ls only)",
+      ),
       Flag.annotate(Expansion, { blocksReserved: true }),
       Flag.optional,
     ),

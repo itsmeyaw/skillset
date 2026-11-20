@@ -18,7 +18,7 @@ it.effect("remove -y keeps non-interactive usage behavior on a TTY", () =>
   }),
 );
 
-it.effect("interactive remove selects Entries without touching others", () =>
+it.effect("interactive remove selects Skill Entries without touching others", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -61,7 +61,7 @@ it.effect("cancelling interactive remove preserves the Skillset", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("remove deletes named Entries and writes the remainder canonically", () =>
+it.effect("remove deletes named Skill Entries and writes the remainder canonically", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();

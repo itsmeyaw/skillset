@@ -9,7 +9,7 @@ const executeInstall = Effect.fn("executeInstall")(function* (
   plan: InstallPlan,
   session: UpstreamSession,
 ) {
-  const result = yield* session.install(plan.entries, {
+  const result = yield* session.install(plan.skillEntries, {
     agents: plan.agents,
     scope: plan.scope,
     mode: plan.mode,
@@ -17,9 +17,9 @@ const executeInstall = Effect.fn("executeInstall")(function* (
   const installed = new Set(result.installed.map((target) => target.skill));
   for (const target of result.skipped)
     yield* Console.log(`Skipped ${target.skill} for ${target.agent}: ${target.reason}`);
-  const names = plan.entries
-    .filter((entry) => installed.has(entry.name))
-    .map((entry) => entry.name);
+  const names = plan.skillEntries
+    .filter((skillEntry) => installed.has(skillEntry.name))
+    .map((skillEntry) => skillEntry.name);
   if (names.length > 0) yield* Console.log(`Installed ${names.join(", ")}`);
   // Spec #1, User Story 41: stop on the first failed write without rollback.
   if (result.failed.length > 0)

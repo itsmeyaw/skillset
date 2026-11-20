@@ -200,6 +200,7 @@ export const runCli = Effect.fn("runCli")(function* (
     readonly tty?: boolean;
     readonly upstream?: Parameters<typeof fakeUpstream>[0];
     readonly env?: Readonly<Record<string, string | undefined>>;
+    readonly fetch?: typeof fetch;
   } = {},
 ) {
   const screen: Array<string> = [];
@@ -218,7 +219,9 @@ export const runCli = Effect.fn("runCli")(function* (
     ),
     fakeUpstream(options.upstream),
   );
-  const exit = yield* runArgv(argv, options.env ?? { SKILLSET_HOME: home }).pipe(
+  const fetchRemote: typeof fetch =
+    options.fetch ?? (() => Promise.reject(new Error("Unexpected fetch")));
+  const exit = yield* runArgv(argv, options.env ?? { SKILLSET_HOME: home }, fetchRemote).pipe(
     Effect.provide(services),
     Effect.exit,
   );

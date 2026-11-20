@@ -44,6 +44,7 @@ const scripted = (
     scope: () => Effect.sync(() => (asked.push("scope"), "global" as const)),
     mode: () => Effect.sync(() => (asked.push("mode"), "symlink" as const)),
     confirmPlan: () => Effect.sync(() => (asked.push("confirm"), answers.proceed ?? true)),
+    confirmRemote: () => Effect.die("unexpected remote question"),
     source: () => Effect.die("unexpected source question"),
     ensureRemoveInput: () => Effect.die("unexpected remove question"),
     anotherSource: () => Effect.die("unexpected add question"),
@@ -76,6 +77,7 @@ it.effect("explicit install flags skip their questions", () =>
       scope: () => Effect.die("unexpected scope question"),
       mode: () => Effect.die("unexpected mode question"),
       confirmPlan: () => Effect.sync(() => (asked.push("confirm"), true)),
+      confirmRemote: () => Effect.die("unexpected remote question"),
       source: () => Effect.die("unexpected source question"),
       ensureRemoveInput: () => Effect.die("unexpected remove question"),
       anotherSource: () => Effect.die("unexpected add question"),
@@ -88,7 +90,7 @@ it.effect("explicit install flags skip their questions", () =>
       prompter,
     ).pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, terminal)));
     assert.deepStrictEqual(plan, {
-      entries: [beta],
+      skillEntries: [beta],
       agents: ["cursor"],
       scope: "global",
       mode: "copy",
@@ -97,7 +99,7 @@ it.effect("explicit install flags skip their questions", () =>
   }).pipe(Effect.provide(fakeUpstream())),
 );
 
-it.effect("plan uses scripted answers and offers all Entries selected", () =>
+it.effect("plan uses scripted answers and offers all Skill Entries selected", () =>
   Effect.gen(function* () {
     const script = scripted({ skills: ["beta"], agents: ["cursor"] });
     const plan = yield* runPlan(skillset, options, script.prompter, {
@@ -112,7 +114,7 @@ it.effect("plan uses scripted answers and offers all Entries selected", () =>
       ],
     });
     assert.deepStrictEqual(plan, {
-      entries: [beta],
+      skillEntries: [beta],
       agents: ["cursor"],
       scope: "global",
       mode: "symlink",
@@ -221,7 +223,7 @@ it.effect("unattended plans leave agents undefined when no defaults exist", () =
       ],
     });
     assert.deepStrictEqual(plan, {
-      entries: [alpha, beta],
+      skillEntries: [alpha, beta],
       agents: undefined,
       scope: "project",
       mode: "auto",

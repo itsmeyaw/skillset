@@ -108,7 +108,7 @@ Re-run `skillset install my-set` in a project to pick up the changes.
 | `list`, `ls`               | Show Entries, or User Skillset names with `--user`.                    |
 | `install [set]`, `i`       | Install the Skillset at its Pins.                                      |
 
-Every command accepts `--set <value>` (default `./skillset.json`) and `--help`. `add` creates the Skillset file if it is missing. `install [set]` takes the same name or `.json` path as `--set`, but you can't use both at once.
+Every command accepts `--set <value>` (default `./skillset.json`) and `--help`. `add` creates the Skillset file if it is missing. `install [set]` takes a name, `.json` path, or HTTPS URL, but you can't combine it with `--set`.
 
 | Flag                 | Used by          | Description                                                             |
 | -------------------- | ---------------- | ----------------------------------------------------------------------- |
@@ -150,6 +150,17 @@ They are stored in the first of `$SKILLSET_HOME`, `$XDG_CONFIG_HOME/skillset`, o
 
 > [!IMPORTANT]
 > Put the Skillset name before `-s`, as in `skillset install my-set -s grilling`. Otherwise it is read as another skill name. Likewise, put it before `-a` if the name matches a supported agent ID.
+
+### Remote Skillsets
+
+Install a published Skillset directly from an HTTPS URL:
+
+```sh
+skillset install https://example.com/team.json
+skillset install --set https://github.com/owner/repo/blob/main/skillset.json -y
+```
+
+GitHub blob links are converted to raw URLs. Remote Skillsets are fetched on every install, never saved, and can be listed with `ls --set <url>` but cannot be edited. Interactive installs show the Entries and ask for confirmation. Use `-y` for unattended installs. Only HTTPS URLs are supported, with no authentication; downloads are limited to 1 MB and 10 seconds.
 
 ## Skillset file format
 

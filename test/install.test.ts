@@ -383,57 +383,62 @@ it.effect("explicit Universal agent IDs stay unchanged", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("install -y installs only selected Entries at their Pins with requested options", () =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const dir = yield* fs.makeTempDirectoryScoped();
-    const file = `${dir}/skillset.json`;
-    yield* fs.writeFileString(
-      file,
-      JSON.stringify({
-        $schema: SCHEMA_URL,
-        skills: [
-          { name: "alpha", source: "owner/repo#branch", commit },
-          { name: "beta", source: "other/repo", commit: "b".repeat(40) },
-        ],
-      }),
-    );
-    const result = yield* runCli(
-      [
-        "install",
-        "-y",
-        "-s",
-        "alpha",
-        "-a",
-        "claude-code",
-        "cursor",
-        "-g",
-        "--copy",
-        "--set",
+it.effect(
+  "install -y installs only selected Skill Entries at their Pins with requested options",
+  () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const file = `${dir}/skillset.json`;
+      yield* fs.writeFileString(
         file,
-      ],
-      {
-        upstream: {
-          supportedAgents: [claude, cursor],
-          skills: {
-            [JSON.stringify(["https://github.com/owner/repo.git", commit])]: ["alpha", "unlisted"],
+        JSON.stringify({
+          $schema: SCHEMA_URL,
+          skills: [
+            { name: "alpha", source: "owner/repo#branch", commit },
+            { name: "beta", source: "other/repo", commit: "b".repeat(40) },
+          ],
+        }),
+      );
+      const result = yield* runCli(
+        [
+          "install",
+          "-y",
+          "-s",
+          "alpha",
+          "-a",
+          "claude-code",
+          "cursor",
+          "-g",
+          "--copy",
+          "--set",
+          file,
+        ],
+        {
+          upstream: {
+            supportedAgents: [claude, cursor],
+            skills: {
+              [JSON.stringify(["https://github.com/owner/repo.git", commit])]: [
+                "alpha",
+                "unlisted",
+              ],
+            },
+            installDir: dir,
           },
-          installDir: dir,
         },
-      },
-    );
-    assert.strictEqual(result.code, 0);
-    assert.include(result.out.join("\n"), "Installed alpha");
-    assert.strictEqual(
-      yield* fs.readFileString(`${dir}/global/claude-code/alpha`),
-      `${commit}:copy`,
-    );
-    assert.strictEqual(yield* fs.readFileString(`${dir}/global/cursor/alpha`), `${commit}:copy`);
-    assert.isFalse(yield* fs.exists(`${dir}/global/claude-code/unlisted`));
-  }).pipe(Effect.provide(NodeFileSystem.layer)),
+      );
+      assert.strictEqual(result.code, 0);
+      assert.include(result.out.join("\n"), "Installed alpha");
+      assert.strictEqual(
+        yield* fs.readFileString(`${dir}/global/claude-code/alpha`),
+        `${commit}:copy`,
+      );
+      assert.strictEqual(yield* fs.readFileString(`${dir}/global/cursor/alpha`), `${commit}:copy`);
+      assert.isFalse(yield* fs.exists(`${dir}/global/claude-code/unlisted`));
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("install -y rejects an Entry missing at its Pin before writing", () =>
+it.effect("install -y rejects a Skill Entry missing at its Pin before writing", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -511,7 +516,7 @@ it.effect("install omits the Installed line when every target is skipped", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("install reports completed Entries when a later target fails", () =>
+it.effect("install reports completed Skill Entries when a later target fails", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();

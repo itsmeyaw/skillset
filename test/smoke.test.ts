@@ -75,7 +75,7 @@ describe.skipIf(process.env.SKILLSET_SMOKE !== "1" || Boolean(process.env.CI))(
       }
     }, 120_000);
 
-    it("install -y installs a tree-URL Entry at its Pin and writes the skills lock", async () => {
+    it("install -y installs a tree-URL Skill Entry at its Pin and writes the skills lock", async () => {
       const cwd = await mkdtemp(join(tmpdir(), "skillset-cli-smoke-"));
       try {
         const file = join(cwd, "skillset.json");

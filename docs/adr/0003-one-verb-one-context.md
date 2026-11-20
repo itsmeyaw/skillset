@@ -1,6 +1,8 @@
 # One verb, one context: `install` installs a Skillset, `add` edits one
 
-`install` used to take either a User Skillset name or a Source. Given a Source, it added Entries and then installed, as Vercel's `skills install <source>` and `npm install <pkg>` do. Now `install` only installs a Skillset (a bare name, a `.json` path, or `./skillset.json`), and `add` only edits one. `add --install` runs `add` and then a full `install` of the whole Skillset, with the same prompts as typing `skillset install`, and passes `-a`, `-g` and `--copy` through. We chose this because one argument slot with two meanings made the core idea, a curated Skillset that you install anywhere, harder to see. Go and Nix split these verbs for the same reason ([research](../research/cli-collection-vs-item-ux.md#p2-hard-verb-split-installsync-applies-add-mutates)).
+Amended by [ADR 0005](0005-noun-verb-commands.md): Entry-editing verbs now take a noun (`skill add`, `mcp add`).
+
+`install` used to take either a User Skillset name or a Source. Given a Source, it added Entries and then installed, as Vercel's `skills install <source>` and `npm install <pkg>` do. Now `install` only installs a Skillset (a bare name, a `.json` path, an `https://` URL per [ADR 0004](0004-remote-skillsets-are-read-only.md), or `./skillset.json`), and `add` only edits one. `add --install` runs `add` and then a full `install` of the whole Skillset, with the same prompts as typing `skillset install`, and passes `-a`, `-g` and `--copy` through. We chose this because one argument slot with two meanings made the core idea, a curated Skillset that you install anywhere, harder to see. Go and Nix split these verbs for the same reason ([research](../research/cli-collection-vs-item-ux.md#p2-hard-verb-split-installsync-applies-add-mutates)).
 
 ## Considered Options
 
