@@ -1,7 +1,7 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, Exit, FileSystem } from "effect";
-import { readSkillset, SCHEMA_URL, writeSkillset } from "../src/skillset-file.ts";
+import { parseSkillset, readSkillset, SCHEMA_URL, writeSkillset } from "../src/skillset-file.ts";
 
 for (const field of ["name", "source"] as const) {
   for (const [description, value] of [
@@ -153,4 +153,15 @@ it.effect("failed Skillset rename preserves the original file", () =>
     assert.include(JSON.stringify(result), `Cannot write Skillset file ${path}:`);
     assert.strictEqual(yield* fs.readFileString(path), original);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("parseSkillset rejects a duplicate Skill Entry name", () =>
+  Effect.gen(function* () {
+    const entry = { name: "skill", source: "owner/repo", commit: "a".repeat(40) };
+    const error = yield* parseSkillset(
+      JSON.stringify({ $schema: SCHEMA_URL, skills: [entry, entry] }),
+      "skillset.json",
+    ).pipe(Effect.flip);
+    assert.match(error.message, /Duplicate skill name "skill"/);
+  }),
 );

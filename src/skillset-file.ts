@@ -19,33 +19,22 @@ export const SkillEntry = Schema.Struct({
   ),
 });
 
+const uniqueNames = (kind: "skill" | "MCP") =>
+  Schema.makeFilter((entries: ReadonlyArray<{ readonly name: string }>) => {
+    const names = new Set<string>();
+    for (const [index, entry] of entries.entries()) {
+      if (names.has(entry.name))
+        return { path: [index, "name"], issue: `Duplicate ${kind} name "${entry.name}"` };
+      names.add(entry.name);
+    }
+    return undefined;
+  });
+
 // Spec #1, Skillset file format: names are unique and Pins are full lowercase SHAs.
 export const Skillset = Schema.Struct({
   $schema: Schema.Literal(SCHEMA_URL),
-  skills: Schema.Array(SkillEntry).check(
-    Schema.makeFilter((skillEntries) => {
-      const names = new Set<string>();
-      for (const [index, skillEntry] of skillEntries.entries()) {
-        if (names.has(skillEntry.name))
-          return { path: [index, "name"], issue: `Duplicate skill name "${skillEntry.name}"` };
-        names.add(skillEntry.name);
-      }
-      return undefined;
-    }),
-  ),
-  mcp: Schema.optionalKey(
-    Schema.Array(McpEntry).check(
-      Schema.makeFilter((mcpEntries) => {
-        const names = new Set<string>();
-        for (const [index, mcpEntry] of mcpEntries.entries()) {
-          if (names.has(mcpEntry.name))
-            return { path: [index, "name"], issue: `Duplicate MCP name "${mcpEntry.name}"` };
-          names.add(mcpEntry.name);
-        }
-        return undefined;
-      }),
-    ),
-  ),
+  skills: Schema.Array(SkillEntry).check(uniqueNames("skill")),
+  mcp: Schema.optionalKey(Schema.Array(McpEntry).check(uniqueNames("MCP"))),
 }).annotate({
   title: "Skillset",
   description: "A curated list of agent skills pinned to commits.",
