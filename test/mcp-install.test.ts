@@ -150,6 +150,30 @@ it.effect("--agent universal with no detected Universal agent fails and prints n
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("--agent with no MCP writer fails and prints no env vars", () =>
+  Effect.gen(function* () {
+    const { run } = yield* setup;
+    const result = yield* run(["-y", "-m", "docs", "-a", "goose"]);
+    assert.strictEqual(result.code, 1);
+    assert.include(
+      result.err.join("\n"),
+      "MCP Entries not installed: no chosen Agent can receive them",
+    );
+    assert.notInclude(result.out.join("\n"), "Set these environment variables");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("a failed config write prints no env vars", () =>
+  Effect.gen(function* () {
+    const { fs, cwd, run } = yield* setup;
+    yield* fs.makeDirectory(cwd, { recursive: true });
+    yield* fs.writeFileString(`${cwd}/.mcp.json`, '{ "mcpServers": { ');
+    const result = yield* run(["-y", "-m", "docs"]);
+    assert.strictEqual(result.code, 1);
+    assert.notInclude(result.out.join("\n"), "Set these environment variables");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("install -y -g writes the global config and keeps unrelated settings", () =>
   Effect.gen(function* () {
     const { fs, home, run, read } = yield* setup;
