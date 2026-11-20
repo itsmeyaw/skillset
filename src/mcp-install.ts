@@ -1,9 +1,10 @@
 import { Console, Effect } from "effect";
-import { AgentPaths, type McpOutcome } from "./agents/agent.ts";
+import { type Agent, AgentPaths, type McpOutcome } from "./agents/agent.ts";
 import { findMcpAgent } from "./agents/registry.ts";
 import type { InstallPlan } from "./install-types.ts";
 import { envVarsOf, resolveMcp } from "./mcp-inputs.ts";
 import type { Prompter } from "./prompts/prompter.ts";
+import { SkillsetEnvironment } from "./skillset-store.ts";
 
 // Spec #37, User Story 57: MCP servers go to the same Agents as skills; Universal is not an Agent,
 // so a chosen Universal stands for the detected Universal Agents that can receive MCP Entries.
@@ -24,22 +25,39 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
   if (plan.mcpEntries.length === 0) return [];
   const paths = yield* AgentPaths;
   const servers = plan.mcpEntries.map((entry) => resolveMcp(entry, plan.mcpAnswers[entry.name]));
+  const env = yield* SkillsetEnvironment;
   const failures: Array<string> = [];
+  // Agents that read one file (Claude Code and Copilot share .mcp.json) are written once, with identical entries.
+  const groups: Array<{
+    readonly ids: Array<string>;
+    readonly agents: Array<Agent>;
+    readonly file?: string;
+  }> = [];
   for (const id of mcpAgentIds(plan)) {
     const agent = findMcpAgent(id);
     if (agent === undefined) {
       yield* Console.log(`MCP Entries not installed for ${id}: not supported`);
       continue;
     }
-    const result = yield* agent
+    const file = agent.file?.(plan.scope, { paths, env });
+    const shared = file === undefined ? undefined : groups.find((group) => group.file === file);
+    if (shared) {
+      shared.ids.push(id);
+      shared.agents.push(agent);
+    } else groups.push({ ids: [id], agents: [agent], ...(file === undefined ? {} : { file }) });
+  }
+  for (const { ids, agents } of groups) {
+    const label = ids.join(", ");
+    const result = yield* agents[0]!
       .installMcp(servers, {
         scope: plan.scope,
         paths,
+        env,
         confirmOverwrite: prompter.confirmOverwrite,
       })
       .pipe(Effect.result);
     if (result._tag === "Failure") {
-      failures.push(`MCP Entries not installed for ${id}: ${result.failure.message}`);
+      failures.push(`MCP Entries not installed for ${label}: ${result.failure.message}`);
       continue;
     }
     const outcomes = (status: McpOutcome["status"]) =>
@@ -50,16 +68,18 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
         `Warning: kept the existing MCP server ${kept.name} in ${kept.file}; it differs from the Skillset's entry.`,
       );
       failures.push(
-        `MCP server ${kept.name} not installed for ${id}: a different one exists in ${kept.file}`,
+        `MCP server ${kept.name} not installed for ${label}: a different one exists in ${kept.file}`,
       );
     }
     const written = outcomes("written");
     if (written.length === 0) continue;
     yield* Console.log(
-      `Installed MCP servers ${written.map((outcome) => outcome.name).join(", ")} for ${id} in ${written[0]!.file}`,
+      `Installed MCP servers ${written.map((outcome) => outcome.name).join(", ")} for ${label} in ${written[0]!.file}`,
     );
-    const warning = agent.warning?.(plan.scope);
-    if (warning !== undefined) yield* Console.error(`Warning: ${warning}`);
+    for (const agent of agents) {
+      const warning = agent.warning?.(plan.scope);
+      if (warning !== undefined) yield* Console.error(`Warning: ${warning}`);
+    }
   }
   const lines = servers.flatMap((server) => {
     const names = envVarsOf(server);

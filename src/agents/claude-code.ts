@@ -25,12 +25,16 @@ export const claudeEntry = (resolved: ResolvedMcp) => {
 };
 
 // Claude Code docs, "MCP installation scopes": project scope is .mcp.json, user scope is ~/.claude.json.
+const claudeFile: NonNullable<Agent["file"]> = (scope, { paths }) =>
+  scope === "project" ? join(paths.cwd, ".mcp.json") : join(paths.home, ".claude.json");
+
 export const claudeCode: Agent = {
   id: "claude-code",
   name: "Claude Code",
-  installMcp: (servers, { scope, paths, confirmOverwrite }) =>
+  file: claudeFile,
+  installMcp: (servers, { scope, paths, env, confirmOverwrite }) =>
     installJsonMcp(
-      scope === "project" ? join(paths.cwd, ".mcp.json") : join(paths.home, ".claude.json"),
+      claudeFile(scope, { paths, env }),
       ["mcpServers"],
       servers.map((server) => ({ name: server.entry.name, value: claudeEntry(server) })),
       confirmOverwrite,
