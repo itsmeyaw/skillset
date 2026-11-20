@@ -4,7 +4,7 @@ import type { McpConflict } from "../agents/agent.ts";
 import { CliMessageError } from "../errors.ts";
 import type { InstallPlan } from "../install-types.ts";
 import { describeMcpLaunch, type McpEntry } from "../mcp-entry.ts";
-import type { SkillEntry } from "../skillset-file.ts";
+import type { Skillset } from "../skillset-file.ts";
 import { cancelOnQuit } from "./cancel.ts";
 import { searchMultiSelect, type SearchChoice } from "./search.ts";
 
@@ -38,16 +38,34 @@ export type Prompter = {
   readonly scope: () => Answer<"project" | "global">;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
   readonly confirmPlan: (plan: InstallPlan) => Answer<boolean>;
-  readonly confirmRemote: (skillEntries: ReadonlyArray<SkillEntry>) => Answer<boolean>;
+  readonly confirmRemote: (skillset: Skillset) => Answer<boolean>;
   readonly source: () => Answer<string>;
   readonly ensureRemoveInput: () => Answer<void>;
   readonly anotherSource: (failure?: CliMessageError) => Answer<boolean>;
   readonly confirmInstall: () => Answer<boolean>;
 };
 
-const listRemoteSkillEntries = (skillEntries: ReadonlyArray<SkillEntry>) =>
+// ADR 0004: the launch command runs on the user's machine, so show all of it; inputs by name only.
+const describeRemoteMcpEntry = (mcpEntry: McpEntry) =>
+  [
+    `  ${mcpEntry.name}  ${describeMcpLaunch(mcpEntry)}`,
+    ...(mcpEntry.inputs?.length
+      ? [`    inputs: ${mcpEntry.inputs.map((input) => input.name).join(", ")}`]
+      : []),
+  ].join("\n");
+
+const listRemoteEntries = ({ skills, mcp = [] }: Skillset) =>
   Console.log(
-    `Remote Skillset Skill Entries:\n${skillEntries.map((skillEntry) => `  ${skillEntry.name}  ${skillEntry.source}  ${skillEntry.commit.slice(0, 7)}`).join("\n")}`,
+    [
+      ...(skills.length > 0 || mcp.length === 0
+        ? [
+            `Remote Skillset Skill Entries:\n${skills.map((skillEntry) => `  ${skillEntry.name}  ${skillEntry.source}  ${skillEntry.commit.slice(0, 7)}`).join("\n")}`,
+          ]
+        : []),
+      ...(mcp.length > 0
+        ? [`Remote Skillset MCP Entries:\n${mcp.map(describeRemoteMcpEntry).join("\n")}`]
+        : []),
+    ].join("\n"),
   );
 
 const unattended: Prompter = {
@@ -60,9 +78,9 @@ const unattended: Prompter = {
   scope: () => Effect.succeed("project"),
   mode: () => Effect.succeed("auto"),
   confirmPlan: () => Effect.succeed(true),
-  confirmRemote: (skillEntries) =>
+  confirmRemote: (skillset) =>
     Effect.andThen(
-      listRemoteSkillEntries(skillEntries),
+      listRemoteEntries(skillset),
       Effect.fail(
         new CliMessageError({
           message: "Remote Skillsets require confirmation; use -y for unattended installs.",
@@ -157,9 +175,9 @@ const tty: Prompter = {
         Prompt.Confirm({ message: "Proceed with installation?", initial: true }),
       );
     }),
-  confirmRemote: (skillEntries) =>
+  confirmRemote: (skillset) =>
     Effect.gen(function* () {
-      yield* listRemoteSkillEntries(skillEntries);
+      yield* listRemoteEntries(skillset);
       return yield* cancelOnQuit(
         Prompt.Confirm({ message: "Install this Remote Skillset?", initial: false }),
       );

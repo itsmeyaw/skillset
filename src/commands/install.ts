@@ -35,8 +35,7 @@ export const install = Command.make(
     });
     const upstream = yield* Upstream;
     const prompter = yield* makePrompter(options.yes);
-    if (store.remote && !options.yes && !(yield* prompter.confirmRemote(store.skillset.skills)))
-      return;
+    if (store.remote && !options.yes && !(yield* prompter.confirmRemote(store.skillset))) return;
     return yield* upstream.withSession((session) =>
       installSkillset(store.skillset, options, session, prompter),
     );

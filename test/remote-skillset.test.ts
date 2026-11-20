@@ -231,6 +231,72 @@ it.effect("unattended Remote Skillset installation requires -y", () =>
   }),
 );
 
+const withMcp = {
+  ...skillset,
+  mcp: [
+    {
+      name: "github",
+      launch: {
+        type: "package",
+        registryType: "npm",
+        identifier: "@scope/server-github",
+        version: "1.2.3",
+        packageArguments: ["--token", "{token}"],
+        transport: "stdio",
+      },
+      inputs: [{ name: "token", kind: "variable", secret: true }],
+    },
+    {
+      name: "docs",
+      launch: { type: "command", command: "node", args: ["server.js", "--flag"] },
+      inputs: [{ name: "LOG_LEVEL", kind: "env", default: "info" }],
+    },
+    {
+      name: "hosted",
+      launch: {
+        type: "remote",
+        transport: "streamable-http",
+        url: "https://mcp.example.com/mcp",
+        headers: [{ name: "Authorization", value: "Bearer {key}" }],
+      },
+      inputs: [{ name: "key", kind: "variable", required: true }],
+    },
+  ],
+};
+
+it.effect("confirmation lists each MCP Entry's launch command or URL with input names only", () =>
+  Effect.gen(function* () {
+    const calls: Array<string> = [];
+    const result = yield* runCli(["install", url], {
+      tty: true,
+      keys: [key("n", "n")],
+      fetch: fetchResponse(() => new Response(JSON.stringify(withMcp))),
+      upstream: { calls },
+    });
+    assert.strictEqual(result.code, 0);
+    const out = result.out.join("\n");
+    assert.include(out, "alpha  owner/repo  aaaaaaa");
+    assert.include(out, "github  npx @scope/server-github@1.2.3 --token {token}");
+    assert.include(out, "docs  node server.js --flag");
+    assert.include(out, "hosted  https://mcp.example.com/mcp");
+    assert.include(out, "inputs: token");
+    assert.include(out, "inputs: LOG_LEVEL");
+    assert.notInclude(out, "info");
+    assert.deepStrictEqual(calls, []);
+  }),
+);
+
+it.effect("unattended Remote Skillset with MCP Entries lists them and requires -y", () =>
+  Effect.gen(function* () {
+    const result = yield* runCli(["install", url], {
+      fetch: fetchResponse(() => new Response(JSON.stringify(withMcp))),
+    });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), "use -y");
+    assert.include(result.out.join("\n"), "hosted  https://mcp.example.com/mcp");
+  }),
+);
+
 it.effect.each([
   ["skill", "add", "owner/repo", "--set", url, "--install", "-y"],
   ["skill", "rm", "alpha", "--set", url, "-y"],
