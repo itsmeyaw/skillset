@@ -3,12 +3,14 @@ import { Effect, FileSystem } from "effect";
 
 // Issue #12: create missing parent directories so a first write to a new directory works.
 export const writeFileAtomic = Effect.fn("writeFileAtomic")(function* (
-  path: string,
+  linkPath: string,
   content: string,
 ) {
   const fs = yield* FileSystem.FileSystem;
+  yield* fs.makeDirectory(dirname(linkPath), { recursive: true });
+  // POSIX rename(2) replaces a symlink itself, so write through to its target.
+  const path = (yield* fs.exists(linkPath)) ? yield* fs.realPath(linkPath) : linkPath;
   const tmp = `${path}.tmp`;
-  yield* fs.makeDirectory(dirname(path), { recursive: true });
   // POSIX chmod(2): retain existing access permissions when replacing the file.
   const mode = (yield* fs.exists(path)) ? (yield* fs.stat(path)).mode & 0o7777 : undefined;
   // POSIX open(2): O_EXCL prevents following or sharing an existing temporary file.

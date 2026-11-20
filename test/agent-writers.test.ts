@@ -135,6 +135,23 @@ for (const agent of agents)
       }).pipe(Effect.provide(NodeFileSystem.layer)),
     );
 
+it.effect("a symlinked Agent config is updated through the link", () =>
+  Effect.gen(function* () {
+    const { fs, cwd, run } = yield* setup;
+    const real = `${cwd}/real.json`;
+    const file = `${cwd}/.cursor/mcp.json`;
+    yield* fs.makeDirectory(`${cwd}/.cursor`, { recursive: true });
+    yield* fs.writeFileString(real, "{}\n");
+    yield* fs.symlink(real, file);
+    const result = yield* run(["-y", "-a", "cursor"]);
+    assert.strictEqual(result.code, 0);
+    assert.strictEqual(yield* fs.readLink(file), real);
+    assert.deepStrictEqual(parse(yield* fs.readFileString(real)).mcpServers, {
+      ...expectedServers(agents[0]!.toEntry),
+    });
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("a detected Agent receives MCP servers by default", () =>
   Effect.gen(function* () {
     const { fs, cwd, run } = yield* setup;
