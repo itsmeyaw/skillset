@@ -8,6 +8,8 @@ export type InstallPlan = {
   readonly mcpEntries: ReadonlyArray<McpEntry>;
   readonly mcpAnswers: McpAnswers;
   readonly agents: ReadonlyArray<string> | undefined;
+  // Detected Agents that the Universal choice stands for; MCP Entries go to them too.
+  readonly detectedUniversalAgents?: ReadonlyArray<string>;
   readonly scope: InstallChoices["scope"];
   readonly mode: InstallChoices["mode"];
 };
