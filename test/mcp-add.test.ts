@@ -156,7 +156,6 @@ it.effect.each([
   { args: ["--header", "X-Key=abc", "--url", "https://a.example/mcp"], message: "X-Key=abc" },
   { args: ["--url", "http://a.example/mcp"], message: "HTTPS" },
   { args: ["--url", "https://a.example/mcp", "--", "cmd"], message: "not both" },
-  { args: [], message: "command after --" },
   { args: ["--header", "X-Key", "--", "cmd"], message: "--header requires --url" },
   { args: ["--env", "bad name", "--", "cmd"], message: "bad name" },
 ])("mcp add rejects $args", ({ args, message }) =>

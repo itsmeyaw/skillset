@@ -7,6 +7,8 @@ import {
   MCP_NAME_PATTERN,
   type McpEntry,
 } from "../mcp-entry.ts";
+import { launchChoices, defaultEntryName, snapshotRegistryEntry } from "../mcp-snapshot.ts";
+import { getServerVersion, refuseInactive, registryBase } from "../registry.ts";
 import { addMcpEntry, openCommandSkillset } from "../skillset-store.ts";
 
 const fail = (message: string) => Effect.fail(new CliMessageError({ message }));
@@ -23,6 +25,35 @@ const checkInputNames = (flag: string, names: ReadonlyArray<string>, pattern: Re
   return Effect.void;
 };
 
+const invalidName = (name: string) =>
+  fail(`Invalid MCP server name "${name}": use letters, digits, '.', '_' and '-'.`);
+
+// Spec #37, User Stories 1-4 and 16-18: add the snapshot of one Registry server version.
+const addFromRegistry = (
+  given: string,
+  registry: string | undefined,
+  entryName: string | undefined,
+) =>
+  Effect.gen(function* () {
+    const at = given.lastIndexOf("@");
+    const serverName = at > 0 ? given.slice(0, at) : given;
+    const version = at > 0 ? given.slice(at + 1) : "latest";
+    if (version === "") return yield* fail(`Missing version after "@" in "${given}".`);
+    const store = yield* openCommandSkillset({ missing: "create" });
+    const base = yield* registryBase(registry);
+    const server = yield* getServerVersion(base, serverName, version).pipe(
+      Effect.flatMap((found) => refuseInactive(base, found)),
+    );
+    const choice = launchChoices(server)[0];
+    if (choice === undefined)
+      return yield* fail(`${server.name} ${server.version} offers no package or remote.`);
+    const name = entryName ?? defaultEntryName(server.name);
+    if (!MCP_NAME_PATTERN.test(name)) return yield* invalidName(name);
+    const entry = yield* snapshotRegistryEntry({ registry: base, server, choice, name });
+    yield* store.save(yield* addMcpEntry(store.skillset, entry));
+    yield* Console.log(`Added ${name} to ${store.path}`);
+  });
+
 // Spec #37, User Stories 22-26: a manual server is a command or a URL plus declared input names.
 export const mcpAdd = Command.make(
   "add",
@@ -32,18 +63,26 @@ export const mcpAdd = Command.make(
     url: Flag.String("url").pipe(Flag.optional),
     header: Flag.String("header").pipe(Flag.atLeast(0)),
     env: Flag.String("env").pipe(Flag.atLeast(0)),
+    registry: Flag.String("registry").pipe(Flag.optional),
+    entryName: Flag.String("name").pipe(Flag.optional),
   },
-  Effect.fn(function* ({ name, command, url, header, env }) {
-    if (!MCP_NAME_PATTERN.test(name))
-      return yield* fail(
-        `Invalid MCP server name "${name}": use letters, digits, '.', '_' and '-'.`,
+  Effect.fn(function* ({ name, command, url, header, env, registry, entryName }) {
+    if (url._tag === "None" && command.length === 0) {
+      if (header.length > 0 || env.length > 0)
+        return yield* fail("--env and --header declare inputs of a manual server.");
+      return yield* addFromRegistry(
+        name,
+        registry._tag === "Some" ? registry.value : undefined,
+        entryName._tag === "Some" ? entryName.value : undefined,
       );
+    }
+    if (registry._tag === "Some" || entryName._tag === "Some")
+      return yield* fail("--registry and --name apply to servers added from a Registry.");
+    if (!MCP_NAME_PATTERN.test(name)) return yield* invalidName(name);
     yield* checkInputNames("env", env, ENV_NAME_PATTERN);
     yield* checkInputNames("header", header, HEADER_NAME_PATTERN);
     if (url._tag === "Some" && command.length > 0)
       return yield* fail("Use either a command after -- or --url, not both.");
-    if (url._tag === "None" && command.length === 0)
-      return yield* fail("Give a command after -- or --url <https-url>.");
     if (url._tag === "None" && header.length > 0) return yield* fail("--header requires --url.");
     if (url._tag === "Some" && !url.value.startsWith("https://"))
       return yield* fail("MCP server URLs must use HTTPS.");
@@ -75,4 +114,4 @@ export const mcpAdd = Command.make(
     yield* store.save(yield* addMcpEntry(store.skillset, entry));
     yield* Console.log(`Added ${name} to ${store.path}`);
   }),
-).pipe(Command.withDescription("Add an MCP server by hand"));
+).pipe(Command.withDescription("Add an MCP server from a Registry or by hand"));
