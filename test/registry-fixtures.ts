@@ -103,3 +103,46 @@ export const cannedFetch = (
 
 export const json = (body: unknown, init?: ResponseInit) =>
   new Response(JSON.stringify(body), init);
+
+// Copied from https://api.mcp.github.com/v0.1/servers/io.github.github%2Fgithub-mcp-server/versions/latest
+// (publisher metadata dropped): an OCI package with a secret {token} argument, and a remote.
+export const githubServer = {
+  name: "io.github.github/github-mcp-server",
+  title: "GitHub",
+  version: "2.2.0",
+  packages: [
+    {
+      registryType: "oci",
+      identifier: "ghcr.io/github/github-mcp-server:2.2.0",
+      transport: { type: "stdio" },
+      runtimeArguments: [
+        {
+          type: "named",
+          name: "-p",
+          value: "127.0.0.1:8085:8085",
+          description: "Publish the OAuth callback port to loopback",
+        },
+        { type: "named", name: "-e", value: "GITHUB_OAUTH_CALLBACK_PORT=8085" },
+        {
+          type: "named",
+          name: "-e",
+          value: "GITHUB_PERSONAL_ACCESS_TOKEN={token}",
+          variables: { token: { format: "string", isSecret: true } },
+        },
+      ],
+    },
+  ],
+  remotes: [
+    {
+      type: "streamable-http",
+      url: "https://api.githubcopilot.com/mcp/",
+      headers: [
+        {
+          name: "Authorization",
+          description: "Authorization header with authentication token (PAT or App token)",
+          isSecret: true,
+        },
+      ],
+    },
+  ],
+};

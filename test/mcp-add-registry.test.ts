@@ -9,6 +9,7 @@ import {
   OFFICIAL,
   cannedFetch,
   githubResponse,
+  githubServer,
   json,
   npmServer,
   versionResponse,
@@ -189,17 +190,17 @@ it.effect.each([
     message: "Redirects must use HTTPS",
   },
   {
-    title: "a pypi package",
+    title: "a cargo package",
     response: () =>
       json(
         versionResponse({
           ...npmServer("2.0.0"),
           packages: [
-            { registryType: "pypi", identifier: "x", version: "1", transport: { type: "stdio" } },
+            { registryType: "cargo", identifier: "x", version: "1", transport: { type: "stdio" } },
           ],
         }),
       ),
-    message: 'Package type "pypi" is not supported yet',
+    message: 'Package type "cargo" is not supported; choose a remote or a package of type',
   },
 ])("mcp add fails on $title and leaves the file alone", ({ response, message }) =>
   Effect.gen(function* () {
@@ -327,4 +328,65 @@ it.effect("the Registry client follows an opaque cursor unchanged", () =>
     );
     assert.strictEqual(page.nextCursor, undefined);
   }),
+);
+
+const githubUrl = `${GITHUB}/v0.1/servers/io.github.github%2Fgithub-mcp-server/versions/latest`;
+
+it.effect("mcp add takes the first choice of the GitHub server and install runs docker", () =>
+  Effect.gen(function* () {
+    const { file, fs, read } = yield* setup;
+    const fetch = cannedFetch({ [githubUrl]: json(versionResponse(githubServer)) });
+    const added = yield* runCli(
+      ["mcp", "add", githubServer.name, "--registry", GITHUB, "--name", "github", "--set", file],
+      { fetch },
+    );
+    assert.deepStrictEqual(added.err, []);
+    const [entry] = (yield* read).mcp;
+    assert.strictEqual(entry.launch.registryType, "oci");
+    assert.deepStrictEqual(entry.inputs, [
+      { name: "token", kind: "variable", format: "string", secret: true, env: "GITHUB_TOKEN" },
+    ]);
+    const cwd = yield* fs.makeTempDirectoryScoped();
+    const installed = yield* runCli(["install", "--set", file, "-y", "-a", "claude-code"], { cwd });
+    assert.strictEqual(installed.code, 0);
+    const config = JSON.parse(yield* fs.readFileString(`${cwd}/.mcp.json`));
+    assert.deepStrictEqual(config.mcpServers.github, {
+      type: "stdio",
+      command: "docker",
+      args: [
+        "run",
+        "-i",
+        "--rm",
+        "-p",
+        "127.0.0.1:8085:8085",
+        "-e",
+        "GITHUB_OAUTH_CALLBACK_PORT=8085",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_TOKEN}",
+        "ghcr.io/github/github-mcp-server:2.2.0",
+      ],
+    });
+    assert.include(installed.out.join("\n"), "GITHUB_TOKEN");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("mcp add stores a remote when the server offers only remotes", () =>
+  Effect.gen(function* () {
+    const { file, read } = yield* setup;
+    const { packages: _packages, ...remoteOnly } = githubServer;
+    const fetch = cannedFetch({ [githubUrl]: json(versionResponse(remoteOnly)) });
+    const added = yield* runCli(
+      ["mcp", "add", githubServer.name, "--registry", GITHUB, "--set", file],
+      { fetch },
+    );
+    assert.deepStrictEqual(added.err, []);
+    const [entry] = (yield* read).mcp;
+    assert.deepStrictEqual(entry.launch, {
+      type: "remote",
+      transport: "streamable-http",
+      url: "https://api.githubcopilot.com/mcp/",
+      headers: [{ name: "Authorization", value: "{Authorization}" }],
+    });
+    assert.strictEqual(entry.inputs[0].env, "GITHUB_MCP_SERVER_AUTHORIZATION");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
