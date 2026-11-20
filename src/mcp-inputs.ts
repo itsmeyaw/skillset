@@ -34,7 +34,10 @@ export const resolveMcp = (
 ): ResolvedMcp => {
   const values: Record<string, InputValue | undefined> = {};
   for (const input of entry.inputs ?? []) {
-    const typed = input.secret === true ? undefined : answers[input.name];
+    const typed =
+      input.secret === true || !Object.hasOwn(answers, input.name)
+        ? undefined
+        : answers[input.name];
     values[input.name] =
       typed !== undefined
         ? { literal: typed }
