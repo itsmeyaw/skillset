@@ -27,13 +27,15 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
   const servers = plan.mcpEntries.map((entry) => resolveMcp(entry, plan.mcpAnswers[entry.name]));
   const env = yield* SkillsetEnvironment;
   const failures: Array<string> = [];
+  const agentIds = mcpAgentIds(plan);
+  if (agentIds.length === 0) return ["MCP Entries not installed: no chosen Agent can receive them"];
   // Agents that read one file (Claude Code and Copilot share .mcp.json) are written once, with identical entries.
   const groups: Array<{
     readonly ids: Array<string>;
     readonly agents: Array<Agent>;
     readonly file?: string;
   }> = [];
-  for (const id of mcpAgentIds(plan)) {
+  for (const id of agentIds) {
     const agent = findMcpAgent(id);
     if (agent === undefined) {
       yield* Console.log(`MCP Entries not installed for ${id}: not supported`);

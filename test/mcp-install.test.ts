@@ -136,6 +136,20 @@ it.effect("--agent universal installs MCP servers for each detected Universal ag
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("--agent universal with no detected Universal agent fails and prints no env vars", () =>
+  Effect.gen(function* () {
+    const { fs, cwd, run } = yield* setup;
+    const result = yield* run(["-y", "-m", "docs", "-a", "universal"]);
+    assert.strictEqual(result.code, 1);
+    assert.include(
+      result.err.join("\n"),
+      "MCP Entries not installed: no chosen Agent can receive them",
+    );
+    assert.notInclude(result.out.join("\n"), "Set these environment variables");
+    assert.isFalse(yield* fs.exists(`${cwd}/.mcp.json`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("install -y -g writes the global config and keeps unrelated settings", () =>
   Effect.gen(function* () {
     const { fs, home, run, read } = yield* setup;
