@@ -47,36 +47,18 @@ To refresh, run `skillset skill up --set my-set` (and `mcp up`), then `install` 
 
 ## MCP servers
 
-MCP servers are stored in the Skillset next to skills, as a reviewed snapshot of how to run or reach each one. `install` reads only the Skillset file and never contacts a Registry.
-
-**Add from the official MCP Registry:**
+MCP servers live in the Skillset next to skills and are installed with the same `install` command, into each agent's own MCP config.
 
 ```sh
-skillset mcp add io.github.example/weather          # latest version
-skillset mcp add io.github.example/weather@1.4.2    # exact version
-skillset mcp add                                    # search, then pick
-skillset mcp add microsoft/markitdown --registry https://api.mcp.github.com   # another Registry
+skillset mcp add                                                     # search the MCP Registry, then pick
+skillset mcp add my-tool --env MY_TOOL_TOKEN -- npx -y my-tool-mcp   # add by hand
+skillset mcp up --set my-set                                         # move to the latest versions
 ```
 
-**Add by hand** (for servers no Registry lists):
+Secrets are never saved or prompted for. They are written as env var references, and `install` lists the vars to set.
 
-```sh
-skillset mcp add my-tool --env MY_TOOL_TOKEN -- npx -y my-tool-mcp   # local
-skillset mcp add docs --url https://mcp.example.com/docs --header Authorization   # remote, https only
-```
-
-`--env` and `--header` take names only. `NAME=value` is rejected so you never save a secret by accident.
-
-**Install:** `skillset install` writes each MCP server into the config of every selected agent, in that agent's own file and format (`-g` for the global config). Comments and unrelated settings are kept. An identical server is left alone; a different server with the same name is shown and you are asked before it is replaced.
-
-**Secrets:** a secret input is never prompted for or saved. It is written as an env reference in the agent's syntax (such as `${VAR}`), and the install ends with the list of env vars to set.
-
-**Update and remove:** `mcp up` moves Registry servers to the latest version. `mcp rm` removes them from the Skillset only; it never edits an agent's config.
-
-**Supported agents** (`-a <id>`): `claude-code`, `cursor`, `github-copilot`, `opencode`, `gemini-cli`, `windsurf`, `kiro-cli`, `roo`, `amp`. Other agents are skipped with a "not supported" notice.
-
-> [!WARNING]
-> Agent config paths come from each agent's docs and have not been run against real agents. A running Claude Code rewrites `~/.claude.json`, so close it before `install -g`. Project configs such as `.mcp.json` need your approval in the agent before they take effect.
+> [!NOTE]
+> Agent config paths come from each agent's docs and have not been run against real agents. Supported: `claude-code`, `cursor`, `github-copilot`, `opencode`, `gemini-cli`, `windsurf`, `kiro-cli`, `roo`, `amp`.
 
 ## Commands
 
