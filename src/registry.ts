@@ -26,8 +26,8 @@ const variable = Schema.Struct({
 // Arguments, environment variables and headers share these fields.
 const registryInput = Schema.Struct({
   ...variable.fields,
-  name: Schema.optional(Schema.String),
-  type: Schema.optional(Schema.String),
+  name: Schema.optional(entryText),
+  type: Schema.optional(entryText),
   value: Schema.optional(Schema.String),
   valueHint: Schema.optional(Schema.String),
   variables: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, variable))),
@@ -36,7 +36,7 @@ const registryInput = Schema.Struct({
 const registryPackage = Schema.Struct({
   registryType: entryText,
   identifier: entryText,
-  version: Schema.optional(Schema.String),
+  version: Schema.optional(entryText),
   runtimeHint: Schema.optional(Schema.String),
   transport: Schema.optional(Schema.Struct({ type: entryText })),
   runtimeArguments: optionalList(registryInput),

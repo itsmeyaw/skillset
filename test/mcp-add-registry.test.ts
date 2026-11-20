@@ -201,6 +201,42 @@ it.effect.each([
     message: `Registry ${OFFICIAL} returned an invalid response`,
   },
   {
+    title: "an ESC in a package argument type",
+    response: () =>
+      json(
+        versionResponse({
+          ...npmServer("2.0.0"),
+          packages: [
+            {
+              registryType: "npm",
+              identifier: "x",
+              transport: { type: "stdio" },
+              packageArguments: [{ type: "weird\u001b[2J", value: "v" }],
+            },
+          ],
+        }),
+      ),
+    message: `Registry ${OFFICIAL} returned an invalid response`,
+  },
+  {
+    title: "an ESC in an environment variable name",
+    response: () =>
+      json(
+        versionResponse({
+          ...npmServer("2.0.0"),
+          packages: [
+            {
+              registryType: "npm",
+              identifier: "x",
+              transport: { type: "stdio" },
+              environmentVariables: [{ name: "KEY\u001b[2J" }],
+            },
+          ],
+        }),
+      ),
+    message: `Registry ${OFFICIAL} returned an invalid response`,
+  },
+  {
     title: "an ESC in a remote url",
     response: () =>
       json(
