@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
 import { expect, it } from "vitest";
+import { mcpAgents } from "../src/agents/registry.ts";
 import { makePinning } from "../src/pinning.ts";
 import { Upstream } from "../src/upstream.ts";
 import { assertPin, selectRemoteCommit, UpstreamLive } from "../src/upstream-live.ts";
@@ -386,4 +387,15 @@ it("resolves a suffixless HTTP Git repository without changing its path", async 
     if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(cwd, { recursive: true, force: true });
   }
+});
+
+// ADR 0007: an MCP writer id is the id `skills` uses for the same Agent.
+it("every MCP writer id is a supported skills Agent id", async () => {
+  const supported = await Effect.runPromise(
+    Upstream.use((upstream) => upstream.getSupportedAgents).pipe(
+      Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer)),
+    ),
+  );
+  const ids = new Set(supported.map((agent) => agent.id));
+  expect(mcpAgents.filter((agent) => !ids.has(agent.id)).map((agent) => agent.id)).toEqual([]);
 });
