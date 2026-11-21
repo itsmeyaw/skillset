@@ -52,7 +52,7 @@ export type InstallPrompter = PlanPrompter & OverwritePrompter;
 export type AddPrompter = SkillPrompter & {
   // Undefined means no terminal to ask on.
   readonly source: () => Answer<string | undefined>;
-  readonly anotherSource: (failure?: CliMessageError) => Answer<boolean>;
+  readonly anotherSource: (failure?: { readonly message: string }) => Answer<boolean>;
   readonly confirmInstall: () => Answer<boolean>;
 };
 

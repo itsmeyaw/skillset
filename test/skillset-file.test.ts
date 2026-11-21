@@ -26,6 +26,7 @@ for (const field of ["name", "source"] as const) {
           }),
         );
         const error = yield* readSkillset(path).pipe(Effect.flip);
+        assert.strictEqual(error._tag, "SkillsetFileError");
         assert.match(error.message, /Invalid Skillset file/);
         assert.notInclude(error.message, "\u001b");
         assert.notInclude(error.message, "\u0007");

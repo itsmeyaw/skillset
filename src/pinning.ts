@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { ambiguousTreeMessage, CliMessageError } from "./errors.ts";
+import { ambiguousTreeMessage, UpstreamError } from "./errors.ts";
 import { PIN_PATTERN } from "./pin.ts";
 import { parseSource, type ParsedSource } from "./source.ts";
 import { Upstream, type UpstreamSession } from "./upstream.ts";
@@ -18,7 +18,7 @@ export const makePinning = Effect.fn("makePinning")(function* (session: Upstream
   const parse = (input: string) => {
     const parsed = parseSource(input);
     return "error" in parsed
-      ? Effect.fail(new CliMessageError({ message: parsed.error }))
+      ? Effect.fail(new UpstreamError({ message: parsed.error }))
       : Effect.succeed(parsed);
   };
 
@@ -36,11 +36,11 @@ export const makePinning = Effect.fn("makePinning")(function* (session: Upstream
         ...(parsed.treeRefs ?? []),
       ]);
       if (longer.some((candidate) => candidate !== undefined))
-        return yield* new CliMessageError({ message: ambiguousTreeMessage });
+        return yield* new UpstreamError({ message: ambiguousTreeMessage });
       commit ??= resolved;
     }
     if (commit === undefined)
-      return yield* new CliMessageError({
+      return yield* new UpstreamError({
         message: `Ref ${parsed.ref ?? "HEAD"} not found in ${parsed.displayRemote ?? parsed.remote}`,
       });
     const skills = yield* session.list(parsed.remote, commit);

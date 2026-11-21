@@ -2,7 +2,8 @@ import { Effect, Layer, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { detectAgents, getSupportedAgents, installSkills, resolveSource } from "skills";
 import { PIN_PATTERN } from "./pin.ts";
-import { Upstream, UpstreamError, type SkillsAgent } from "./upstream.ts";
+import { UpstreamError } from "./errors.ts";
+import { Upstream, type SkillsAgent } from "./upstream.ts";
 import { withUpstreamSession } from "./upstream-session.ts";
 
 // Spec #1, User Story 12: never reinterpret rejected Sources as Git repositories.

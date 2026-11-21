@@ -6,7 +6,8 @@ import { ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 import type { AgentInfo, InstallOptions, SkillSource } from "skills";
 import { runArgv } from "../src/cli.ts";
-import { Upstream, UpstreamError } from "../src/upstream.ts";
+import { UpstreamError } from "../src/errors.ts";
+import { Upstream } from "../src/upstream.ts";
 import { withUpstreamSession } from "../src/upstream-session.ts";
 
 // Issue #11: fake Sources and listings expose the same skill descriptions.
