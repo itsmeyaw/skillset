@@ -129,14 +129,14 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     if (chosen !== undefined)
       mcpEntries = mcpEntries.filter((entry) => chosen.includes(entry.name));
   }
-  const mcpServers: Array<ResolvedMcp> = [];
+  const resolvedMcp: Array<ResolvedMcp> = [];
   for (const mcpEntry of mcpEntries) {
     const answers: Record<string, string> = {};
     for (const input of promptableInputs(mcpEntry)) {
       const answer = yield* prompter.mcpInput(mcpEntry, input);
       if (answer !== undefined) answers[input.name] = answer;
     }
-    mcpServers.push(resolveMcp(mcpEntry, answers));
+    resolvedMcp.push(resolveMcp(mcpEntry, answers));
   }
   let agents: ReadonlyArray<string> | undefined =
     options.agents.length > 0 ? options.agents : undefined;
@@ -166,7 +166,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     mode = yield* prompter.mode();
   }
   const { targets, unsupported } =
-    mcpServers.length > 0
+    resolvedMcp.length > 0
       ? resolveMcpTargets(agents, detectedUniversal)
       : { targets: [], unsupported: [] };
   const plan: InstallPlan = {
@@ -175,7 +175,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
         ? []
         : selectSkillEntries(skillset, names).skillEntries,
     agents,
-    mcpServers,
+    resolvedMcp,
     mcpTargets: targets,
     mcpUnsupported: unsupported,
     scope,
