@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { CliMessageError } from "./errors.ts";
-import { type McpEntry, ociVersion } from "./mcp-entry.ts";
+import { MCP_NAME_PATTERN, type McpEntry, ociVersion } from "./mcp-entry.ts";
 import { defaultEnvVarName } from "./mcp-inputs.ts";
 import type {
   RegistryInput,
@@ -26,6 +26,15 @@ export const launchChoices = (server: RegistryServer): ReadonlyArray<LaunchChoic
 // Spec #37, User Story 18: the default name is the part after the last "/".
 export const defaultEntryName = (serverName: string) =>
   serverName.slice(serverName.lastIndexOf("/") + 1);
+
+export const checkEntryName = (name: string) =>
+  MCP_NAME_PATTERN.test(name)
+    ? Effect.void
+    : Effect.fail(
+        new CliMessageError({
+          message: `Invalid MCP server name "${name}": use letters, digits, '.', '_' and '-'.`,
+        }),
+      );
 
 // ADR 0006: cargo has no runner and mcpb needs unpacking executables, so only these four are kept.
 // shortcut: cargo, mcpb and unknown package types are rejected, store such a server by hand or choose a remote.
