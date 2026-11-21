@@ -5,9 +5,6 @@ export type InputValue = { readonly literal: string } | { readonly envVar: strin
 
 type Input = NonNullable<McpEntry["inputs"]>[number];
 
-// Typed answers to input prompts: entry name, then input name.
-export type McpAnswers = Readonly<Record<string, Readonly<Record<string, string>>>>;
-
 // ADR 0008: only a non-secret input without a default is asked for.
 export const promptableInputs = (entry: McpEntry): ReadonlyArray<Input> =>
   (entry.inputs ?? []).filter((input) => input.secret !== true && input.default === undefined);
