@@ -5,7 +5,7 @@ import { claudeCode } from "../src/agents/claude-code.ts";
 import { cursor } from "../src/agents/cursor.ts";
 import { buildInstallPlan, type InstallPlanOptions } from "../src/install-plan.ts";
 import type { McpEntry } from "../src/mcp-entry.ts";
-import { makePrompter, type Prompter } from "../src/prompts/prompter.ts";
+import { makePrompter, type PlanPrompter } from "../src/prompts/prompter.ts";
 import type { SearchChoice } from "../src/prompts/search.ts";
 import { SCHEMA_URL, type Skillset } from "../src/skillset-file.ts";
 import { fakeTerminal, fakeUpstream } from "./harness.ts";
@@ -24,11 +24,9 @@ const scripted = (
 ) => {
   const asked: Array<string> = [];
   const offered: Record<string, ReadonlyArray<SearchChoice>> = {};
-  const prompter: Prompter = {
-    skills: () => Effect.die("unexpected optional skills question"),
+  const prompter: PlanPrompter = {
     mcpServers: () => Effect.die("unexpected MCP servers question"),
     mcpInput: () => Effect.die("unexpected MCP input question"),
-    confirmOverwrite: () => Effect.die("unexpected overwrite question"),
     requiredSkills: (choices) =>
       Effect.sync(() => {
         asked.push("skills");
@@ -49,15 +47,7 @@ const scripted = (
       }),
     scope: () => Effect.sync(() => (asked.push("scope"), "global" as const)),
     mode: () => Effect.sync(() => (asked.push("mode"), "symlink" as const)),
-    searchTerm: () => Effect.die("unexpected search question"),
-    registryServer: () => Effect.die("unexpected Registry server question"),
-    launchChoice: () => Effect.die("unexpected launch question"),
     confirmPlan: () => Effect.sync(() => (asked.push("confirm"), answers.proceed ?? true)),
-    confirmRemote: () => Effect.die("unexpected remote question"),
-    source: () => Effect.die("unexpected source question"),
-    canSelect: false,
-    anotherSource: () => Effect.die("unexpected add question"),
-    confirmInstall: () => Effect.die("unexpected install question"),
   };
   return { prompter, asked, offered };
 };
@@ -65,7 +55,7 @@ const scripted = (
 const runPlan = Effect.fn("runPlan")(function* (
   set: Skillset,
   flags: InstallPlanOptions,
-  prompter: Prompter,
+  prompter: PlanPrompter,
   upstream: Parameters<typeof fakeUpstream>[0] = {},
 ) {
   const terminal = yield* fakeTerminal([], []);
@@ -79,24 +69,14 @@ const runPlan = Effect.fn("runPlan")(function* (
 it.effect("explicit install flags skip their questions", () =>
   Effect.gen(function* () {
     const asked: Array<string> = [];
-    const prompter: Prompter = {
-      skills: () => Effect.die("unexpected skills question"),
+    const prompter: PlanPrompter = {
       mcpServers: () => Effect.die("unexpected MCP servers question"),
       mcpInput: () => Effect.die("unexpected MCP input question"),
-      confirmOverwrite: () => Effect.die("unexpected overwrite question"),
       requiredSkills: () => Effect.die("unexpected skills question"),
       agents: () => Effect.die("unexpected agents question"),
       scope: () => Effect.die("unexpected scope question"),
       mode: () => Effect.die("unexpected mode question"),
-      searchTerm: () => Effect.die("unexpected search question"),
-      registryServer: () => Effect.die("unexpected Registry server question"),
-      launchChoice: () => Effect.die("unexpected launch question"),
       confirmPlan: () => Effect.sync(() => (asked.push("confirm"), true)),
-      confirmRemote: () => Effect.die("unexpected remote question"),
-      source: () => Effect.die("unexpected source question"),
-      canSelect: false,
-      anotherSource: () => Effect.die("unexpected add question"),
-      confirmInstall: () => Effect.die("unexpected install question"),
     };
     const terminal = yield* fakeTerminal([], []);
     const plan = yield* buildInstallPlan(

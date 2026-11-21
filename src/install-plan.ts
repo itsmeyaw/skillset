@@ -4,7 +4,7 @@ import { findMcpAgent } from "./agents/registry.ts";
 import { CliMessageError, emptySkillsetMessage } from "./errors.ts";
 import type { InstallPlan } from "./install-types.ts";
 import { promptableInputs, type ResolvedMcp, resolveMcp } from "./mcp-inputs.ts";
-import type { Prompter } from "./prompts/prompter.ts";
+import type { PlanPrompter } from "./prompts/prompter.ts";
 import type { Skillset } from "./skillset-file.ts";
 import {
   isEmpty,
@@ -84,7 +84,7 @@ const agentChoices = (supported: ReadonlyArray<Agent>, detected: ReadonlyArray<A
 export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   skillset: Skillset,
   options: InstallPlanOptions,
-  prompter: Prompter,
+  prompter: PlanPrompter,
 ) {
   if (isEmpty(skillset)) {
     yield* Console.log(emptySkillsetMessage);

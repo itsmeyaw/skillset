@@ -4,7 +4,7 @@ import { agents } from "./agent-flag.ts";
 import { CliMessageError } from "./errors.ts";
 import { installMcpEntries } from "./mcp-install.ts";
 import { buildInstallPlan, type InstallPlan, type InstallPlanOptions } from "./install-plan.ts";
-import type { Prompter } from "./prompts/prompter.ts";
+import type { AddPrompter, InstallPrompter } from "./prompts/prompter.ts";
 import type { Skillset } from "./skillset-file.ts";
 import { Upstream, type UpstreamSession } from "./upstream.ts";
 
@@ -36,7 +36,7 @@ const installSkills = Effect.fn("installSkills")(function* (
 const executeInstall = Effect.fn("executeInstall")(function* (
   plan: InstallPlan,
   session: UpstreamSession,
-  prompter: Prompter,
+  prompter: InstallPrompter,
 ) {
   const skills =
     plan.skillEntries.length > 0
@@ -56,7 +56,7 @@ export const installSkillset = Effect.fn("installSkillset")(function* (
   skillset: Skillset,
   options: InstallPlanOptions,
   session: UpstreamSession,
-  prompter: Prompter,
+  prompter: InstallPrompter,
 ) {
   const plan = yield* buildInstallPlan(skillset, options, prompter);
   if (plan) yield* executeInstall(plan, session, prompter);
@@ -95,7 +95,7 @@ export const requireInstallForFlags = ({ install, agents, global, copy }: ChainF
 export const chainInstall = Effect.fn("chainInstall")(function* (
   saved: Skillset,
   flags: ChainFlags,
-  prompter: Prompter,
+  prompter: InstallPrompter & Pick<AddPrompter, "confirmInstall">,
   session?: UpstreamSession,
 ) {
   if (!flags.install && !(yield* prompter.confirmInstall())) return;
