@@ -1,10 +1,11 @@
 import { Context, Effect } from "effect";
 import { CliMessageError as UpstreamError } from "./errors.ts";
+import type { InstallScope } from "./agents/agent.ts";
 import type { SkillEntry } from "./skillset-file.ts";
 
 export { UpstreamError };
 
-export type Agent = {
+export type SkillsAgent = {
   readonly id: string;
   readonly name: string;
   readonly universal: boolean;
@@ -12,7 +13,7 @@ export type Agent = {
 
 export type InstallChoices = {
   readonly agents?: ReadonlyArray<string>;
-  readonly scope: "project" | "global";
+  readonly scope: InstallScope;
   readonly mode: "auto" | "copy" | "symlink";
   // Isolates filesystem writes in adapter tests.
   readonly cwd?: string;
@@ -59,7 +60,7 @@ export class Upstream extends Context.Service<
     ) => Effect.Effect<ReadonlyArray<string | undefined>, UpstreamError>;
     readonly detectAgents: (options?: {
       readonly cwd?: string;
-    }) => Effect.Effect<{ readonly agents: ReadonlyArray<Agent> }, UpstreamError>;
-    readonly getSupportedAgents: Effect.Effect<ReadonlyArray<Agent>, UpstreamError>;
+    }) => Effect.Effect<{ readonly agents: ReadonlyArray<SkillsAgent> }, UpstreamError>;
+    readonly getSupportedAgents: Effect.Effect<ReadonlyArray<SkillsAgent>, UpstreamError>;
   }
 >()("skillset/Upstream") {}

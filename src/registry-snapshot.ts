@@ -98,10 +98,10 @@ export const snapshotFromRegistry = (
     return yield* snapshotRegistryEntry({ registry: base, server, choice, name });
   });
 
-type Launch = Exclude<McpEntry["launch"], { readonly type: "command" }>;
+type RegistryLaunch = Exclude<McpEntry["launch"], { readonly type: "command" }>;
 
 // ADR 0006: a fresh snapshot of the same kind of package (type) or remote (transport).
-const sameKind = (launch: Launch, choices: ReadonlyArray<LaunchChoice>) => {
+const sameKind = (launch: RegistryLaunch, choices: ReadonlyArray<LaunchChoice>) => {
   const matches = choices.filter((choice) =>
     launch.type === "package"
       ? choice.kind === "package" && choice.package.registryType === launch.registryType
@@ -117,7 +117,7 @@ const sameKind = (launch: Launch, choices: ReadonlyArray<LaunchChoice>) => {
   );
 };
 
-const describeKind = (launch: Launch) =>
+const describeKind = (launch: RegistryLaunch) =>
   launch.type === "package" ? `${launch.registryType} package` : `${launch.transport} remote`;
 
 // ADR 0008: the curator may have renamed a secret's env var; keep that name while the input exists.

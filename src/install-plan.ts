@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import type { Agent as McpAgent } from "./agents/agent.ts";
+import type { Agent } from "./agents/agent.ts";
 import { findMcpAgent } from "./agents/mcp-agents.ts";
 import { CliMessageError, emptySkillsetMessage } from "./errors.ts";
 import type { InstallPlan } from "./install-types.ts";
@@ -13,7 +13,7 @@ import {
   unknownMcpNamesMessage,
   unknownNamesMessage,
 } from "./skillset-store.ts";
-import { Upstream, type Agent } from "./upstream.ts";
+import { Upstream, type SkillsAgent } from "./upstream.ts";
 
 export type { InstallPlan } from "./install-types.ts";
 
@@ -38,7 +38,7 @@ const resolveMcpTargets = (
   const ids = new Set(chosen.filter((id) => id !== "universal"));
   if (chosen.includes("universal"))
     for (const id of detectedUniversal) if (findMcpAgent(id) !== undefined) ids.add(id);
-  const targets: Array<McpAgent> = [];
+  const targets: Array<Agent> = [];
   const unsupported: Array<string> = [];
   for (const id of ids) {
     const agent = findMcpAgent(id);
@@ -49,7 +49,10 @@ const resolveMcpTargets = (
 };
 
 // Spec #1, install: one Universal choice represents agents sharing .agents/skills.
-const agentChoices = (supported: ReadonlyArray<Agent>, detected: ReadonlyArray<Agent>) => {
+const agentChoices = (
+  supported: ReadonlyArray<SkillsAgent>,
+  detected: ReadonlyArray<SkillsAgent>,
+) => {
   const defaults = ["universal", "claude-code"].filter((id) =>
     supported.some((agent) => agent.id === id),
   );
