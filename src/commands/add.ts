@@ -2,9 +2,7 @@ import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { prepareAddition } from "../addition.ts";
 import { Expansion } from "../argv.ts";
-import { CliMessageError as AddError } from "../errors.ts";
-import { agents } from "../agent-flag.ts";
-import { installSkillset } from "../install.ts";
+import { chainFlag, chainInstall, installFlags, requireInstallForFlags } from "../install.ts";
 import { makePinning } from "../pinning.ts";
 import { makePrompter } from "../prompts/prompter.ts";
 import type { SkillEntry, Skillset } from "../skillset-file.ts";
@@ -27,21 +25,14 @@ export const add = Command.make(
     ),
     all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
     list: Flag.Boolean("list").pipe(Flag.withAlias("l"), Flag.withDefault(false)),
-    install: Flag.Boolean("install").pipe(Flag.withDefault(false)),
-    agents: agents(isSource),
-    global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
-    copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
-    yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
+    install: chainFlag,
+    ...installFlags(isSource),
   },
   Effect.fn(function* ({ source, selected, all, list, install, agents, global, copy, yes }) {
     const upstream = yield* Upstream;
     return yield* upstream.withSession((session) =>
       Effect.gen(function* () {
-        // ADR 0003: install options are meaningful only when --install chains an install.
-        if (!install && (agents.length > 0 || global || copy))
-          return yield* new AddError({
-            message: "--agent, --global and --copy require --install.",
-          });
+        yield* requireInstallForFlags({ install, agents, global, copy });
         const prompter = yield* makePrompter(yes);
         let input = Option.isSome(source) ? source.value : yield* prompter.source();
         const store = yield* openCommandSkillset({ missing: "create" });
@@ -86,19 +77,8 @@ export const add = Command.make(
             );
         }
         // ADR 0003: write additions before either chained or prompted full-Skillset installation.
-        if (pending && (install || (yield* prompter.confirmInstall())))
-          yield* installSkillset(
-            pending,
-            {
-              selected: [],
-              selectedMcp: [],
-              agents,
-              global,
-              copy,
-            },
-            session,
-            prompter,
-          );
+        if (pending)
+          yield* chainInstall(pending, { install, agents, global, copy }, prompter, session);
       }),
     );
   }),
