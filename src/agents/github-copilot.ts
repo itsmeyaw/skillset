@@ -1,8 +1,8 @@
 import { join } from "node:path";
+import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 import type { Agent, McpScope } from "./agent.ts";
 import { claudeEntry } from "./claude-code.ts";
-import { installJsonMcp } from "./json-config.ts";
 import { toLaunch } from "./launch.ts";
 
 // Copilot CLI docs, "MCP server configuration" (https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference):
@@ -33,25 +33,17 @@ export const copilotEntry = (resolved: ResolvedMcp, scope: McpScope) => {
 };
 
 // Copilot CLI docs, "Command reference, environment variables": COPILOT_HOME replaces the default ~/.copilot.
-const copilotFile: NonNullable<Agent["file"]> = (scope, { paths, env }) =>
-  scope === "project"
-    ? join(paths.cwd, ".mcp.json")
-    : join(env.COPILOT_HOME || join(paths.home, ".copilot"), "mcp-config.json");
-
 export const githubCopilot: Agent = {
   id: "github-copilot",
   name: "GitHub Copilot",
-  file: copilotFile,
-  installMcp: (servers, { scope, paths, env, confirmOverwrite }) =>
-    installJsonMcp(
-      copilotFile(scope, { paths, env }),
-      ["mcpServers"],
-      servers.map((server) => ({
-        name: server.entry.name,
-        value: copilotEntry(server, scope),
-      })),
-      confirmOverwrite,
+  file: (scope, { paths, env }) =>
+    Effect.succeed(
+      scope === "project"
+        ? join(paths.cwd, ".mcp.json")
+        : join(env.COPILOT_HOME || join(paths.home, ".copilot"), "mcp-config.json"),
     ),
+  keyPath: ["mcpServers"],
+  entry: copilotEntry,
   warning: (scope) =>
     scope === "project"
       ? "Copilot CLI loads project MCP servers from .mcp.json only after you trust the folder."
