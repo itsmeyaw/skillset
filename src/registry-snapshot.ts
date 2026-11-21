@@ -24,6 +24,8 @@ export type RegistryPicker = Pick<Prompter, "searchTerm" | "registryServer" | "l
 
 const MIN_SEARCH_LENGTH = 3;
 
+const usage = "Usage: skillset mcp add <registry-name>[@version] (a search needs a terminal)";
+
 // ADR 0006: only an active version is addable.
 const activeServer = (base: string, name: string, version: string) =>
   getServerVersion(base, name, version).pipe(
@@ -42,7 +44,9 @@ const namedServer = (base: string, given: string) => {
 // Spec #37, User Stories 11-13: search latest active versions, paging on request.
 const searchServer = (base: string, picker: RegistryPicker) =>
   Effect.gen(function* () {
-    const term = (yield* picker.searchTerm()).trim();
+    const answer = yield* picker.searchTerm();
+    if (answer === undefined) return yield* fail(usage);
+    const term = answer.trim();
     if (Array.from(term).length < MIN_SEARCH_LENGTH)
       return yield* fail(`Search term must be at least ${MIN_SEARCH_LENGTH} characters.`);
     const found: Array<RegistryServer> = [];

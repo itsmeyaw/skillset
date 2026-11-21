@@ -15,6 +15,8 @@ import {
   unknownNamesMessage,
 } from "../skillset-store.ts";
 
+const usage = "Usage: skillset skill rm [skills...] [--all]";
+
 // Spec #1, User Story 17: removing Skill Entries changes only the Skillset file.
 export const remove = Command.make(
   "remove",
@@ -26,7 +28,8 @@ export const remove = Command.make(
   Effect.fn(function* ({ skills: supplied, all, yes }) {
     const prompter = yield* makePrompter(yes);
     // Spec #1, User Story 19: an empty selection must not remove anything.
-    if (!all && supplied.length === 0) yield* prompter.ensureRemoveInput();
+    if (!all && supplied.length === 0 && !prompter.canSelect)
+      return yield* new RemoveError({ message: usage });
     const store = yield* openCommandSkillset({ missing: "fail" });
     const { skillset } = store;
     let skills: ReadonlyArray<string> = supplied;

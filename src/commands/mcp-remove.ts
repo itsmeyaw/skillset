@@ -9,6 +9,8 @@ import {
   unknownMcpNamesMessage,
 } from "../skillset-store.ts";
 
+const usage = "Usage: skillset mcp rm [names...] [--all]";
+
 // Spec #37, User Stories 30-32: removing MCP Entries changes only the Skillset file.
 export const mcpRemove = Command.make(
   "rm",
@@ -19,7 +21,8 @@ export const mcpRemove = Command.make(
   },
   Effect.fn(function* ({ servers: supplied, all, yes }) {
     const prompter = yield* makePrompter(yes);
-    if (!all && supplied.length === 0) yield* prompter.ensureRemoveInput();
+    if (!all && supplied.length === 0 && !prompter.canSelect)
+      return yield* new CliMessageError({ message: usage });
     const store = yield* openCommandSkillset({ missing: "fail" });
     const { skillset } = store;
     const existing = skillset.mcp;
