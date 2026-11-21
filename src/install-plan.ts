@@ -2,10 +2,9 @@ import { Console, Effect } from "effect";
 import type { Agent } from "./agents/agent.ts";
 import { findMcpAgent } from "./agents/mcp-agents.ts";
 import { CliMessageError, emptySkillsetMessage } from "./errors.ts";
-import type { InstallPlan } from "./install-types.ts";
 import { promptableInputs, type ResolvedMcp, resolveMcp } from "./mcp-inputs.ts";
 import type { PlanPrompter } from "./prompts/prompter.ts";
-import type { Skillset } from "./skillset-file.ts";
+import type { SkillEntry, Skillset } from "./skillset-file.ts";
 import {
   isEmpty,
   selectMcpEntries,
@@ -13,9 +12,21 @@ import {
   unknownMcpNamesMessage,
   unknownNamesMessage,
 } from "./skillset-store.ts";
-import { Upstream, type SkillsAgent } from "./upstream.ts";
+import { Upstream, type InstallChoices, type SkillsAgent } from "./upstream.ts";
 
-export type { InstallPlan } from "./install-types.ts";
+export type InstallPlan = {
+  readonly skillEntries: ReadonlyArray<SkillEntry>;
+  // Skill Agent ids as chosen; undefined falls through to the `skills` library's own default.
+  readonly agents: ReadonlyArray<string> | undefined;
+  // MCP Entries with their typed answers already resolved.
+  readonly resolvedMcp: ReadonlyArray<ResolvedMcp>;
+  // The Agents that receive the MCP servers, Universal already expanded.
+  readonly mcpTargets: ReadonlyArray<Agent>;
+  // Chosen Agent ids that have no MCP writer.
+  readonly mcpUnsupported: ReadonlyArray<string>;
+  readonly scope: InstallChoices["scope"];
+  readonly mode: InstallChoices["mode"];
+};
 
 export type InstallPlanOptions = {
   readonly selected: ReadonlyArray<string>;

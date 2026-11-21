@@ -2,7 +2,7 @@ import { Console, Effect, Stdio, type FileSystem, type Path, type Terminal } fro
 import { Prompt } from "effect/cli";
 import type { McpConflict } from "../agents/agent.ts";
 import { CliMessageError } from "../errors.ts";
-import type { InstallPlan } from "../install-types.ts";
+import type { InstallPlan } from "../install-plan.ts";
 import { describeMcpLaunch, type McpEntry } from "../mcp-entry.ts";
 import type { Skillset } from "../skillset-file.ts";
 import { cancelOnQuit } from "./cancel.ts";
