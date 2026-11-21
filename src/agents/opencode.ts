@@ -1,8 +1,7 @@
 import { join } from "node:path";
-import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 import type { Agent } from "./agent.ts";
-import { existingJsonFile, installJsonMcp, isObject } from "./json-config.ts";
+import { existingJsonFile, isObject } from "./json-config.ts";
 import { toLaunch } from "./launch.ts";
 
 // OpenCode docs, "MCP servers" (https://opencode.ai/docs/mcp-servers): {env:NAME} in environment and headers.
@@ -45,16 +44,10 @@ export const opencodeKeyPath = (root: Record<string, unknown>): ReadonlyArray<st
 export const opencode: Agent = {
   id: "opencode",
   name: "OpenCode",
-  installMcp: (servers, { scope, paths, confirmOverwrite }) =>
-    Effect.gen(function* () {
-      const file = yield* existingJsonFile(
-        join(scope === "project" ? paths.cwd : join(paths.home, ".config", "opencode"), "opencode"),
-      );
-      return yield* installJsonMcp(
-        file,
-        opencodeKeyPath,
-        servers.map((server) => ({ name: server.entry.name, value: opencodeEntry(server) })),
-        confirmOverwrite,
-      );
-    }),
+  file: (scope, { paths }) =>
+    existingJsonFile(
+      join(scope === "project" ? paths.cwd : join(paths.home, ".config", "opencode"), "opencode"),
+    ),
+  keyPath: opencodeKeyPath,
+  entry: opencodeEntry,
 };
