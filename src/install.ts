@@ -1,5 +1,5 @@
 import { Console, Effect } from "effect";
-import { CliMessageError } from "./errors.ts";
+import { CliMessageError, UpstreamError } from "./errors.ts";
 import { installMcpEntries } from "./mcp-install.ts";
 import { buildInstallPlan, type InstallPlan, type InstallPlanOptions } from "./install-plan.ts";
 import type { InstallPrompter } from "./prompts/prompter.ts";
@@ -24,7 +24,7 @@ const installSkills = Effect.fn("installSkills")(function* (
   if (names.length > 0) yield* Console.log(`Installed ${names.join(", ")}`);
   // Spec #1, User Story 41: stop on the first failed write without rollback.
   if (result.failed.length > 0)
-    return yield* new CliMessageError({
+    return yield* new UpstreamError({
       message: result.failed.map((failure) => failure.message).join("; "),
     });
 });
@@ -41,7 +41,6 @@ const executeInstall = Effect.fn("executeInstall")(function* (
       ? yield* installSkills(plan, session).pipe(Effect.result)
       : undefined;
   const mcpFailures = yield* installMcpEntries(plan, prompter);
-  if (skills?._tag === "Failure" && mcpFailures.length === 0) return yield* skills.failure;
   const failures = [
     ...(skills?._tag === "Failure" ? [skills.failure.message] : []),
     ...mcpFailures,

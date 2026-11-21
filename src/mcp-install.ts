@@ -4,10 +4,10 @@ import {
   AgentPaths,
   type McpInstallContext,
   type McpOutcome,
-  type McpScope,
+  type InstallScope,
 } from "./agents/agent.ts";
 import { writeAgentMcp } from "./agents/json-config.ts";
-import type { InstallPlan } from "./install-types.ts";
+import type { InstallPlan } from "./install-plan.ts";
 import { envVarsOf } from "./mcp-inputs.ts";
 import type { OverwritePrompter } from "./prompts/prompter.ts";
 import { SkillsetEnvironment } from "./skillset-store.ts";
@@ -15,7 +15,7 @@ import { SkillsetEnvironment } from "./skillset-store.ts";
 // Agents that resolve to one file (Claude Code and Copilot share .mcp.json) are written once, by the first of them.
 export const groupByFile = Effect.fn("groupByFile")(function* (
   agents: ReadonlyArray<Agent>,
-  scope: McpScope,
+  scope: InstallScope,
   context: Pick<McpInstallContext, "paths" | "env">,
 ) {
   const groups: Array<{ readonly file: string; readonly agents: Array<Agent> }> = [];

@@ -1,8 +1,8 @@
 import { Console, Effect, Stdio, type FileSystem, type Path, type Terminal } from "effect";
 import { Prompt } from "effect/cli";
-import type { McpConflict } from "../agents/agent.ts";
+import type { InstallScope, McpConflict } from "../agents/agent.ts";
 import { CliMessageError } from "../errors.ts";
-import type { InstallPlan } from "../install-types.ts";
+import type { InstallPlan } from "../install-plan.ts";
 import { describeMcpLaunch, type McpEntry } from "../mcp-entry.ts";
 import type { Skillset } from "../skillset-file.ts";
 import { cancelOnQuit } from "./cancel.ts";
@@ -37,7 +37,7 @@ export type PlanPrompter = {
     defaults: ReadonlyArray<string>,
     supported: boolean,
   ) => Answer<ReadonlyArray<string> | undefined>;
-  readonly scope: () => Answer<"project" | "global">;
+  readonly scope: () => Answer<InstallScope>;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
   readonly confirmPlan: (plan: InstallPlan) => Answer<boolean>;
 };
@@ -52,7 +52,7 @@ export type InstallPrompter = PlanPrompter & OverwritePrompter;
 export type AddPrompter = SkillPrompter & {
   // Undefined means no terminal to ask on.
   readonly source: () => Answer<string | undefined>;
-  readonly anotherSource: (failure?: CliMessageError) => Answer<boolean>;
+  readonly anotherSource: (failure?: { readonly message: string }) => Answer<boolean>;
   readonly confirmInstall: () => Answer<boolean>;
 };
 

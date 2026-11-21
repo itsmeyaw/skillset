@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
-import type { Agent, McpScope } from "./agent.ts";
+import type { Agent, InstallScope } from "./agent.ts";
 import { toLaunch } from "./launch.ts";
 
 // Claude Code docs, "Environment variable expansion in .mcp.json": ${VAR} in command, args, env, url, headers.
@@ -34,7 +34,7 @@ export const claudeCode: Agent = {
     ),
   keyPath: ["mcpServers"],
   entry: claudeEntry,
-  warning: (scope: McpScope) =>
+  warning: (scope: InstallScope) =>
     scope === "global"
       ? "A running Claude Code rewrites ~/.claude.json and can overwrite these MCP servers; close it before installing, or install again after it exits."
       : "Claude Code asks you to approve project MCP servers in .mcp.json before it uses them.",

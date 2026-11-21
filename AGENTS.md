@@ -25,7 +25,7 @@ Single-context: one `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agen
 
 - `src/`: CLI source (`skillset` binary, entry `src/bin.ts`, built to `dist/`).
   - `commands/`: one file per noun-verb command (`add`, `install`, `list`, `remove`, `update`, `mcp-*`).
-  - `agents/`: per-agent skill/MCP config writers and `registry.ts`.
+  - `agents/`: per-agent skill/MCP config writers and `mcp-agents.ts`.
   - `prompts/`: interactive prompt helpers.
   - Root files: skillset file/store, upstream fetching, pinning, install planning, MCP entry/snapshot logic.
 - `test/`: Vitest tests (`*.test.ts`) plus shared fixtures/harness.
