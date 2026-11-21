@@ -10,7 +10,7 @@ import {
   type McpEntry,
 } from "../mcp-entry.ts";
 import { launchChoices, defaultEntryName, snapshotRegistryEntry } from "../mcp-snapshot.ts";
-import { makePrompter, type Prompter } from "../prompts/prompter.ts";
+import { makePrompter, type RegistryPrompter } from "../prompts/prompter.ts";
 import {
   getServerVersion,
   listServers,
@@ -48,7 +48,7 @@ const describeChoice = (choice: ReturnType<typeof launchChoices>[number]) =>
     : `${choice.remote.type} ${choice.remote.url}`;
 
 // Spec #37, User Stories 11-13: search latest active versions, paging on request.
-const searchRegistry = (base: string, prompter: Prompter) =>
+const searchRegistry = (base: string, prompter: RegistryPrompter) =>
   Effect.gen(function* () {
     const answer = yield* prompter.searchTerm();
     if (answer === undefined) return yield* fail(usage);
@@ -78,7 +78,7 @@ const addFromRegistry = (
   given: string | undefined,
   registry: string | undefined,
   entryName: string | undefined,
-  prompter: Prompter,
+  prompter: RegistryPrompter,
 ) =>
   Effect.gen(function* () {
     const store = yield* openCommandSkillset({ missing: "create" });

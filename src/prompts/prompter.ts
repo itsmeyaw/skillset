@@ -14,11 +14,15 @@ type Answer<A> = Effect.Effect<
   FileSystem.FileSystem | Path.Path | Terminal.Terminal
 >;
 
-export type Prompter = {
+// Each consumer depends only on the questions it asks.
+export type SkillPrompter = {
   // Undefined means unattended selection was unavailable; an empty array means nothing was chosen.
   readonly skills: (
     choices: ReadonlyArray<SearchChoice>,
   ) => Answer<ReadonlyArray<string> | undefined>;
+};
+
+export type PlanPrompter = {
   readonly mcpServers: (
     choices: ReadonlyArray<SearchChoice>,
   ) => Answer<ReadonlyArray<string> | undefined>;
@@ -27,8 +31,6 @@ export type Prompter = {
     entry: McpEntry,
     input: NonNullable<McpEntry["inputs"]>[number],
   ) => Answer<string | undefined>;
-  // ADR 0007: a different server of the same name is overwritten only with consent.
-  readonly confirmOverwrite: (conflict: McpConflict) => Answer<boolean>;
   readonly requiredSkills: (choices: ReadonlyArray<SearchChoice>) => Answer<ReadonlyArray<string>>;
   readonly agents: (
     choices: ReadonlyArray<SearchChoice>,
@@ -37,7 +39,31 @@ export type Prompter = {
   ) => Answer<ReadonlyArray<string> | undefined>;
   readonly scope: () => Answer<"project" | "global">;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
-  // Spec #37, User Stories 11-13: search the Registry, pick one server, then one package or remote.
+  readonly confirmPlan: (plan: InstallPlan) => Answer<boolean>;
+};
+
+export type OverwritePrompter = {
+  // ADR 0007: a different server of the same name is overwritten only with consent.
+  readonly confirmOverwrite: (conflict: McpConflict) => Answer<boolean>;
+};
+
+export type InstallPrompter = PlanPrompter & OverwritePrompter;
+
+export type AddPrompter = SkillPrompter & {
+  // Undefined means no terminal to ask on.
+  readonly source: () => Answer<string | undefined>;
+  readonly anotherSource: (failure?: CliMessageError) => Answer<boolean>;
+  readonly confirmInstall: () => Answer<boolean>;
+};
+
+export type RemovePrompter = SkillPrompter &
+  Pick<PlanPrompter, "mcpServers"> & {
+    // False means the user cannot be asked which Entries to remove.
+    readonly canSelect: boolean;
+  };
+
+// Spec #37, User Stories 11-13: search the Registry, pick one server, then one package or remote.
+export type RegistryPrompter = {
   // Undefined means no terminal to ask on.
   readonly searchTerm: () => Answer<string | undefined>;
   // Undefined means "load more results".
@@ -47,15 +73,17 @@ export type Prompter = {
   ) => Answer<string | undefined>;
   // Resolves to the index of the chosen title.
   readonly launchChoice: (titles: ReadonlyArray<string>) => Answer<number>;
-  readonly confirmPlan: (plan: InstallPlan) => Answer<boolean>;
-  readonly confirmRemote: (skillset: Skillset) => Answer<boolean>;
-  // Undefined means no terminal to ask on.
-  readonly source: () => Answer<string | undefined>;
-  // False means the user cannot be asked which Entries to remove.
-  readonly canSelect: boolean;
-  readonly anotherSource: (failure?: CliMessageError) => Answer<boolean>;
-  readonly confirmInstall: () => Answer<boolean>;
 };
+
+export type RemotePrompter = {
+  readonly confirmRemote: (skillset: Skillset) => Answer<boolean>;
+};
+
+export type Prompter = InstallPrompter &
+  AddPrompter &
+  RemovePrompter &
+  RegistryPrompter &
+  RemotePrompter;
 
 // ADR 0004: the launch command runs on the user's machine, so show all of it; inputs by name only.
 const describeRemoteMcpEntry = (mcpEntry: McpEntry) =>

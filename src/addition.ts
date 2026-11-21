@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect";
 import { CliMessageError as AddError, missingSkillsMessage } from "./errors.ts";
 import type { Pinning } from "./pinning.ts";
-import type { Prompter } from "./prompts/prompter.ts";
+import type { SkillPrompter } from "./prompts/prompter.ts";
 import type { Skillset } from "./skillset-file.ts";
 import { upsertSkillEntries } from "./skillset-store.ts";
 
@@ -10,7 +10,7 @@ export const prepareAddition = Effect.fn("prepareAddition")(function* (
   input: string,
   skillset: Skillset,
   pinning: Pinning,
-  prompter: Prompter,
+  prompter: SkillPrompter,
   {
     selected,
     all,
