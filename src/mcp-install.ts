@@ -34,8 +34,8 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
   plan: InstallPlan,
   prompter: Prompter,
 ) {
-  if (plan.mcpServers.length === 0) return [];
-  const servers = plan.mcpServers;
+  if (plan.resolvedMcp.length === 0) return [];
+  const servers = plan.resolvedMcp;
   const paths = yield* AgentPaths;
   const env = yield* SkillsetEnvironment;
   const failures: Array<string> = [];

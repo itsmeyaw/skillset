@@ -8,7 +8,7 @@ export type InstallPlan = {
   // Skill Agent ids as chosen; undefined falls through to the `skills` library's own default.
   readonly agents: ReadonlyArray<string> | undefined;
   // MCP Entries with their typed answers already resolved.
-  readonly mcpServers: ReadonlyArray<ResolvedMcp>;
+  readonly resolvedMcp: ReadonlyArray<ResolvedMcp>;
   // The Agents that receive the MCP servers, Universal already expanded.
   readonly mcpTargets: ReadonlyArray<Agent>;
   // Chosen Agent ids that have no MCP writer.

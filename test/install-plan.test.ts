@@ -106,7 +106,7 @@ it.effect("explicit install flags skip their questions", () =>
     ).pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, terminal)));
     assert.deepStrictEqual(plan, {
       skillEntries: [beta],
-      mcpServers: [],
+      resolvedMcp: [],
       mcpTargets: [],
       mcpUnsupported: [],
       agents: ["cursor"],
@@ -133,7 +133,7 @@ it.effect("plan uses scripted answers and offers all Skill Entries selected", ()
     });
     assert.deepStrictEqual(plan, {
       skillEntries: [beta],
-      mcpServers: [],
+      resolvedMcp: [],
       mcpTargets: [],
       mcpUnsupported: [],
       agents: ["cursor"],
@@ -245,7 +245,7 @@ it.effect("unattended plans leave agents undefined when no defaults exist", () =
     });
     assert.deepStrictEqual(plan, {
       skillEntries: [alpha, beta],
-      mcpServers: [],
+      resolvedMcp: [],
       mcpTargets: [],
       mcpUnsupported: [],
       agents: undefined,
@@ -295,7 +295,7 @@ const docs: McpEntry = {
 };
 const mcpSkillset = { ...skillset, mcp: [docs] };
 const mcpOptions = { ...options, selectedMcp: ["docs"], global: true, copy: true };
-const info = (id: string, universal: boolean) => ({
+const agentInfo = (id: string, universal: boolean) => ({
   id,
   name: id,
   universal,
@@ -313,7 +313,7 @@ it.effect("MCP targets default to claude-code when no agents are chosen", () =>
   Effect.gen(function* () {
     const prompter = { ...mcpPrompter(), agents: () => Effect.undefined };
     const plan = yield* runPlan(mcpSkillset, mcpOptions, prompter, {
-      supportedAgents: [info("cursor", false)],
+      supportedAgents: [agentInfo("cursor", false)],
     });
     assert.isUndefined(plan?.agents);
     assert.deepStrictEqual(plan?.mcpTargets, [claudeCode]);
@@ -328,7 +328,11 @@ it.effect("a chosen Universal stands for the detected Universal Agents that can 
       { ...mcpOptions, agents: ["universal", "goose"] },
       mcpPrompter(),
       {
-        detectedAgents: [info("cursor", true), info("replit", true), info("windsurf", false)],
+        detectedAgents: [
+          agentInfo("cursor", true),
+          agentInfo("replit", true),
+          agentInfo("windsurf", false),
+        ],
       },
     );
     assert.deepStrictEqual(plan?.agents, ["universal", "goose"]);
@@ -352,7 +356,7 @@ it.effect("a Universal choice without MCP Entries detects nothing", () =>
 it.effect("MCP servers carry the typed answers of their own Entry", () =>
   Effect.gen(function* () {
     const plan = yield* runPlan(mcpSkillset, { ...mcpOptions, agents: ["cursor"] }, mcpPrompter());
-    assert.deepStrictEqual(plan?.mcpServers, [
+    assert.deepStrictEqual(plan?.resolvedMcp, [
       { entry: docs, values: { region: { literal: "eu" } } },
     ]);
   }),
