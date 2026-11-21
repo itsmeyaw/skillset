@@ -7,7 +7,7 @@ import {
   type InstallScope,
 } from "./agents/agent.ts";
 import { writeAgentMcp } from "./agents/json-config.ts";
-import type { InstallPlan } from "./install-types.ts";
+import type { InstallPlan } from "./install-plan.ts";
 import { envVarsOf } from "./mcp-inputs.ts";
 import type { OverwritePrompter } from "./prompts/prompter.ts";
 import { SkillsetEnvironment } from "./skillset-store.ts";
