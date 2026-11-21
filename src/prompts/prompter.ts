@@ -1,6 +1,6 @@
 import { Console, Effect, Stdio, type FileSystem, type Path, type Terminal } from "effect";
 import { Prompt } from "effect/cli";
-import type { McpConflict } from "../agents/agent.ts";
+import type { InstallScope, McpConflict } from "../agents/agent.ts";
 import { CliMessageError } from "../errors.ts";
 import type { InstallPlan } from "../install-plan.ts";
 import { describeMcpLaunch, type McpEntry } from "../mcp-entry.ts";
@@ -37,7 +37,7 @@ export type PlanPrompter = {
     defaults: ReadonlyArray<string>,
     supported: boolean,
   ) => Answer<ReadonlyArray<string> | undefined>;
-  readonly scope: () => Answer<"project" | "global">;
+  readonly scope: () => Answer<InstallScope>;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
   readonly confirmPlan: (plan: InstallPlan) => Answer<boolean>;
 };
