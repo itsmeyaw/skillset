@@ -1,12 +1,7 @@
 import { Effect, Scope } from "effect";
-import { missingSkillsMessage } from "./errors.ts";
+import { missingSkillsMessage, UpstreamError } from "./errors.ts";
 import { parseSource } from "./source.ts";
-import {
-  UpstreamError,
-  type InstallChoices,
-  type InstallOutcome,
-  type UpstreamSession,
-} from "./upstream.ts";
+import { type InstallChoices, type InstallOutcome, type UpstreamSession } from "./upstream.ts";
 
 type Source = {
   readonly skills: ReadonlyArray<{ readonly name: string; readonly description: string }>;

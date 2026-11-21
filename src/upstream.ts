@@ -1,9 +1,7 @@
 import { Context, Effect } from "effect";
-import { CliMessageError as UpstreamError } from "./errors.ts";
+import type { UpstreamError } from "./errors.ts";
 import type { InstallScope } from "./agents/agent.ts";
 import type { SkillEntry } from "./skillset-file.ts";
-
-export { UpstreamError };
 
 export type SkillsAgent = {
   readonly id: string;
