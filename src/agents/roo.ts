@@ -1,7 +1,7 @@
 import { join } from "node:path";
+import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 import type { Agent } from "./agent.ts";
-import { installJsonMcp } from "./json-config.ts";
 import { toLaunch } from "./launch.ts";
 
 // Roo Code docs, "Using System Environment Variables in Arguments" (https://docs.roocode.com/features/mcp/using-mcp-in-roo):
@@ -45,13 +45,12 @@ export const rooGlobalFile = (home: string, platform: string) =>
 export const roo: Agent = {
   id: "roo",
   name: "Roo Code",
-  installMcp: (servers, { scope, paths, confirmOverwrite }) =>
-    installJsonMcp(
+  file: (scope, { paths }) =>
+    Effect.succeed(
       scope === "project"
         ? join(paths.cwd, ".roo", "mcp.json")
         : rooGlobalFile(paths.home, process.platform),
-      ["mcpServers"],
-      servers.map((server) => ({ name: server.entry.name, value: rooEntry(server) })),
-      confirmOverwrite,
     ),
+  keyPath: ["mcpServers"],
+  entry: rooEntry,
 };

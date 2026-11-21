@@ -37,16 +37,21 @@ export type McpInstallContext = {
   ) => Effect.Effect<boolean, CliMessageError, AgentRuntime>;
 };
 
-// ADR 0007: one module per Agent knows its files, key path, entry shape and env reference syntax.
+// ADR 0007: an Agent is data: where its MCP file is, which table holds the servers, how one server looks.
+// `writeAgentMcp` does the rest for every Agent.
 export type Agent = {
   readonly id: string;
   readonly name: string;
-  readonly installMcp: (
-    servers: ReadonlyArray<ResolvedMcp>,
-    context: McpInstallContext,
-  ) => Effect.Effect<ReadonlyArray<McpOutcome>, CliMessageError, AgentRuntime>;
+  // Agents that resolve to the same file are written once, by the first of them, so their entries must be identical.
+  readonly file: (
+    scope: McpScope,
+    context: Pick<McpInstallContext, "paths" | "env">,
+  ) => Effect.Effect<string, never, FileSystem.FileSystem>;
+  // A function chooses the table from the file's content, for Agents with more than one layout.
+  readonly keyPath:
+    | ReadonlyArray<string>
+    | ((root: Record<string, unknown>) => ReadonlyArray<string>);
+  readonly entry: (resolved: ResolvedMcp, scope: McpScope) => unknown;
   // A warning shown after the Agent's configuration was changed in this scope.
   readonly warning?: (scope: McpScope) => string | undefined;
-  // Agents that read the same file declare it, so install writes it once for all of them.
-  readonly file?: (scope: McpScope, context: Pick<McpInstallContext, "paths" | "env">) => string;
 };

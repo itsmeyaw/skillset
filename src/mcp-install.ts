@@ -1,5 +1,12 @@
 import { Console, Effect } from "effect";
-import { type Agent, AgentPaths, type McpOutcome } from "./agents/agent.ts";
+import {
+  type Agent,
+  AgentPaths,
+  type McpInstallContext,
+  type McpOutcome,
+  type McpScope,
+} from "./agents/agent.ts";
+import { writeAgentMcp } from "./agents/json-config.ts";
 import { findMcpAgent } from "./agents/registry.ts";
 import type { InstallPlan } from "./install-types.ts";
 import { envVarsOf, resolveMcp } from "./mcp-inputs.ts";
@@ -15,6 +22,22 @@ const mcpAgentIds = (plan: InstallPlan) => {
     : [];
   return [...new Set([...chosen.filter((id) => id !== "universal"), ...detected])];
 };
+
+// Agents that resolve to one file (Claude Code and Copilot share .mcp.json) are written once, by the first of them.
+export const groupByFile = Effect.fn("groupByFile")(function* (
+  agents: ReadonlyArray<Agent>,
+  scope: McpScope,
+  context: Pick<McpInstallContext, "paths" | "env">,
+) {
+  const groups: Array<{ readonly file: string; readonly agents: Array<Agent> }> = [];
+  for (const agent of agents) {
+    const file = yield* agent.file(scope, context);
+    const shared = groups.find((group) => group.file === file);
+    if (shared) shared.agents.push(agent);
+    else groups.push({ file, agents: [agent] });
+  }
+  return groups;
+});
 
 // Spec #37, User Stories 66-78: write each MCP Entry for every chosen Agent, then list env vars to set.
 // Returns the failures so the caller can merge them with skill failures into one exit code.
@@ -33,37 +56,22 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
   const env = yield* SkillsetEnvironment;
   const failures: Array<string> = [];
   let present = false;
-  // Agents that read one file (Claude Code and Copilot share .mcp.json) are written once, with identical entries.
-  const groups: Array<{
-    readonly ids: Array<string>;
-    readonly agents: Array<Agent>;
-    readonly file?: string;
-  }> = [];
+  const supported: Array<Agent> = [];
   for (const id of mcpAgentIds(plan)) {
     const agent = findMcpAgent(id);
-    if (agent === undefined) {
+    if (agent === undefined)
       yield* Console.log(`MCP Entries not installed for ${id}: not supported`);
-      continue;
-    }
-    const file = agent.file?.(plan.scope, { paths, env });
-    const shared = file === undefined ? undefined : groups.find((group) => group.file === file);
-    if (shared) {
-      shared.ids.push(id);
-      shared.agents.push(agent);
-    } else groups.push({ ids: [id], agents: [agent], ...(file === undefined ? {} : { file }) });
+    else supported.push(agent);
   }
+  const groups = yield* groupByFile(supported, plan.scope, { paths, env });
   if (groups.length === 0)
     failures.push("MCP Entries not installed: no chosen Agent can receive them");
-  for (const { ids, agents } of groups) {
-    const label = ids.join(", ");
-    const result = yield* agents[0]!
-      .installMcp(servers, {
-        scope: plan.scope,
-        paths,
-        env,
-        confirmOverwrite: prompter.confirmOverwrite,
-      })
-      .pipe(Effect.result);
+  for (const { file, agents } of groups) {
+    const label = agents.map((agent) => agent.id).join(", ");
+    const result = yield* writeAgentMcp(agents[0]!, file, servers, {
+      scope: plan.scope,
+      confirmOverwrite: prompter.confirmOverwrite,
+    }).pipe(Effect.result);
     if (result._tag === "Failure") {
       failures.push(`MCP Entries not installed for ${label}: ${result.failure.message}`);
       continue;
