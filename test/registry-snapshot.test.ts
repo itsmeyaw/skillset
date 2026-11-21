@@ -1,7 +1,8 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
-import { snapshotFromRegistry } from "../src/registry-snapshot.ts";
+import type { McpEntry } from "../src/mcp-entry.ts";
+import { renewSnapshot, snapshotFromRegistry } from "../src/registry-snapshot.ts";
 import { RemoteFetch } from "../src/remote-skillset.ts";
 import { fakeTerminal } from "./harness.ts";
 import { OFFICIAL, cannedFetch, json, npmServer, versionResponse } from "./registry-fixtures.ts";
@@ -128,4 +129,108 @@ it.effect(
         `Invalid MCP server name "a b": use letters, digits, '.', '_' and '-'.`,
       );
     }),
+);
+
+const latestUrl = versionUrl("latest");
+const entryAt = (version: string, name = "server") =>
+  snapshotFromRegistry({ server: serverName, entryName: name }, picker).pipe(
+    withFetch({ [latestUrl]: json(versionResponse(npmServer(version))) }),
+  );
+const renew = (entry: McpEntry, server: object, status?: string) =>
+  renewSnapshot(entry).pipe(withFetch({ [latestUrl]: json(versionResponse(server, status)) }));
+
+const pkg = (registryType: string, identifier: string, version: string) => ({
+  registryType,
+  identifier,
+  version,
+  transport: { type: "stdio" },
+});
+
+it.effect("renewSnapshot moves an Entry to the latest version", () =>
+  Effect.gen(function* () {
+    const renewal = yield* renew(yield* entryAt("1.0.0"), npmServer("2.0.0"));
+    assert.deepStrictEqual(renewal, {
+      next: { ...(yield* entryAt("2.0.0")) },
+      from: "1.0.0",
+      to: "2.0.0",
+    });
+  }),
+);
+
+it.effect("renewSnapshot keeps the kind of package even when another kind comes first", () =>
+  Effect.gen(function* () {
+    const entry = yield* entryAt("1.0.0");
+    const renewal = yield* renew(entry, {
+      name: serverName,
+      version: "2.0.0",
+      packages: [pkg("pypi", "server-py", "2.0.0"), pkg("npm", "@owner/other", "2.0.0")],
+    });
+    assert.isTrue("next" in renewal);
+    if ("next" in renewal) {
+      assert.strictEqual(renewal.next.launch.type, "package");
+      assert.strictEqual(
+        renewal.next.launch.type === "package" && renewal.next.launch.registryType,
+        "npm",
+      );
+    }
+  }),
+);
+
+it.effect("renewSnapshot prefers the same identifier among packages of one kind", () =>
+  Effect.gen(function* () {
+    const entry = yield* entryAt("1.0.0");
+    const renewal = yield* renew(entry, {
+      name: serverName,
+      version: "2.0.0",
+      packages: [pkg("npm", "@owner/other", "2.0.0"), pkg("npm", "@owner/server", "2.0.0")],
+    });
+    assert.isTrue("next" in renewal);
+    if ("next" in renewal && renewal.next.launch.type === "package")
+      assert.strictEqual(renewal.next.launch.identifier, "@owner/server");
+  }),
+);
+
+it.effect("renewSnapshot skips a manual Entry and an Entry already at the latest version", () =>
+  Effect.gen(function* () {
+    const manual = { name: "hand", launch: { type: "command", command: "x", args: [] } } as const;
+    assert.deepStrictEqual(yield* renewSnapshot(manual).pipe(withFetch()), { skip: "manual" });
+    const current = yield* entryAt("1.0.0");
+    assert.deepStrictEqual(yield* renew(current, npmServer("1.0.0")), { skip: "current" });
+  }),
+);
+
+it.effect("renewSnapshot reports an inactive latest version and a vanished kind", () =>
+  Effect.gen(function* () {
+    const entry = yield* entryAt("1.0.0");
+    assert.deepStrictEqual(yield* renew(entry, npmServer("2.0.0"), "deprecated"), {
+      failed: `${serverName} 2.0.0 is deprecated in Registry ${OFFICIAL}.`,
+    });
+    assert.deepStrictEqual(
+      yield* renew(entry, {
+        name: serverName,
+        version: "2.0.0",
+        packages: [pkg("pypi", "server-py", "2.0.0")],
+      }),
+      { failed: `${serverName} 2.0.0 no longer offers an npm package` },
+    );
+  }),
+);
+
+it.effect("renewSnapshot keeps a curator-renamed secret env var and nothing else they edited", () =>
+  Effect.gen(function* () {
+    const entry = yield* entryAt("1.0.0");
+    const edited: McpEntry = {
+      ...entry,
+      inputs: entry.inputs?.map((input) =>
+        input.name === "token" ? { ...input, env: "COMPANY_TOKEN" } : input,
+      ),
+    };
+    const renewal = yield* renew(edited, npmServer("2.0.0"));
+    assert.isTrue("next" in renewal);
+    if ("next" in renewal) {
+      const env = (name: string) => renewal.next.inputs?.find((input) => input.name === name)?.env;
+      assert.strictEqual(env("token"), "COMPANY_TOKEN");
+      assert.strictEqual(env("API_KEY"), undefined);
+    }
+  }),
 );
