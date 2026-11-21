@@ -9,7 +9,7 @@ import { fakeTerminal, fakeUpstream } from "./harness.ts";
 
 const alpha = { name: "alpha", source: "owner/repo", commit: "a".repeat(40) };
 const beta = { name: "beta", source: "owner/repo", commit: "b".repeat(40) };
-const skillset = { $schema: SCHEMA_URL, skills: [alpha, beta] } as const;
+const skillset = { $schema: SCHEMA_URL, skills: [alpha, beta], mcp: [] } as const;
 const options = { selected: [], selectedMcp: [], agents: [], global: false, copy: false };
 
 const scripted = (

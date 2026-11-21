@@ -61,7 +61,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   options: InstallPlanOptions,
   prompter: Prompter,
 ) {
-  if (isEmpty(skillset) && (skillset.mcp ?? []).length === 0) {
+  if (isEmpty(skillset)) {
     yield* Console.log(emptySkillsetMessage);
     return;
   }
@@ -92,7 +92,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
       ? selectMcpEntries(skillset, options.selectedMcp).mcpEntries
       : selecting
         ? []
-        : (skillset.mcp ?? []);
+        : skillset.mcp;
   if (!selecting && mcpEntries.length > 0) {
     const chosen = yield* prompter.mcpServers(
       mcpEntries.map((mcpEntry) => ({

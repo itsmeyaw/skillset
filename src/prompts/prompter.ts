@@ -63,7 +63,7 @@ const describeRemoteMcpEntry = (mcpEntry: McpEntry) =>
       : []),
   ].join("\n");
 
-const listRemoteEntries = ({ skills, mcp = [] }: Skillset) =>
+const listRemoteEntries = ({ skills, mcp }: Skillset) =>
   Console.log(
     [
       ...(skills.length > 0 || mcp.length === 0
