@@ -199,9 +199,9 @@ const tty: Prompter = {
                 `Skills:\n${plan.skillEntries.map((skillEntry) => `  ${skillEntry.name} (${skillEntry.source}@${skillEntry.commit})`).join(",\n")}`,
               ]
             : []),
-          ...(plan.mcpEntries.length > 0
+          ...(plan.mcpServers.length > 0
             ? [
-                `MCP servers:\n${plan.mcpEntries.map((mcpEntry) => `  ${mcpEntry.name} (${describeMcpLaunch(mcpEntry)})`).join(",\n")}`,
+                `MCP servers:\n${plan.mcpServers.map(({ entry }) => `  ${entry.name} (${describeMcpLaunch(entry)})`).join(",\n")}`,
               ]
             : []),
           `Agents: ${plan.agents?.join(", ") ?? "default"}`,
