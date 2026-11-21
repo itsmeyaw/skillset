@@ -98,7 +98,10 @@ export const selectSkillEntries = (skillset: Skillset, names: ReadonlyArray<stri
   unknown: names.filter((name) => !skillset.skills.some((skillEntry) => skillEntry.name === name)),
 });
 
-export const isEmpty = (skillset: Skillset) => skillset.skills.length === 0;
+export const hasSkillEntries = (skillset: Skillset) => skillset.skills.length > 0;
+
+export const isEmpty = (skillset: Skillset) =>
+  !hasSkillEntries(skillset) && (skillset.mcp ?? []).length === 0;
 
 export const unknownNamesMessage = (names: ReadonlyArray<string>) =>
   `Unknown skills: ${names.join(", ")}`;
