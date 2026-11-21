@@ -10,7 +10,7 @@ import {
   type McpEntry,
 } from "../mcp-entry.ts";
 import { launchChoices, defaultEntryName, snapshotRegistryEntry } from "../mcp-snapshot.ts";
-import { makePrompter, type Prompter } from "../prompts/prompter.ts";
+import { makePrompter, type RegistryPrompter } from "../prompts/prompter.ts";
 import {
   getServerVersion,
   listServers,
@@ -40,15 +40,19 @@ const invalidName = (name: string) =>
 
 const MIN_SEARCH_LENGTH = 3;
 
+const usage = "Usage: skillset mcp add <registry-name>[@version] (a search needs a terminal)";
+
 const describeChoice = (choice: ReturnType<typeof launchChoices>[number]) =>
   choice.kind === "package"
     ? `${choice.package.registryType} ${choice.package.identifier}`
     : `${choice.remote.type} ${choice.remote.url}`;
 
 // Spec #37, User Stories 11-13: search latest active versions, paging on request.
-const searchRegistry = (base: string, prompter: Prompter) =>
+const searchRegistry = (base: string, prompter: RegistryPrompter) =>
   Effect.gen(function* () {
-    const term = (yield* prompter.searchTerm()).trim();
+    const answer = yield* prompter.searchTerm();
+    if (answer === undefined) return yield* fail(usage);
+    const term = answer.trim();
     if (Array.from(term).length < MIN_SEARCH_LENGTH)
       return yield* fail(`Search term must be at least ${MIN_SEARCH_LENGTH} characters.`);
     const found: Array<RegistryServer> = [];
@@ -74,7 +78,7 @@ const addFromRegistry = (
   given: string | undefined,
   registry: string | undefined,
   entryName: string | undefined,
-  prompter: Prompter,
+  prompter: RegistryPrompter,
 ) =>
   Effect.gen(function* () {
     const store = yield* openCommandSkillset({ missing: "create" });

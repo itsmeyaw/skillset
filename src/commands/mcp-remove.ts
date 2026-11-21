@@ -1,13 +1,15 @@
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { CliMessageError } from "../errors.ts";
-import { makePrompter } from "../prompts/prompter.ts";
+import { makePrompter, type RemovePrompter } from "../prompts/prompter.ts";
 import {
   openCommandSkillset,
   removeMcpEntries,
   selectMcpEntries,
   unknownMcpNamesMessage,
 } from "../skillset-store.ts";
+
+const usage = "Usage: skillset mcp rm [names...] [--all]";
 
 // Spec #37, User Stories 30-32: removing MCP Entries changes only the Skillset file.
 export const mcpRemove = Command.make(
@@ -18,8 +20,9 @@ export const mcpRemove = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* ({ servers: supplied, all, yes }) {
-    const prompter = yield* makePrompter(yes);
-    if (!all && supplied.length === 0) yield* prompter.ensureRemoveInput();
+    const prompter: RemovePrompter = yield* makePrompter(yes);
+    if (!all && supplied.length === 0 && !prompter.canSelect)
+      return yield* new CliMessageError({ message: usage });
     const store = yield* openCommandSkillset({ missing: "fail" });
     const { skillset } = store;
     const existing = skillset.mcp ?? [];
