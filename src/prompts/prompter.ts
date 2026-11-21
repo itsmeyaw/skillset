@@ -202,6 +202,7 @@ const tty: Prompter = {
           ...(plan.mcpServers.length > 0
             ? [
                 `MCP servers:\n${plan.mcpServers.map(({ entry }) => `  ${entry.name} (${describeMcpLaunch(entry)})`).join(",\n")}`,
+                `MCP agents: ${plan.mcpTargets.map((agent) => agent.id).join(", ") || "none"}`,
               ]
             : []),
           `Agents: ${plan.agents?.join(", ") ?? "default"}`,
