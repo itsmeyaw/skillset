@@ -475,3 +475,58 @@ it.effect("mcp add --install keeps the Entry when installation is declined", () 
     assert.isFalse(yield* fs.exists(`${dir}/home/.claude.json`));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
+
+// ADR 0005: like skill add, mcp add asks "Install skillset?" when --install is absent.
+it.effect("mcp add without --install asks to install and keeps the Entry when declined", () =>
+  Effect.gen(function* () {
+    const { fs, dir, cwd, upstream, installCalls } = yield* setup;
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["mcp", "add", "files", "--set", file, "--", "npx"], {
+      cwd,
+      home: `${dir}/home`,
+      upstream,
+      tty: true,
+      keys: [key("n", "n")],
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.screen.join(""), "Install skillset?");
+    assert.include(
+      JSON.parse(yield* fs.readFileString(file)).mcp.map((entry: McpEntry) => entry.name),
+      "files",
+    );
+    assert.deepStrictEqual(installCalls, []);
+    assert.isFalse(yield* fs.exists(`${cwd}/.mcp.json`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("mcp add without --install installs the whole Skillset when the prompt is accepted", () =>
+  Effect.gen(function* () {
+    const { fs, dir, cwd, upstream } = yield* setup;
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["mcp", "add", "files", "--set", file, "--", "npx"], {
+      cwd,
+      home: `${dir}/home`,
+      upstream,
+      tty: true,
+      keys: [key("y", "y"), ...Array.from({ length: 8 }, () => key("enter")), key("y", "y")],
+    });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), "Installed alpha, bar");
+    assert.deepStrictEqual(
+      Object.keys(JSON.parse(yield* fs.readFileString(`${cwd}/.mcp.json`)).mcpServers),
+      ["docs", "files", "github"],
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("mcp add -y without --install asks nothing and installs nothing", () =>
+  Effect.gen(function* () {
+    const { dir, cwd, upstream, installCalls } = yield* setup;
+    const result = yield* runCli(
+      ["mcp", "add", "files", "-y", "--set", `${dir}/skillset.json`, "--", "npx"],
+      { cwd, upstream },
+    );
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(installCalls, []);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
