@@ -5,7 +5,7 @@ import {
   emptySkillsetMessage,
   noSkillsMessage,
 } from "../errors.ts";
-import { makePrompter } from "../prompts/prompter.ts";
+import { makePrompter, type RemovePrompter } from "../prompts/prompter.ts";
 import {
   hasSkillEntries,
   isEmpty,
@@ -26,7 +26,7 @@ export const remove = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* ({ skills: supplied, all, yes }) {
-    const prompter = yield* makePrompter(yes);
+    const prompter: RemovePrompter = yield* makePrompter(yes);
     // Spec #1, User Story 19: an empty selection must not remove anything.
     if (!all && supplied.length === 0 && !prompter.canSelect)
       return yield* new RemoveError({ message: usage });

@@ -2,7 +2,7 @@ import { Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { Expansion } from "../argv.ts";
 import { installFlags, installSkillset } from "../install.ts";
-import { makePrompter } from "../prompts/prompter.ts";
+import { makePrompter, type InstallPrompter, type RemotePrompter } from "../prompts/prompter.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
 
@@ -30,7 +30,7 @@ export const install = Command.make(
       install: true,
     });
     const upstream = yield* Upstream;
-    const prompter = yield* makePrompter(options.yes);
+    const prompter: InstallPrompter & RemotePrompter = yield* makePrompter(options.yes);
     if (store.remote && !options.yes && !(yield* prompter.confirmRemote(store.skillset))) return;
     return yield* upstream.withSession((session) =>
       installSkillset(store.skillset, options, session, prompter),

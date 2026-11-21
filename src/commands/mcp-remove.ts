@@ -1,7 +1,7 @@
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { CliMessageError } from "../errors.ts";
-import { makePrompter } from "../prompts/prompter.ts";
+import { makePrompter, type RemovePrompter } from "../prompts/prompter.ts";
 import {
   openCommandSkillset,
   removeMcpEntries,
@@ -20,7 +20,7 @@ export const mcpRemove = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* ({ servers: supplied, all, yes }) {
-    const prompter = yield* makePrompter(yes);
+    const prompter: RemovePrompter = yield* makePrompter(yes);
     if (!all && supplied.length === 0 && !prompter.canSelect)
       return yield* new CliMessageError({ message: usage });
     const store = yield* openCommandSkillset({ missing: "fail" });

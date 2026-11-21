@@ -5,7 +5,7 @@ import { Expansion } from "../argv.ts";
 import { CliMessageError } from "../errors.ts";
 import { chainFlag, chainInstall, installFlags, requireInstallForFlags } from "../install.ts";
 import { makePinning } from "../pinning.ts";
-import { makePrompter } from "../prompts/prompter.ts";
+import { makePrompter, type AddPrompter, type InstallPrompter } from "../prompts/prompter.ts";
 import type { SkillEntry, Skillset } from "../skillset-file.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
@@ -36,7 +36,7 @@ export const add = Command.make(
     return yield* upstream.withSession((session) =>
       Effect.gen(function* () {
         yield* requireInstallForFlags({ install, agents, global, copy });
-        const prompter = yield* makePrompter(yes);
+        const prompter: AddPrompter & InstallPrompter = yield* makePrompter(yes);
         const askSource = Effect.filterOrFail(
           prompter.source(),
           (answer) => answer !== undefined,
