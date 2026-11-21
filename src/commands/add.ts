@@ -15,6 +15,8 @@ import { Upstream } from "../upstream.ts";
 // Spec #1, User Story 3: a Source can follow space-separated skill names.
 const isSource = (value: string) => /[/:]/u.test(value);
 
+const usage = "Usage: skillset skill add <source>";
+
 // Spec #1, add: list skills without changing the Skillset when no selection is given.
 export const add = Command.make(
   "add",
@@ -43,7 +45,12 @@ export const add = Command.make(
             message: "--agent, --global and --copy require --install.",
           });
         const prompter = yield* makePrompter(yes);
-        let input = Option.isSome(source) ? source.value : yield* prompter.source();
+        const askSource = Effect.filterOrFail(
+          prompter.source(),
+          (answer) => answer !== undefined,
+          () => new AddError({ message: usage }),
+        );
+        let input = Option.isSome(source) ? source.value : yield* askSource;
         const store = yield* openCommandSkillset({ missing: "create" });
         const pinning = yield* makePinning(session);
         let first = true;
@@ -74,7 +81,7 @@ export const add = Command.make(
             !(yield* prompter.anotherSource(result._tag === "Failure" ? result.failure : undefined))
           )
             break;
-          input = yield* prompter.source();
+          input = yield* askSource;
         }
         // Interactive add recovery spec: write successful rounds once, or fail with the last error.
         if (!pending && lastError) return yield* lastError;

@@ -38,7 +38,8 @@ export type Prompter = {
   readonly scope: () => Answer<"project" | "global">;
   readonly mode: () => Answer<"auto" | "symlink" | "copy">;
   // Spec #37, User Stories 11-13: search the Registry, pick one server, then one package or remote.
-  readonly searchTerm: () => Answer<string>;
+  // Undefined means no terminal to ask on.
+  readonly searchTerm: () => Answer<string | undefined>;
   // Undefined means "load more results".
   readonly registryServer: (
     names: ReadonlyArray<string>,
@@ -48,8 +49,10 @@ export type Prompter = {
   readonly launchChoice: (titles: ReadonlyArray<string>) => Answer<number>;
   readonly confirmPlan: (plan: InstallPlan) => Answer<boolean>;
   readonly confirmRemote: (skillset: Skillset) => Answer<boolean>;
-  readonly source: () => Answer<string>;
-  readonly ensureRemoveInput: () => Answer<void>;
+  // Undefined means no terminal to ask on.
+  readonly source: () => Answer<string | undefined>;
+  // False means the user cannot be asked which Entries to remove.
+  readonly canSelect: boolean;
   readonly anotherSource: (failure?: CliMessageError) => Answer<boolean>;
   readonly confirmInstall: () => Answer<boolean>;
 };
@@ -77,8 +80,6 @@ const listRemoteEntries = ({ skills, mcp = [] }: Skillset) =>
     ].join("\n"),
   );
 
-const mcpAddUsage = "Usage: skillset mcp add <registry-name>[@version] (a search needs a terminal)";
-
 const unattended: Prompter = {
   skills: () => Effect.undefined,
   mcpServers: () => Effect.undefined,
@@ -88,8 +89,8 @@ const unattended: Prompter = {
   agents: (_choices, defaults) => Effect.succeed(defaults.length > 0 ? defaults : undefined),
   scope: () => Effect.succeed("project"),
   mode: () => Effect.succeed("auto"),
-  searchTerm: () => Effect.fail(new CliMessageError({ message: mcpAddUsage })),
-  registryServer: () => Effect.fail(new CliMessageError({ message: mcpAddUsage })),
+  searchTerm: () => Effect.undefined,
+  registryServer: (names) => Effect.succeed(names[0]),
   launchChoice: () => Effect.succeed(0),
   confirmPlan: () => Effect.succeed(true),
   confirmRemote: (skillset) =>
@@ -101,9 +102,8 @@ const unattended: Prompter = {
         }),
       ),
     ),
-  source: () => Effect.fail(new CliMessageError({ message: "Usage: skillset add <source>" })),
-  ensureRemoveInput: () =>
-    Effect.fail(new CliMessageError({ message: "Usage: skillset remove [skills...] [--all]" })),
+  source: () => Effect.undefined,
+  canSelect: false,
   anotherSource: () => Effect.succeed(false),
   confirmInstall: () => Effect.succeed(false),
 };
@@ -221,7 +221,7 @@ const tty: Prompter = {
       );
     }),
   source: () => cancelOnQuit(Prompt.String({ message: "Source?" })),
-  ensureRemoveInput: () => Effect.void,
+  canSelect: true,
   anotherSource: (failure) =>
     Effect.gen(function* () {
       if (failure) yield* Console.error(`Warning: ${failure.message}`);

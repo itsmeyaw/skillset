@@ -13,7 +13,7 @@ it.effect("remove -y keeps non-interactive usage behavior on a TTY", () =>
   Effect.gen(function* () {
     const result = yield* runCli(["skill", "rm", "-y"], { tty: true });
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Usage/);
+    assert.include(result.err.join("\n"), "Usage: skillset skill rm [skills...] [--all]");
     assert.deepStrictEqual(result.screen, []);
   }),
 );
@@ -112,7 +112,7 @@ it.effect("remove without names or --all reports usage without changing the file
 
     const result = yield* runCli(["skill", "rm", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /usage:.*remove.*--all/i);
+    assert.include(result.err.join("\n"), "Usage: skillset skill rm [skills...] [--all]");
     assert.strictEqual(yield* fs.readFileString(file), original);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

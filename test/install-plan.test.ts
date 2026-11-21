@@ -55,7 +55,7 @@ const scripted = (
     confirmPlan: () => Effect.sync(() => (asked.push("confirm"), answers.proceed ?? true)),
     confirmRemote: () => Effect.die("unexpected remote question"),
     source: () => Effect.die("unexpected source question"),
-    ensureRemoveInput: () => Effect.die("unexpected remove question"),
+    canSelect: false,
     anotherSource: () => Effect.die("unexpected add question"),
     confirmInstall: () => Effect.die("unexpected install question"),
   };
@@ -94,7 +94,7 @@ it.effect("explicit install flags skip their questions", () =>
       confirmPlan: () => Effect.sync(() => (asked.push("confirm"), true)),
       confirmRemote: () => Effect.die("unexpected remote question"),
       source: () => Effect.die("unexpected source question"),
-      ensureRemoveInput: () => Effect.die("unexpected remove question"),
+      canSelect: false,
       anotherSource: () => Effect.die("unexpected add question"),
       confirmInstall: () => Effect.die("unexpected install question"),
     };

@@ -180,7 +180,10 @@ it.effect("mcp add -y without a name fails with a usage message", () =>
     const { file, fs, before } = yield* setup;
     const result = yield* runCli(["mcp", "add", "-y", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.include(result.err.join("\n"), "Usage: skillset mcp add");
+    assert.include(
+      result.err.join("\n"),
+      "Usage: skillset mcp add <registry-name>[@version] (a search needs a terminal)",
+    );
     assert.strictEqual(yield* fs.readFileString(file), before);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

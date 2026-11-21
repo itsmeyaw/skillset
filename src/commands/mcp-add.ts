@@ -40,6 +40,8 @@ const invalidName = (name: string) =>
 
 const MIN_SEARCH_LENGTH = 3;
 
+const usage = "Usage: skillset mcp add <registry-name>[@version] (a search needs a terminal)";
+
 const describeChoice = (choice: ReturnType<typeof launchChoices>[number]) =>
   choice.kind === "package"
     ? `${choice.package.registryType} ${choice.package.identifier}`
@@ -48,7 +50,9 @@ const describeChoice = (choice: ReturnType<typeof launchChoices>[number]) =>
 // Spec #37, User Stories 11-13: search latest active versions, paging on request.
 const searchRegistry = (base: string, prompter: Prompter) =>
   Effect.gen(function* () {
-    const term = (yield* prompter.searchTerm()).trim();
+    const answer = yield* prompter.searchTerm();
+    if (answer === undefined) return yield* fail(usage);
+    const term = answer.trim();
     if (Array.from(term).length < MIN_SEARCH_LENGTH)
       return yield* fail(`Search term must be at least ${MIN_SEARCH_LENGTH} characters.`);
     const found: Array<RegistryServer> = [];
