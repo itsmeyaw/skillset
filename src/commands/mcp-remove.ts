@@ -22,7 +22,7 @@ export const mcpRemove = Command.make(
     if (!all && supplied.length === 0) yield* prompter.ensureRemoveInput();
     const store = yield* openCommandSkillset({ missing: "fail" });
     const { skillset } = store;
-    const existing = skillset.mcp ?? [];
+    const existing = skillset.mcp;
     let names: ReadonlyArray<string> = supplied;
     if (!all && names.length === 0) {
       if (existing.length === 0) {

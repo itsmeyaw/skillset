@@ -66,7 +66,7 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
     return yield* new CliMessageError({ message: missingMessage(path) });
   const skillset: Skillset = exists
     ? yield* readSkillset(path)
-    : { $schema: SCHEMA_URL, skills: [] };
+    : { $schema: SCHEMA_URL, skills: [], mcp: [] };
   return { path, skillset, remote: false, save: (next: Skillset) => writeSkillset(path, next) };
 });
 
@@ -101,14 +101,14 @@ export const selectSkillEntries = (skillset: Skillset, names: ReadonlyArray<stri
 export const hasSkillEntries = (skillset: Skillset) => skillset.skills.length > 0;
 
 export const isEmpty = (skillset: Skillset) =>
-  !hasSkillEntries(skillset) && (skillset.mcp ?? []).length === 0;
+  !hasSkillEntries(skillset) && skillset.mcp.length === 0;
 
 export const unknownNamesMessage = (names: ReadonlyArray<string>) =>
   `Unknown skills: ${names.join(", ")}`;
 
 // Spec #37, User Story 87: an invalid selection lists what exists.
 export const unknownMcpNamesMessage = (skillset: Skillset, names: ReadonlyArray<string>) =>
-  `Unknown MCP servers: ${names.join(", ")} (available: ${(skillset.mcp ?? []).map((mcpEntry) => mcpEntry.name).join(", ") || "none"})`;
+  `Unknown MCP servers: ${names.join(", ")} (available: ${skillset.mcp.map((mcpEntry) => mcpEntry.name).join(", ") || "none"})`;
 
 export const upsertSkillEntries = (skillset: Skillset, added: ReadonlyArray<SkillEntry>) => {
   const conflict = skillset.skills.find((skillEntry) =>
@@ -145,22 +145,22 @@ export const movePin = (skillset: Skillset, name: string, commit: string): Skill
 
 // ADR 0006: names are unique within the mcp array only, so a skill may share a name.
 export const addMcpEntry = (skillset: Skillset, added: McpEntry) =>
-  (skillset.mcp ?? []).some((mcpEntry) => mcpEntry.name === added.name)
+  skillset.mcp.some((mcpEntry) => mcpEntry.name === added.name)
     ? Effect.fail(new CliMessageError({ message: `MCP server ${added.name} already exists` }))
-    : Effect.succeed({ ...skillset, mcp: [...(skillset.mcp ?? []), added] });
+    : Effect.succeed({ ...skillset, mcp: [...skillset.mcp, added] });
 
 export const replaceMcpEntry = (skillset: Skillset, next: McpEntry): Skillset => ({
   ...skillset,
-  mcp: (skillset.mcp ?? []).map((mcpEntry) => (mcpEntry.name === next.name ? next : mcpEntry)),
+  mcp: skillset.mcp.map((mcpEntry) => (mcpEntry.name === next.name ? next : mcpEntry)),
 });
 
 export const removeMcpEntries = (skillset: Skillset, names: ReadonlyArray<string>): Skillset => ({
   ...skillset,
-  mcp: (skillset.mcp ?? []).filter((mcpEntry) => !names.includes(mcpEntry.name)),
+  mcp: skillset.mcp.filter((mcpEntry) => !names.includes(mcpEntry.name)),
 });
 
 export const selectMcpEntries = (skillset: Skillset, names: ReadonlyArray<string>) => {
-  const mcpEntries = skillset.mcp ?? [];
+  const mcpEntries = skillset.mcp;
   return {
     mcpEntries:
       names.length === 0

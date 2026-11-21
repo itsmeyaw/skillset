@@ -34,7 +34,9 @@ const uniqueNames = (kind: "skill" | "MCP") =>
 export const Skillset = Schema.Struct({
   $schema: Schema.Literal(SCHEMA_URL),
   skills: Schema.Array(SkillEntry).check(uniqueNames("skill")),
-  mcp: Schema.optionalKey(Schema.Array(McpEntry).check(uniqueNames("MCP"))),
+  mcp: Schema.Array(McpEntry)
+    .check(uniqueNames("MCP"))
+    .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
 }).annotate({
   title: "Skillset",
   description: "A curated list of agent skills pinned to commits.",
@@ -93,9 +95,10 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
   const saved = {
     $schema: validated.$schema,
     skills: sortedByName(validated.skills),
-    ...(validated.mcp?.length ? { mcp: sortedByName(validated.mcp) } : {}),
+    mcp: sortedByName(validated.mcp),
   };
-  const content = JSON.stringify(saved, null, 2) + "\n";
+  const { mcp, ...withoutMcp } = saved;
+  const content = JSON.stringify(mcp.length ? saved : withoutMcp, null, 2) + "\n";
   yield* writeFileAtomic(path, content).pipe(
     Effect.mapError(
       (error) =>

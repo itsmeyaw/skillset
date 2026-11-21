@@ -92,7 +92,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
       ? selectMcpEntries(skillset, options.selectedMcp).mcpEntries
       : selecting
         ? []
-        : (skillset.mcp ?? []);
+        : skillset.mcp;
   if (!selecting && mcpEntries.length > 0) {
     const chosen = yield* prompter.mcpServers(
       mcpEntries.map((mcpEntry) => ({

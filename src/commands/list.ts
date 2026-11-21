@@ -21,7 +21,7 @@ export const list = Command.make(
       return;
     }
     const { skillset } = yield* openCommandSkillset({ missing: "fail", allowRemote: true });
-    const mcpEntries = sortedByName(skillset.mcp ?? []);
+    const mcpEntries = sortedByName(skillset.mcp);
     if (isEmpty(skillset)) {
       yield* Console.log(emptySkillsetMessage);
       return;
