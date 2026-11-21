@@ -1,6 +1,6 @@
 import { Console, Effect } from "effect";
 import type { Agent as McpAgent } from "./agents/agent.ts";
-import { findMcpAgent } from "./agents/registry.ts";
+import { findMcpAgent } from "./agents/mcp-agents.ts";
 import { CliMessageError, emptySkillsetMessage } from "./errors.ts";
 import type { InstallPlan } from "./install-types.ts";
 import { promptableInputs, type ResolvedMcp, resolveMcp } from "./mcp-inputs.ts";
