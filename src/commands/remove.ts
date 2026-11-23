@@ -1,8 +1,13 @@
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
-import { CliMessageError as RemoveError, emptySkillsetMessage } from "../errors.ts";
+import {
+  CliMessageError as RemoveError,
+  emptySkillsetMessage,
+  noSkillsMessage,
+} from "../errors.ts";
 import { makePrompter } from "../prompts/prompter.ts";
 import {
+  hasSkillEntries,
   isEmpty,
   openCommandSkillset,
   removeSkillEntries,
@@ -27,8 +32,8 @@ export const remove = Command.make(
     let skills: ReadonlyArray<string> = supplied;
     // Issue #11: select Skill Entries only when an interactive removal is ambiguous.
     if (!all && skills.length === 0) {
-      if (isEmpty(skillset)) {
-        yield* Console.log(emptySkillsetMessage);
+      if (!hasSkillEntries(skillset)) {
+        yield* Console.log(isEmpty(skillset) ? emptySkillsetMessage : noSkillsMessage);
         return;
       }
       const chosen = yield* prompter.skills(

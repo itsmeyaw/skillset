@@ -35,7 +35,7 @@ it.effect("rewrites GitHub blob URLs and follows HTTPS redirects with one timeou
       "HTTPS://github.com/owner/repo/blob/main/sets/team.json",
       fetchRemote,
     );
-    assert.deepStrictEqual(result, skillset);
+    assert.deepStrictEqual(result, { ...skillset, mcp: [] });
     assert.deepStrictEqual(requests, [
       "https://raw.githubusercontent.com/owner/repo/main/sets/team.json",
       "https://raw.githubusercontent.com/next.json",
@@ -99,7 +99,7 @@ it.effect("accepts a body exactly 1 MB and rejects redirect loops", () =>
       url,
       fetchResponse(() => new Response(json + " ".repeat(1048576 - json.length))),
     );
-    assert.deepStrictEqual(loaded, skillset);
+    assert.deepStrictEqual(loaded, { ...skillset, mcp: [] });
     let calls = 0;
     const result = yield* Effect.result(
       fetchSkillset(url, async () => {
