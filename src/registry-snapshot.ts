@@ -4,6 +4,7 @@ import type { McpEntry } from "./mcp-entry.ts";
 import {
   checkEntryName,
   defaultEntryName,
+  isSupported,
   launchChoices,
   snapshotRegistryEntry,
   type LaunchChoice,
@@ -91,8 +92,14 @@ export const snapshotFromRegistry = (
     const choices = launchChoices(server);
     if (choices.length === 0)
       return yield* fail(`${server.name} ${server.version} offers no package or remote.`);
+    // Only the non-interactive picker acts on this default; with none supported, 0 keeps the first choice's error.
+    const firstSupported = Math.max(0, choices.findIndex(isSupported));
     const choice =
-      choices[choices.length === 1 ? 0 : yield* picker.launchChoice(choices.map(describeChoice))]!;
+      choices[
+        choices.length === 1
+          ? 0
+          : yield* picker.launchChoice(choices.map(describeChoice), firstSupported)
+      ]!;
     const name = request.entryName ?? defaultEntryName(server.name);
     yield* checkEntryName(name);
     return yield* snapshotRegistryEntry({ registry: base, server, choice, name });
