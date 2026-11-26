@@ -97,11 +97,11 @@ describe.each(["live", "fake"] as const)("%s Upstream install contract", (adapte
     expect(result.installed.map(({ skill }) => skill)).toEqual(["alpha"]);
     expect(result.skipped).toEqual([]);
     expect(result.failed).toEqual([]);
-    if (adapter === "live") {
-      expect(await readFile(join(cwd, ".agents/skills/alpha/SKILL.md"), "utf8")).toContain(
-        "Pinned content.",
-      );
-    }
+    const [path, expected] =
+      adapter === "live"
+        ? [".agents/skills/alpha/SKILL.md", "Pinned content."]
+        : ["project/universal/alpha", `${commit}:copy`];
+    expect(await readFile(join(cwd, path), "utf8")).toContain(expected);
   });
 
   it("reports a skipped target", async () => {
@@ -164,7 +164,7 @@ describe.each(["live", "fake"] as const)("%s Upstream install contract", (adapte
       { skill: "alpha", agent: "universal" },
     ]);
     expect(result.failed[0]?.message).toBeTruthy();
-    await expect(readFile(join(cwd, "project/universal/beta"), "utf8")).rejects.toThrow();
+    await expect(readFile(join(cwd, "project/universal/beta"), "utf8")).rejects.toThrow(/ENOENT/);
   });
 
   it("preflights every Skill Entry before writing", async () => {
@@ -194,8 +194,10 @@ describe.each(["live", "fake"] as const)("%s Upstream install contract", (adapte
       ).pipe(Effect.provide(layer)),
     );
     expect(error.message).toContain("missing");
-    await expect(readFile(join(cwd, ".agents/skills/alpha/SKILL.md"), "utf8")).rejects.toThrow();
-    await expect(readFile(join(cwd, "project/universal/alpha"), "utf8")).rejects.toThrow();
+    await expect(readFile(join(cwd, ".agents/skills/alpha/SKILL.md"), "utf8")).rejects.toThrow(
+      /ENOENT/,
+    );
+    await expect(readFile(join(cwd, "project/universal/alpha"), "utf8")).rejects.toThrow(/ENOENT/);
   });
 
   it("installs different Pins of one Source", async () => {
@@ -224,16 +226,18 @@ describe.each(["live", "fake"] as const)("%s Upstream install contract", (adapte
     );
     expect(result.installed.map(({ skill }) => skill)).toEqual(["alpha", "beta"]);
     expect(result.failed).toEqual([]);
-    if (adapter === "live") {
-      expect(await readFile(join(cwd, ".agents/skills/alpha/SKILL.md"), "utf8")).toContain(
-        "Pinned content.",
-      );
-      expect(await readFile(join(cwd, ".agents/skills/beta/SKILL.md"), "utf8")).toContain(
-        "New beta.",
-      );
-    } else {
-      expect(await readFile(join(cwd, "project/universal/alpha"), "utf8")).toBe(`${commit}:copy`);
-      expect(await readFile(join(cwd, "project/universal/beta"), "utf8")).toBe(`${later}:copy`);
+    const files =
+      adapter === "live"
+        ? [
+            [".agents/skills/alpha/SKILL.md", "Pinned content."],
+            [".agents/skills/beta/SKILL.md", "New beta."],
+          ]
+        : [
+            ["project/universal/alpha", `${commit}:copy`],
+            ["project/universal/beta", `${later}:copy`],
+          ];
+    for (const [path, expected] of files) {
+      expect(await readFile(join(cwd, path!), "utf8")).toContain(expected!);
     }
   });
 });

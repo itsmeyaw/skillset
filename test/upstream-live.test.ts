@@ -76,7 +76,7 @@ it("rejects the executable git ext transport", async () => {
       ).pipe(Effect.provide(Layer.provide(UpstreamLive, NodeServices.layer))),
     );
     expect(installError.message).toContain("Unsupported Git transport");
-    await expect(access(marker)).rejects.toThrow();
+    await expect(access(marker)).rejects.toThrow(/ENOENT/);
   } finally {
     if (previous === undefined) delete process.env.GIT_ALLOW_PROTOCOL;
     else process.env.GIT_ALLOW_PROTOCOL = previous;
