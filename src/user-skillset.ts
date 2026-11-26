@@ -19,31 +19,43 @@ const nonEmpty = (value: string | undefined) =>
   value === undefined || value === "" ? undefined : value;
 
 // ADR 0002: SKILLSET_HOME, else $XDG_CONFIG_HOME/skillset, else ~/.skillset; never merged.
-export const userDir = (env: Env): string => {
-  const home = nonEmpty(env.SKILLSET_HOME);
-  if (home !== undefined) return home;
+// Issue #111: an empty home would make ~/.skillset a path inside the working directory.
+export const userDir = (env: Env, home: string): Effect.Effect<string, CliMessageError> => {
+  const own = nonEmpty(env.SKILLSET_HOME);
+  if (own !== undefined) return Effect.succeed(own);
   const xdg = nonEmpty(env.XDG_CONFIG_HOME);
-  return xdg === undefined ? join(homedir(), ".skillset") : join(xdg, "skillset");
+  if (xdg !== undefined) return Effect.succeed(join(xdg, "skillset"));
+  return home.trim() === ""
+    ? Effect.fail(
+        new CliMessageError({
+          message: "Cannot resolve the User Skillset directory: HOME is empty",
+        }),
+      )
+    : Effect.succeed(join(home, ".skillset"));
 };
 
 // ADR 0002: the form of `--set` alone decides path versus User Skillset.
 export const resolveSet = (
   value: Option.Option<string>,
   env: Env,
+  home = homedir(),
 ): Effect.Effect<string, CliMessageError> => {
   if (Option.isNone(value)) return Effect.succeed(DEFAULT_SKILLSET_PATH);
   if (isJsonPath(value.value)) return Effect.succeed(value.value);
   if (NAME_PATTERN.test(value.value))
-    return Effect.succeed(join(userDir(env), `${value.value}${EXT}`));
+    return userDir(env, home).pipe(Effect.map((dir) => join(dir, `${value.value}${EXT}`)));
   return Effect.fail(
     new CliMessageError({ message: `"${value.value}" is not a Skillset name or .json path.` }),
   );
 };
 
 // Issue #22: ls --user shows names only; a missing user directory is not an error.
-export const listUserSkillsets = Effect.fn("listUserSkillsets")(function* (env: Env) {
+export const listUserSkillsets = Effect.fn("listUserSkillsets")(function* (
+  env: Env,
+  home = homedir(),
+) {
   const fs = yield* FileSystem.FileSystem;
-  const dir = userDir(env);
+  const dir = yield* userDir(env, home);
   const failure = (error: { readonly message: string }) =>
     new CliMessageError({ message: `Cannot read ${dir}: ${error.message}` });
   if (!(yield* fs.exists(dir).pipe(Effect.mapError(failure)))) return [];

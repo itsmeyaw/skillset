@@ -2,7 +2,6 @@ import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem, Option } from "effect";
 import { execFileSync, spawnSync } from "node:child_process";
-import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { SCHEMA_URL } from "../src/skillset-file.ts";
 import { isUserSkillsetName, resolveSet, userDir } from "../src/user-skillset.ts";
@@ -51,10 +50,11 @@ it("isUserSkillsetName rejects .json paths", () => {
 
 // Issue #12: first rule that applies wins, never merged.
 it("user directory precedence: SKILLSET_HOME, XDG_CONFIG_HOME, then ~/.skillset", () => {
-  assert.strictEqual(userDir({ SKILLSET_HOME: "/s", XDG_CONFIG_HOME: "/x" }), "/s");
-  assert.strictEqual(userDir({ XDG_CONFIG_HOME: "/x" }), "/x/skillset");
-  assert.strictEqual(userDir({}), `${homedir()}/.skillset`);
-  assert.strictEqual(userDir({ SKILLSET_HOME: "", XDG_CONFIG_HOME: "" }), `${homedir()}/.skillset`);
+  const dir = (env: Record<string, string | undefined>) => Effect.runSync(userDir(env, "/h"));
+  assert.strictEqual(dir({ SKILLSET_HOME: "/s", XDG_CONFIG_HOME: "/x" }), "/s");
+  assert.strictEqual(dir({ XDG_CONFIG_HOME: "/x" }), "/x/skillset");
+  assert.strictEqual(dir({}), "/h/.skillset");
+  assert.strictEqual(dir({ SKILLSET_HOME: "", XDG_CONFIG_HOME: "" }), "/h/.skillset");
 });
 
 const withHome = <A, E, R>(
@@ -359,4 +359,99 @@ it.effect("ls --user uses $XDG_CONFIG_HOME/skillset when SKILLSET_HOME is unset"
       );
     }),
   ),
+);
+
+// Issue #111: an empty home would resolve ~/.skillset inside the working directory.
+const emptyHomeError = "Cannot resolve the User Skillset directory: HOME is empty";
+
+it.effect("--set <name> fails without writing when HOME is empty", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const { SKILLSET_HOME: _s, XDG_CONFIG_HOME: _x, ...rest } = process.env;
+    const result = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("../src/bin.ts", import.meta.url)),
+        "--set",
+        "mine",
+        "mcp",
+        "add",
+        "foo",
+        "--",
+        "echo",
+        "hi",
+      ],
+      { cwd: dir, env: { ...rest, HOME: "" }, encoding: "utf8" },
+    );
+    assert.strictEqual(result.status, 1);
+    assert.include(result.stderr, emptyHomeError);
+    assert.deepStrictEqual(yield* fs.readDirectory(dir), []);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("ls --user fails when HOME is empty", () =>
+  Effect.gen(function* () {
+    const result = yield* runCli(["ls", "--user"], { env: {}, home: "" });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), emptyHomeError);
+  }),
+);
+
+it.effect("install <name> reports the empty HOME instead of a missing Skillset", () =>
+  Effect.gen(function* () {
+    for (const arg of ["mine", "owner/repo"]) {
+      const result = yield* runCli(["install", arg, "-y"], { env: {}, home: "" });
+      assert.strictEqual(result.code, 1);
+      assert.include(result.err.join("\n"), emptyHomeError);
+    }
+  }),
+);
+
+for (const [label, layout] of [
+  ["XDG_CONFIG_HOME", (dir: string) => ({ env: { XDG_CONFIG_HOME: dir }, set: `${dir}/skillset` })],
+  ["SKILLSET_HOME", (dir: string) => ({ env: { SKILLSET_HOME: dir }, set: dir })],
+] as const) {
+  it.effect(`${label} still works when HOME is empty`, () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const { env, set } = layout(yield* fs.makeTempDirectoryScoped());
+      yield* fs.makeDirectory(set, { recursive: true });
+      yield* fs.writeFileString(`${set}/existing.json`, "{}");
+      assert.deepStrictEqual((yield* runCli(["ls", "--user"], { env, home: "" })).out, [
+        "existing",
+      ]);
+      const added = yield* runCli(["--set", "mine", "mcp", "add", "foo", "--", "echo", "hi"], {
+        env,
+        home: " ",
+      });
+      assert.strictEqual(added.code, 0);
+      assert.isTrue(yield* fs.exists(`${set}/mine.json`));
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
+  );
+}
+
+it.effect("--set <name> uses ~/.skillset under a non-empty HOME", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const { SKILLSET_HOME: _s, XDG_CONFIG_HOME: _x, ...rest } = process.env;
+    const result = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("../src/bin.ts", import.meta.url)),
+        "--set",
+        "mine",
+        "mcp",
+        "add",
+        "foo",
+        "--",
+        "echo",
+        "hi",
+      ],
+      { cwd: dir, env: { ...rest, HOME: dir }, encoding: "utf8" },
+    );
+    assert.strictEqual(result.status, 0);
+    assert.isTrue(yield* fs.exists(`${dir}/.skillset/mine.json`));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
