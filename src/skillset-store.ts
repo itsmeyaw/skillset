@@ -1,4 +1,6 @@
+import { homedir } from "node:os";
 import { Context, Effect, FileSystem, Option } from "effect";
+import { AgentPaths } from "./agents/agent.ts";
 import { CliMessageError } from "./errors.ts";
 import { root } from "./root.ts";
 import {
@@ -34,6 +36,7 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
   },
   env: Env,
   fetchRemote: typeof fetch = fetch,
+  home = homedir(),
 ) {
   const { set, positional, missing, install, allowRemote } = options;
   if (positional !== undefined && Option.isSome(set))
@@ -59,11 +62,16 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
   const path = yield* resolveSet(
     Option.fromNullishOr(positional ?? Option.getOrUndefined(set)),
     env,
+    home,
   ).pipe(
-    Effect.mapError((error) =>
+    Effect.catch((error) =>
       positional === undefined
-        ? error
-        : new CliMessageError({ message: missingMessage(userDir(env)) }),
+        ? Effect.fail(error)
+        : userDir(env, home).pipe(
+            Effect.flatMap((dir) =>
+              Effect.fail(new CliMessageError({ message: missingMessage(dir) })),
+            ),
+          ),
     ),
   );
   const fs = yield* FileSystem.FileSystem;
@@ -97,7 +105,8 @@ export const openCommandSkillset = Effect.fn("openCommandSkillset")(function* (o
   const { set } = yield* root;
   const env = yield* SkillsetEnvironment;
   const fetchRemote = yield* RemoteFetch;
-  return yield* openSkillset({ ...options, set }, env, fetchRemote);
+  const { home } = yield* AgentPaths;
+  return yield* openSkillset({ ...options, set }, env, fetchRemote, home);
 });
 
 export const listCommandUserSkillsets = Effect.gen(function* () {
@@ -105,7 +114,8 @@ export const listCommandUserSkillsets = Effect.gen(function* () {
   if (Option.isSome(set))
     return yield* new CliMessageError({ message: "--user cannot be used with --set." });
   const env = yield* SkillsetEnvironment;
-  return yield* listUserSkillsets(env);
+  const { home } = yield* AgentPaths;
+  return yield* listUserSkillsets(env, home);
 });
 
 export const selectSkillEntries = (skillset: Skillset, names: ReadonlyArray<string>) => ({
