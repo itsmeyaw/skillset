@@ -26,11 +26,23 @@ const deprecated = (name: string, group: string) =>
 // Issue #11: aliases share the same command handlers as their long names.
 export const cli = root.pipe(
   Command.withSubcommands([
-    add.pipe(Command.provideEffectDiscard(deprecated("add", "add")), Command.withAlias("a")),
+    add.pipe(
+      Command.provideEffectDiscard(deprecated("add", "add")),
+      Command.unlisted,
+      Command.withAlias("a"),
+    ),
     install.pipe(Command.withAlias("i")),
     list.pipe(Command.withAlias("ls")),
-    remove.pipe(Command.provideEffectDiscard(deprecated("remove", "rm")), Command.withAlias("rm")),
-    update.pipe(Command.provideEffectDiscard(deprecated("update", "up")), Command.withAlias("up")),
+    remove.pipe(
+      Command.provideEffectDiscard(deprecated("remove", "rm")),
+      Command.unlisted,
+      Command.withAlias("rm"),
+    ),
+    update.pipe(
+      Command.provideEffectDiscard(deprecated("update", "up")),
+      Command.unlisted,
+      Command.withAlias("up"),
+    ),
     Command.make("skill").pipe(
       Command.withDescription("Add, remove and update Skill Entries"),
       Command.withSubcommands([

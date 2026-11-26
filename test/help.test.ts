@@ -63,9 +63,6 @@ it.effect("--wizard is rejected", () =>
 
 for (const [command, alias] of [
   ["install", "i"],
-  ["add", "a"],
-  ["remove", "rm"],
-  ["update", "up"],
   ["list", "ls"],
 ] as const) {
   it.effect(`${alias} runs ${command} and appears in help`, () =>
@@ -76,6 +73,26 @@ for (const [command, alias] of [
       const rootHelp = yield* runCli(["--help"]);
       assert.match(rootHelp.out.join("\n"), new RegExp(`${command}, ${alias}\\b`));
     }),
+  );
+}
+
+for (const [command, alias] of [
+  ["add", "a"],
+  ["remove", "rm"],
+  ["update", "up"],
+] as const) {
+  it.effect(
+    `deprecated ${command} runs as ${command} and as ${alias} but is hidden from help`,
+    () =>
+      Effect.gen(function* () {
+        for (const name of [command, alias]) {
+          const result = yield* runCli([name, "--help"]);
+          assert.strictEqual(result.code, 0);
+          assert.include(result.out.join("\n"), command);
+        }
+        const rootHelp = yield* runCli(["--help"]);
+        assert.notMatch(rootHelp.out.join("\n"), new RegExp(`^\\s+${command}\\b`, "m"));
+      }),
   );
 }
 
