@@ -1,6 +1,7 @@
 import { Console, Effect } from "effect";
 import { Flag } from "effect/cli";
 import { agents } from "./agent-flag.ts";
+import { AgentPaths } from "./agents/agent.ts";
 import { CliMessageError, UpstreamError } from "./errors.ts";
 import { installMcpEntries } from "./mcp-install.ts";
 import { buildInstallPlan, type InstallPlan, type InstallPlanOptions } from "./install-plan.ts";
@@ -58,7 +59,11 @@ export const installSkillset = Effect.fn("installSkillset")(function* (
   prompter: InstallPrompter,
 ) {
   const plan = yield* buildInstallPlan(skillset, options, prompter);
-  if (plan) yield* executeInstall(plan, session, prompter);
+  if (!plan) return;
+  // Issue #108: an empty home would resolve global paths inside the working directory.
+  if (plan.scope === "global" && (yield* AgentPaths).home.trim() === "")
+    return yield* new CliMessageError({ message: "Cannot install globally: HOME is empty" });
+  yield* executeInstall(plan, session, prompter);
 });
 
 // ADR 0003 and 0005: `install`, `skill add` and `mcp add` declare these flags once.
