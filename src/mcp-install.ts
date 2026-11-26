@@ -7,21 +7,10 @@ import {
   type McpScope,
 } from "./agents/agent.ts";
 import { writeAgentMcp } from "./agents/json-config.ts";
-import { findMcpAgent } from "./agents/registry.ts";
 import type { InstallPlan } from "./install-types.ts";
-import { envVarsOf, resolveMcp } from "./mcp-inputs.ts";
+import { envVarsOf } from "./mcp-inputs.ts";
 import type { Prompter } from "./prompts/prompter.ts";
 import { SkillsetEnvironment } from "./skillset-store.ts";
-
-// Spec #37, User Story 57: MCP servers go to the same Agents as skills; Universal is not an Agent,
-// so a chosen Universal stands for the detected Universal Agents that can receive MCP Entries.
-const mcpAgentIds = (plan: InstallPlan) => {
-  const chosen = plan.agents ?? ["claude-code"];
-  const detected = chosen.includes("universal")
-    ? (plan.detectedUniversalAgents ?? []).filter((id) => findMcpAgent(id) !== undefined)
-    : [];
-  return [...new Set([...chosen.filter((id) => id !== "universal"), ...detected])];
-};
 
 // Agents that resolve to one file (Claude Code and Copilot share .mcp.json) are written once, by the first of them.
 export const groupByFile = Effect.fn("groupByFile")(function* (
@@ -45,25 +34,15 @@ export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
   plan: InstallPlan,
   prompter: Prompter,
 ) {
-  if (plan.mcpEntries.length === 0) return [];
+  if (plan.resolvedMcp.length === 0) return [];
+  const servers = plan.resolvedMcp;
   const paths = yield* AgentPaths;
-  const servers = plan.mcpEntries.map((entry) =>
-    resolveMcp(
-      entry,
-      Object.hasOwn(plan.mcpAnswers, entry.name) ? plan.mcpAnswers[entry.name] : undefined,
-    ),
-  );
   const env = yield* SkillsetEnvironment;
   const failures: Array<string> = [];
   let present = false;
-  const supported: Array<Agent> = [];
-  for (const id of mcpAgentIds(plan)) {
-    const agent = findMcpAgent(id);
-    if (agent === undefined)
-      yield* Console.log(`MCP Entries not installed for ${id}: not supported`);
-    else supported.push(agent);
-  }
-  const groups = yield* groupByFile(supported, plan.scope, { paths, env });
+  for (const id of plan.mcpUnsupported)
+    yield* Console.log(`MCP Entries not installed for ${id}: not supported`);
+  const groups = yield* groupByFile(plan.mcpTargets, plan.scope, { paths, env });
   if (groups.length === 0)
     failures.push("MCP Entries not installed: no chosen Agent can receive them");
   for (const { file, agents } of groups) {
