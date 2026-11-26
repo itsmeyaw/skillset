@@ -152,6 +152,22 @@ it.effect("a symlinked Agent config is updated through the link", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("a leftover temporary file does not block an Agent config write", () =>
+  Effect.gen(function* () {
+    const { fs, cwd, run } = yield* setup;
+    const file = `${cwd}/.cursor/mcp.json`;
+    yield* fs.makeDirectory(`${cwd}/.cursor`, { recursive: true });
+    yield* fs.writeFileString(file, "{}\n");
+    yield* fs.writeFileString(`${file}.tmp`, "stale");
+    const result = yield* run(["-y", "-a", "cursor"]);
+    assert.strictEqual(result.code, 0);
+    assert.deepStrictEqual(parse(yield* fs.readFileString(file)).mcpServers, {
+      ...expectedServers(agents[0]!.toEntry),
+    });
+    assert.strictEqual(yield* fs.readFileString(`${file}.tmp`), "stale");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("a detected Agent receives MCP servers by default", () =>
   Effect.gen(function* () {
     const { fs, cwd, run } = yield* setup;

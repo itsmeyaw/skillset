@@ -70,6 +70,7 @@ it.effect("failed Skillset write preserves the original file", () =>
     assert.isTrue(Exit.isFailure(result));
     assert.include(JSON.stringify(result), `Cannot write Skillset file ${path}:`);
     assert.strictEqual(yield* fs.readFileString(path), original);
+    assert.deepStrictEqual(yield* fs.readDirectory(dir), ["skillset.json"]);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
@@ -102,7 +103,7 @@ it.effect("successful Skillset write preserves existing file permissions", () =>
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
-it.effect("Skillset write does not follow a temporary-file symlink", () =>
+it.effect("a leftover temporary file does not block or receive a Skillset write", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
@@ -112,12 +113,10 @@ it.effect("Skillset write does not follow a temporary-file symlink", () =>
     yield* fs.writeFileString(victim, "untouched");
     yield* fs.symlink(victim, `${path}.tmp`);
 
-    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] }).pipe(
-      Effect.exit,
-    );
-    assert.isTrue(Exit.isFailure(result));
-    assert.strictEqual(yield* fs.readFileString(path), "original");
+    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] });
+    assert.include(yield* fs.readFileString(path), SCHEMA_URL);
     assert.strictEqual(yield* fs.readFileString(victim), "untouched");
+    assert.strictEqual(yield* fs.readLink(`${path}.tmp`), victim);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
@@ -156,6 +155,7 @@ it.effect("failed Skillset rename preserves the original file", () =>
     assert.isTrue(Exit.isFailure(result));
     assert.include(JSON.stringify(result), `Cannot write Skillset file ${path}:`);
     assert.strictEqual(yield* fs.readFileString(path), original);
+    assert.deepStrictEqual(yield* fs.readDirectory(dir), ["skillset.json"]);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
