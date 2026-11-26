@@ -83,10 +83,17 @@ export const readSkillset = Effect.fn("readSkillset")(function* (path: string) {
 export const sortedByName = <T extends { readonly name: string }>(entries: ReadonlyArray<T>) =>
   [...entries].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
+export const skillsetText = (saved: Skillset) => {
+  const { mcp, ...withoutMcp } = saved;
+  return JSON.stringify(mcp.length ? saved : withoutMcp, null, 2) + "\n";
+};
+
 // Spec #1, Skillset file format: write sorted Skill Entries with two-space indentation and a newline.
+// Issue #107: `expected` is the text read from `path` (null: absent); the write fails if the file changed since.
 export const writeSkillset = Effect.fn("writeSkillset")(function* (
   path: string,
   skillset: Skillset,
+  expected: string | null,
 ) {
   const validated = yield* Schema.decodeEffect(Skillset)(skillset, {
     onExcessProperty: "error",
@@ -97,9 +104,7 @@ export const writeSkillset = Effect.fn("writeSkillset")(function* (
     skills: sortedByName(validated.skills),
     mcp: sortedByName(validated.mcp),
   };
-  const { mcp, ...withoutMcp } = saved;
-  const content = JSON.stringify(mcp.length ? saved : withoutMcp, null, 2) + "\n";
-  yield* writeFileAtomic(path, content).pipe(
+  yield* writeFileAtomic(path, skillsetText(saved), expected).pipe(
     Effect.mapError(
       (error) =>
         new SkillsetFileError({

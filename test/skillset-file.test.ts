@@ -56,7 +56,11 @@ it.effect("failed Skillset write preserves the original file", () =>
     const original = "original Skillset content";
     yield* fs.writeFileString(path, original);
 
-    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] }).pipe(
+    const result = yield* writeSkillset(
+      path,
+      { $schema: SCHEMA_URL, skills: [], mcp: [] },
+      original,
+    ).pipe(
       Effect.provideService(FileSystem.FileSystem, {
         ...fs,
         writeFileString: (target) =>
@@ -81,7 +85,7 @@ it.effect("successful Skillset write replaces the file without leaving a tempora
     const path = `${dir}/nested/skillset.json`;
     const skillset = { $schema: SCHEMA_URL, skills: [], mcp: [] } as const;
 
-    yield* writeSkillset(path, skillset);
+    yield* writeSkillset(path, skillset, null);
     assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(path)), {
       $schema: SCHEMA_URL,
       skills: [],
@@ -98,7 +102,7 @@ it.effect("successful Skillset write preserves existing file permissions", () =>
     yield* fs.writeFileString(path, "original");
     yield* fs.chmod(path, 0o600);
 
-    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] });
+    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] }, "original");
     assert.strictEqual((yield* fs.stat(path)).mode & 0o777, 0o600);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
@@ -113,7 +117,7 @@ it.effect("a leftover temporary file does not block or receive a Skillset write"
     yield* fs.writeFileString(victim, "untouched");
     yield* fs.symlink(victim, `${path}.tmp`);
 
-    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] });
+    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] }, "original");
     assert.include(yield* fs.readFileString(path), SCHEMA_URL);
     assert.strictEqual(yield* fs.readFileString(victim), "untouched");
     assert.strictEqual(yield* fs.readLink(`${path}.tmp`), victim);
@@ -129,7 +133,7 @@ it.effect("Skillset write updates a symlink target and keeps the link", () =>
     yield* fs.writeFileString(real, "{}");
     yield* fs.symlink(real, path);
 
-    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] });
+    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] }, "{}");
     assert.strictEqual(yield* fs.readLink(path), real);
     assert.deepStrictEqual((yield* readSkillset(real)).skills, []);
     assert.include(yield* fs.readFileString(real), SCHEMA_URL);
@@ -144,7 +148,11 @@ it.effect("failed Skillset rename preserves the original file", () =>
     const original = "original Skillset content";
     yield* fs.writeFileString(path, original);
 
-    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] }).pipe(
+    const result = yield* writeSkillset(
+      path,
+      { $schema: SCHEMA_URL, skills: [], mcp: [] },
+      original,
+    ).pipe(
       Effect.provideService(FileSystem.FileSystem, {
         ...fs,
         rename: () => fs.rename(`${dir}/missing`, path),
@@ -180,7 +188,7 @@ it.effect(
       yield* fs.writeFileString(path, JSON.stringify({ $schema: SCHEMA_URL, skills: [] }));
       const loaded = yield* readSkillset(path);
       assert.deepStrictEqual(loaded.mcp, []);
-      yield* writeSkillset(path, loaded);
+      yield* writeSkillset(path, loaded, yield* fs.readFileString(path));
       assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(path)), {
         $schema: SCHEMA_URL,
         skills: [],

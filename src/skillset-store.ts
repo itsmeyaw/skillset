@@ -8,7 +8,13 @@ import {
   rejectRemoteSkillset,
   RemoteFetch,
 } from "./remote-skillset.ts";
-import { cannotReadSkillset, readSkillset, SCHEMA_URL, writeSkillset } from "./skillset-file.ts";
+import {
+  cannotReadSkillset,
+  parseSkillset,
+  SCHEMA_URL,
+  skillsetText,
+  writeSkillset,
+} from "./skillset-file.ts";
 import type { McpEntry } from "./mcp-entry.ts";
 import type { SkillEntry, Skillset } from "./skillset-file.ts";
 import { DEFAULT_SKILLSET_PATH, listUserSkillsets, resolveSet, userDir } from "./user-skillset.ts";
@@ -64,10 +70,22 @@ export const openSkillset = Effect.fn("openSkillset")(function* (
   const exists = yield* fs.exists(path).pipe(Effect.mapError(cannotReadSkillset(path)));
   if (!exists && missing === "fail")
     return yield* new CliMessageError({ message: missingMessage(path) });
-  const skillset: Skillset = exists
-    ? yield* readSkillset(path)
-    : { $schema: SCHEMA_URL, skills: [], mcp: [] };
-  return { path, skillset, remote: false, save: (next: Skillset) => writeSkillset(path, next) };
+  const text = exists
+    ? yield* fs.readFileString(path).pipe(Effect.mapError(cannotReadSkillset(path)))
+    : null;
+  const skillset: Skillset =
+    text === null ? { $schema: SCHEMA_URL, skills: [], mcp: [] } : yield* parseSkillset(text, path);
+  // Issue #107: each save is checked against the text this store last read or wrote.
+  let expected = text;
+  const save = (next: Skillset) =>
+    writeSkillset(path, next, expected).pipe(
+      Effect.tap((saved) =>
+        Effect.sync(() => {
+          expected = skillsetText(saved);
+        }),
+      ),
+    );
+  return { path, skillset, remote: false, save };
 });
 
 export const openCommandSkillset = Effect.fn("openCommandSkillset")(function* (options: {
