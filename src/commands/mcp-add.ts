@@ -4,7 +4,7 @@ import { CliMessageError } from "../errors.ts";
 import { chainFlag, chainInstall, installFlags, requireInstallForFlags } from "../install.ts";
 import { ENV_NAME_PATTERN, HEADER_NAME_PATTERN, type McpEntry } from "../mcp-entry.ts";
 import { checkEntryName } from "../mcp-snapshot.ts";
-import { makePrompter, type Prompter } from "../prompts/prompter.ts";
+import { makePrompter, type Prompter, type RegistryPrompter } from "../prompts/prompter.ts";
 import { snapshotFromRegistry } from "../registry-snapshot.ts";
 import { addMcpEntry, openCommandSkillset } from "../skillset-store.ts";
 
@@ -37,7 +37,7 @@ const addFromRegistry = (
   given: string | undefined,
   registry: string | undefined,
   entryName: string | undefined,
-  prompter: Prompter,
+  prompter: RegistryPrompter,
 ) =>
   Effect.gen(function* () {
     const store = yield* openCommandSkillset({ missing: "create" });

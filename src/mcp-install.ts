@@ -9,7 +9,7 @@ import {
 import { writeAgentMcp } from "./agents/json-config.ts";
 import type { InstallPlan } from "./install-types.ts";
 import { envVarsOf } from "./mcp-inputs.ts";
-import type { Prompter } from "./prompts/prompter.ts";
+import type { OverwritePrompter } from "./prompts/prompter.ts";
 import { SkillsetEnvironment } from "./skillset-store.ts";
 
 // Agents that resolve to one file (Claude Code and Copilot share .mcp.json) are written once, by the first of them.
@@ -32,7 +32,7 @@ export const groupByFile = Effect.fn("groupByFile")(function* (
 // Returns the failures so the caller can merge them with skill failures into one exit code.
 export const installMcpEntries = Effect.fn("installMcpEntries")(function* (
   plan: InstallPlan,
-  prompter: Prompter,
+  prompter: OverwritePrompter,
 ) {
   if (plan.resolvedMcp.length === 0) return [];
   const servers = plan.resolvedMcp;

@@ -376,6 +376,18 @@ it.effect("Ctrl+C cancels the Source prompt", () =>
   }),
 );
 
+it.effect("add -y without a Source fails with the skill add usage", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/skillset.json`;
+    const result = yield* runCli(["skill", "add", "-y", "--set", file], { upstream });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), "Usage: skillset skill add <source>");
+    assert.isFalse(yield* fs.exists(file));
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("interactive add asks for a Source and selects skills", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
