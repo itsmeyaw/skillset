@@ -121,6 +121,47 @@ it.effect("install -y installs skills and MCP Entries into the project config", 
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+it.effect("install references env inputs of older entries by a valid name", () =>
+  Effect.gen(function* () {
+    const { fs, cwd, dir, run, read } = yield* setup;
+    const oci = (name: string, inputs: NonNullable<McpEntry["inputs"]>): McpEntry => ({
+      name,
+      launch: {
+        type: "package",
+        registryType: "oci",
+        identifier: `docker.io/example/${name}:1.0.0`,
+        version: "1.0.0",
+        transport: "stdio",
+      },
+      inputs,
+    });
+    yield* fs.writeFileString(
+      `${dir}/skillset.json`,
+      JSON.stringify({
+        $schema: SCHEMA_URL,
+        skills: [],
+        mcp: [
+          oci("old", [{ name: "X-API-Key", kind: "env", required: true, secret: true }]),
+          oci("renamed", [
+            { name: "X-API-Key", kind: "env", required: true, secret: true, env: "MY_KEY" },
+          ]),
+          oci("valid", [{ name: "API_KEY", kind: "env", required: true, secret: true }]),
+        ],
+      }),
+    );
+    const result = yield* run(["-y"]);
+    assert.strictEqual(result.code, 0, result.err.join("\n"));
+    const servers = JSON.parse(yield* read(`${cwd}/.mcp.json`)).mcpServers;
+    assert.deepStrictEqual(servers.old.env, { "X-API-Key": "${X_API_KEY}" });
+    assert.deepStrictEqual(servers.renamed.env, { "X-API-Key": "${MY_KEY}" });
+    assert.deepStrictEqual(servers.valid.env, { API_KEY: "${API_KEY}" });
+    assert.include(
+      result.out.join("\n"),
+      "Set these environment variables:\n  old: X_API_KEY\n  renamed: MY_KEY\n  valid: API_KEY",
+    );
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("--agent universal installs MCP servers for each detected Universal agent", () =>
   Effect.gen(function* () {
     const { cwd, run, read, upstream } = yield* setup;

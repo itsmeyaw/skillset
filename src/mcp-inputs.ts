@@ -1,4 +1,4 @@
-import type { McpEntry } from "./mcp-entry.ts";
+import { ENV_NAME_PATTERN, type McpEntry } from "./mcp-entry.ts";
 
 // ADR 0008: an input is either a literal or a reference to an env var the user sets.
 export type InputValue = { readonly literal: string } | { readonly envVar: string };
@@ -25,9 +25,10 @@ export const toEnvVarName = (text: string) => {
 export const defaultEnvVarName = (entryName: string, inputName: string) =>
   toEnvVarName(`${entryName}_${inputName}`);
 
+// An entry saved before the snapshot set `env` for such a name is sanitized here at resolve time.
 const envVarName = (entry: McpEntry, input: Input) =>
   input.kind === "env"
-    ? (input.env ?? input.name)
+    ? (input.env ?? (ENV_NAME_PATTERN.test(input.name) ? input.name : toEnvVarName(input.name)))
     : (input.env ?? defaultEnvVarName(entry.name, input.name));
 
 // ADR 0008: secrets are never prompted or written; a required input without a value is a reference.
