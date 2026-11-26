@@ -1,7 +1,7 @@
 import { join } from "node:path";
+import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 import type { Agent } from "./agent.ts";
-import { installJsonMcp } from "./json-config.ts";
 import { toLaunch } from "./launch.ts";
 
 // Gemini CLI docs, "Environment variable expansion" (https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md): $NAME or ${NAME} in env and headers.
@@ -27,11 +27,8 @@ export const geminiEntry = (resolved: ResolvedMcp) => {
 export const geminiCli: Agent = {
   id: "gemini-cli",
   name: "Gemini CLI",
-  installMcp: (servers, { scope, paths, confirmOverwrite }) =>
-    installJsonMcp(
-      join(scope === "project" ? paths.cwd : paths.home, ".gemini", "settings.json"),
-      ["mcpServers"],
-      servers.map((server) => ({ name: server.entry.name, value: geminiEntry(server) })),
-      confirmOverwrite,
-    ),
+  file: (scope, { paths }) =>
+    Effect.succeed(join(scope === "project" ? paths.cwd : paths.home, ".gemini", "settings.json")),
+  keyPath: ["mcpServers"],
+  entry: geminiEntry,
 };

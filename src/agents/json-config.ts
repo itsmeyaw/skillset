@@ -3,7 +3,8 @@ import { Effect, FileSystem } from "effect";
 import { applyEdits, modify, parse, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { writeFileAtomic } from "../atomic-write.ts";
 import { CliMessageError } from "../errors.ts";
-import type { McpInstallContext, McpOutcome } from "./agent.ts";
+import type { Agent, McpInstallContext, McpOutcome, InstallScope } from "./agent.ts";
+import type { ResolvedMcp } from "../mcp-inputs.ts";
 
 export const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -89,3 +90,20 @@ export const installJsonMcp = Effect.fn("installJsonMcp")(function* (
     );
   return outcomes;
 });
+
+// ADR 0007: the one write path for every Agent descriptor.
+export const writeAgentMcp = (
+  agent: Agent,
+  file: string,
+  servers: ReadonlyArray<ResolvedMcp>,
+  {
+    scope,
+    confirmOverwrite,
+  }: { readonly scope: InstallScope } & Pick<McpInstallContext, "confirmOverwrite">,
+) =>
+  installJsonMcp(
+    file,
+    agent.keyPath,
+    servers.map((server) => ({ name: server.entry.name, value: agent.entry(server, scope) })),
+    confirmOverwrite,
+  );

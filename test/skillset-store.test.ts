@@ -18,7 +18,7 @@ import {
 
 const alpha = { name: "alpha", source: "owner/repo", commit: "a".repeat(40) };
 const beta = { name: "beta", source: "other/repo", commit: "b".repeat(40) };
-const skillset: Skillset = { $schema: SCHEMA_URL, skills: [alpha, beta] };
+const skillset: Skillset = { $schema: SCHEMA_URL, skills: [alpha, beta], mcp: [] };
 
 it.effect("opens or creates a User Skillset and saves it", () =>
   Effect.gen(function* () {

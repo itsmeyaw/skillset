@@ -31,3 +31,18 @@ it("allows a failed Source lookup to be retried in the same run", async () => {
   expect(result.commit).toBe(commit);
   expect(attempts).toBe(2);
 });
+
+it("fails Source lookups with UpstreamError", async () => {
+  const failure = await Effect.runPromise(
+    Upstream.use((upstream) =>
+      upstream.withSession((session) =>
+        Effect.gen(function* () {
+          const pinning = yield* makePinning(session);
+          return yield* pinning.resolve("owner/repo").pipe(Effect.flip);
+        }),
+      ),
+    ).pipe(Effect.provide(fakeUpstream({ commits: {}, skills: {} }))),
+  );
+  expect(failure._tag).toBe("UpstreamError");
+  expect(failure.message).toBe("Ref HEAD not found in owner/repo");
+});

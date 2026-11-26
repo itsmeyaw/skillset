@@ -55,7 +55,7 @@ it.effect("mcp add without a name searches, picks a server and stores it", () =>
     const result = yield* runCli(["mcp", "add", "--set", file], {
       tty: true,
       fetch,
-      keys: [type("git"), enter, down, enter],
+      keys: [type("git"), enter, down, enter, key("n", "n")],
     });
     assert.deepStrictEqual(result.err, []);
     assert.strictEqual(result.code, 0);
@@ -129,7 +129,7 @@ it.effect("mcp add loads further result pages on request", () =>
       tty: true,
       fetch,
       // Load more is listed after the first page; the second page's server is then the second choice.
-      keys: [type("srv"), enter, down, enter, down, enter],
+      keys: [type("srv"), enter, down, enter, down, enter, key("n", "n")],
     });
     assert.deepStrictEqual(result.err, []);
     assert.deepStrictEqual(requested, [listUrl("srv"), listUrl("srv", "opaque%2Fcursor%3D%3D")]);
@@ -146,7 +146,7 @@ it.effect("mcp add stores only the package or remote the user picks", () =>
     const result = yield* runCli(["mcp", "add", "--set", file], {
       tty: true,
       fetch,
-      keys: [type("git"), enter, enter, down, enter],
+      keys: [type("git"), enter, enter, down, enter, key("n", "n")],
     });
     assert.deepStrictEqual(result.err, []);
     const screen = result.screen.join("");
@@ -180,7 +180,10 @@ it.effect("mcp add -y without a name fails with a usage message", () =>
     const { file, fs, before } = yield* setup;
     const result = yield* runCli(["mcp", "add", "-y", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.include(result.err.join("\n"), "Usage: skillset mcp add");
+    assert.include(
+      result.err.join("\n"),
+      "Usage: skillset mcp add <registry-name>[@version] (a search needs a terminal)",
+    );
     assert.strictEqual(yield* fs.readFileString(file), before);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

@@ -26,6 +26,7 @@ for (const field of ["name", "source"] as const) {
           }),
         );
         const error = yield* readSkillset(path).pipe(Effect.flip);
+        assert.strictEqual(error._tag, "SkillsetFileError");
         assert.match(error.message, /Invalid Skillset file/);
         assert.notInclude(error.message, "\u001b");
         assert.notInclude(error.message, "\u0007");
@@ -55,7 +56,7 @@ it.effect("failed Skillset write preserves the original file", () =>
     const original = "original Skillset content";
     yield* fs.writeFileString(path, original);
 
-    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] }).pipe(
+    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] }).pipe(
       Effect.provideService(FileSystem.FileSystem, {
         ...fs,
         writeFileString: (target) =>
@@ -77,10 +78,13 @@ it.effect("successful Skillset write replaces the file without leaving a tempora
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const path = `${dir}/nested/skillset.json`;
-    const skillset = { $schema: SCHEMA_URL, skills: [] } as const;
+    const skillset = { $schema: SCHEMA_URL, skills: [], mcp: [] } as const;
 
     yield* writeSkillset(path, skillset);
-    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(path)), skillset);
+    assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(path)), {
+      $schema: SCHEMA_URL,
+      skills: [],
+    });
     assert.isFalse(yield* fs.exists(`${path}.tmp`));
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
@@ -93,7 +97,7 @@ it.effect("successful Skillset write preserves existing file permissions", () =>
     yield* fs.writeFileString(path, "original");
     yield* fs.chmod(path, 0o600);
 
-    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] });
+    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] });
     assert.strictEqual((yield* fs.stat(path)).mode & 0o777, 0o600);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
@@ -108,7 +112,7 @@ it.effect("Skillset write does not follow a temporary-file symlink", () =>
     yield* fs.writeFileString(victim, "untouched");
     yield* fs.symlink(victim, `${path}.tmp`);
 
-    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] }).pipe(
+    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] }).pipe(
       Effect.exit,
     );
     assert.isTrue(Exit.isFailure(result));
@@ -126,7 +130,7 @@ it.effect("Skillset write updates a symlink target and keeps the link", () =>
     yield* fs.writeFileString(real, "{}");
     yield* fs.symlink(real, path);
 
-    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] });
+    yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] });
     assert.strictEqual(yield* fs.readLink(path), real);
     assert.deepStrictEqual((yield* readSkillset(real)).skills, []);
     assert.include(yield* fs.readFileString(real), SCHEMA_URL);
@@ -141,7 +145,7 @@ it.effect("failed Skillset rename preserves the original file", () =>
     const original = "original Skillset content";
     yield* fs.writeFileString(path, original);
 
-    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [] }).pipe(
+    const result = yield* writeSkillset(path, { $schema: SCHEMA_URL, skills: [], mcp: [] }).pipe(
       Effect.provideService(FileSystem.FileSystem, {
         ...fs,
         rename: () => fs.rename(`${dir}/missing`, path),
@@ -164,4 +168,22 @@ it.effect("parseSkillset rejects a duplicate Skill Entry name", () =>
     ).pipe(Effect.flip);
     assert.match(error.message, /Duplicate skill name "skill"/);
   }),
+);
+
+it.effect(
+  "a Skillset file without an mcp key loads with no MCP Entries and saves without one",
+  () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const path = `${dir}/skillset.json`;
+      yield* fs.writeFileString(path, JSON.stringify({ $schema: SCHEMA_URL, skills: [] }));
+      const loaded = yield* readSkillset(path);
+      assert.deepStrictEqual(loaded.mcp, []);
+      yield* writeSkillset(path, loaded);
+      assert.deepStrictEqual(JSON.parse(yield* fs.readFileString(path)), {
+        $schema: SCHEMA_URL,
+        skills: [],
+      });
+    }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

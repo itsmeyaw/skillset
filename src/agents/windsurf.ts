@@ -1,7 +1,7 @@
 import { join } from "node:path";
+import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 import type { Agent } from "./agent.ts";
-import { installJsonMcp } from "./json-config.ts";
 import { toLaunch } from "./launch.ts";
 
 // Devin Desktop (Windsurf) docs, "Config Interpolation" (https://docs.devin.ai/windsurf/plugins/cascade/mcp.md):
@@ -39,13 +39,12 @@ export const windsurfGlobalFile = (home: string, platform: string) =>
 export const windsurf: Agent = {
   id: "windsurf",
   name: "Windsurf",
-  installMcp: (servers, { scope, paths, confirmOverwrite }) =>
-    installJsonMcp(
+  file: (scope, { paths }) =>
+    Effect.succeed(
       scope === "project"
         ? join(paths.cwd, ".devin", "mcp_config.json")
         : windsurfGlobalFile(paths.home, process.platform),
-      ["mcpServers"],
-      servers.map((server) => ({ name: server.entry.name, value: windsurfEntry(server) })),
-      confirmOverwrite,
     ),
+  keyPath: ["mcpServers"],
+  entry: windsurfEntry,
 };
