@@ -197,6 +197,39 @@ it.effect("install -y -g writes the global config and keeps unrelated settings",
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
+// Issue #108: an empty HOME made global paths resolve inside the working directory.
+it.effect.each([
+  { flags: ["-y", "-g"], home: "" },
+  { flags: ["-y", "-g", "-s", "alpha"], home: "" },
+  { flags: ["-y", "-g", "-m", "github"], home: " " },
+])("install $flags with home '$home' fails and writes nothing", ({ flags, home }) =>
+  Effect.gen(function* () {
+    const { fs, cwd, dir, installCalls, upstream } = yield* setup;
+    yield* fs.makeDirectory(cwd, { recursive: true });
+    const result = yield* runCli(["install", ...flags, "--set", `${dir}/skillset.json`], {
+      cwd,
+      home,
+      upstream,
+    });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), "Cannot install globally: HOME is empty");
+    assert.deepStrictEqual(installCalls, []);
+    assert.deepStrictEqual(yield* fs.readDirectory(cwd), []);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("install -y into the project still works with an empty home", () =>
+  Effect.gen(function* () {
+    const { cwd, dir, upstream } = yield* setup;
+    const result = yield* runCli(["install", "-y", "--set", `${dir}/skillset.json`], {
+      cwd,
+      home: "",
+      upstream,
+    });
+    assert.strictEqual(result.code, 0);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
 it.effect("install creates a missing config and its parent directories", () =>
   Effect.gen(function* () {
     const { fs, cwd, run } = yield* setup;
