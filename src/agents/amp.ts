@@ -1,8 +1,7 @@
 import { join } from "node:path";
-import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 import type { Agent } from "./agent.ts";
-import { existingJsonFile, installJsonMcp } from "./json-config.ts";
+import { existingJsonFile } from "./json-config.ts";
 import { toLaunch } from "./launch.ts";
 
 // Amp docs, "MCP" (https://ampcode.com/docs/customize/mcp): ${VAR_NAME} in configuration files.
@@ -29,21 +28,15 @@ export const ampEntry = (resolved: ResolvedMcp) => {
 export const amp: Agent = {
   id: "amp",
   name: "Amp",
-  installMcp: (servers, { scope, paths, confirmOverwrite }) =>
-    Effect.gen(function* () {
-      const file = yield* existingJsonFile(
-        join(
-          scope === "project" ? join(paths.cwd, ".amp") : join(paths.home, ".config", "amp"),
-          "settings",
-        ),
-      );
-      return yield* installJsonMcp(
-        file,
-        ["amp.mcpServers"],
-        servers.map((server) => ({ name: server.entry.name, value: ampEntry(server) })),
-        confirmOverwrite,
-      );
-    }),
+  file: (scope, { paths }) =>
+    existingJsonFile(
+      join(
+        scope === "project" ? join(paths.cwd, ".amp") : join(paths.home, ".config", "amp"),
+        "settings",
+      ),
+    ),
+  keyPath: ["amp.mcpServers"],
+  entry: ampEntry,
   // Amp docs, "Workspace MCP Server Trust".
   warning: (scope) =>
     scope === "project"

@@ -1,7 +1,7 @@
 import { join } from "node:path";
+import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 import type { Agent, McpScope } from "./agent.ts";
-import { installJsonMcp } from "./json-config.ts";
 import { toLaunch } from "./launch.ts";
 
 // Claude Code docs, "Environment variable expansion in .mcp.json": ${VAR} in command, args, env, url, headers.
@@ -25,20 +25,15 @@ export const claudeEntry = (resolved: ResolvedMcp) => {
 };
 
 // Claude Code docs, "MCP installation scopes": project scope is .mcp.json, user scope is ~/.claude.json.
-const claudeFile: NonNullable<Agent["file"]> = (scope, { paths }) =>
-  scope === "project" ? join(paths.cwd, ".mcp.json") : join(paths.home, ".claude.json");
-
 export const claudeCode: Agent = {
   id: "claude-code",
   name: "Claude Code",
-  file: claudeFile,
-  installMcp: (servers, { scope, paths, env, confirmOverwrite }) =>
-    installJsonMcp(
-      claudeFile(scope, { paths, env }),
-      ["mcpServers"],
-      servers.map((server) => ({ name: server.entry.name, value: claudeEntry(server) })),
-      confirmOverwrite,
+  file: (scope, { paths }) =>
+    Effect.succeed(
+      scope === "project" ? join(paths.cwd, ".mcp.json") : join(paths.home, ".claude.json"),
     ),
+  keyPath: ["mcpServers"],
+  entry: claudeEntry,
   warning: (scope: McpScope) =>
     scope === "global"
       ? "A running Claude Code rewrites ~/.claude.json and can overwrite these MCP servers; close it before installing, or install again after it exits."
