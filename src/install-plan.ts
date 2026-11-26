@@ -1,9 +1,10 @@
 import { Console, Effect } from "effect";
+import type { Agent } from "./agents/agent.ts";
+import { findMcpAgent } from "./agents/mcp-agents.ts";
 import { CliMessageError, emptySkillsetMessage } from "./errors.ts";
-import type { InstallPlan } from "./install-types.ts";
-import { promptableInputs } from "./mcp-inputs.ts";
-import type { Prompter } from "./prompts/prompter.ts";
-import type { Skillset } from "./skillset-file.ts";
+import { promptableInputs, type ResolvedMcp, resolveMcp } from "./mcp-inputs.ts";
+import type { PlanPrompter } from "./prompts/prompter.ts";
+import type { SkillEntry, Skillset } from "./skillset-file.ts";
 import {
   isEmpty,
   selectMcpEntries,
@@ -11,9 +12,21 @@ import {
   unknownMcpNamesMessage,
   unknownNamesMessage,
 } from "./skillset-store.ts";
-import { Upstream, type Agent } from "./upstream.ts";
+import { Upstream, type InstallChoices, type SkillsAgent } from "./upstream.ts";
 
-export type { InstallPlan } from "./install-types.ts";
+export type InstallPlan = {
+  readonly skillEntries: ReadonlyArray<SkillEntry>;
+  // Skill Agent ids as chosen; undefined falls through to the `skills` library's own default.
+  readonly agents: ReadonlyArray<string> | undefined;
+  // MCP Entries with their typed answers already resolved.
+  readonly resolvedMcp: ReadonlyArray<ResolvedMcp>;
+  // The Agents that receive the MCP servers, Universal already expanded.
+  readonly mcpTargets: ReadonlyArray<Agent>;
+  // Chosen Agent ids that have no MCP writer.
+  readonly mcpUnsupported: ReadonlyArray<string>;
+  readonly scope: InstallChoices["scope"];
+  readonly mode: InstallChoices["mode"];
+};
 
 export type InstallPlanOptions = {
   readonly selected: ReadonlyArray<string>;
@@ -23,8 +36,34 @@ export type InstallPlanOptions = {
   readonly copy: boolean;
 };
 
+// MCP Entries go to this Agent when no Agents were chosen at all.
+const defaultMcpAgent = "claude-code";
+
+// Spec #37, User Story 57: MCP servers go to the same Agents as skills; Universal is not an Agent,
+// so a chosen Universal stands for the detected Universal Agents that can receive MCP Entries.
+const resolveMcpTargets = (
+  agents: ReadonlyArray<string> | undefined,
+  detectedUniversal: ReadonlyArray<string>,
+) => {
+  const chosen = agents ?? [defaultMcpAgent];
+  const ids = new Set(chosen.filter((id) => id !== "universal"));
+  if (chosen.includes("universal"))
+    for (const id of detectedUniversal) if (findMcpAgent(id) !== undefined) ids.add(id);
+  const targets: Array<Agent> = [];
+  const unsupported: Array<string> = [];
+  for (const id of ids) {
+    const agent = findMcpAgent(id);
+    if (agent === undefined) unsupported.push(id);
+    else targets.push(agent);
+  }
+  return { targets, unsupported };
+};
+
 // Spec #1, install: one Universal choice represents agents sharing .agents/skills.
-const agentChoices = (supported: ReadonlyArray<Agent>, detected: ReadonlyArray<Agent>) => {
+const agentChoices = (
+  supported: ReadonlyArray<SkillsAgent>,
+  detected: ReadonlyArray<SkillsAgent>,
+) => {
   const defaults = ["universal", "claude-code"].filter((id) =>
     supported.some((agent) => agent.id === id),
   );
@@ -59,9 +98,9 @@ const agentChoices = (supported: ReadonlyArray<Agent>, detected: ReadonlyArray<A
 export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   skillset: Skillset,
   options: InstallPlanOptions,
-  prompter: Prompter,
+  prompter: PlanPrompter,
 ) {
-  if (isEmpty(skillset) && (skillset.mcp ?? []).length === 0) {
+  if (isEmpty(skillset)) {
     yield* Console.log(emptySkillsetMessage);
     return;
   }
@@ -92,7 +131,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
       ? selectMcpEntries(skillset, options.selectedMcp).mcpEntries
       : selecting
         ? []
-        : (skillset.mcp ?? []);
+        : skillset.mcp;
   if (!selecting && mcpEntries.length > 0) {
     const chosen = yield* prompter.mcpServers(
       mcpEntries.map((mcpEntry) => ({
@@ -104,15 +143,18 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
     if (chosen !== undefined)
       mcpEntries = mcpEntries.filter((entry) => chosen.includes(entry.name));
   }
-  const mcpAnswers: Record<string, Record<string, string>> = {};
-  for (const mcpEntry of mcpEntries)
+  const resolvedMcp: Array<ResolvedMcp> = [];
+  for (const mcpEntry of mcpEntries) {
+    const answers: Record<string, string> = {};
     for (const input of promptableInputs(mcpEntry)) {
       const answer = yield* prompter.mcpInput(mcpEntry, input);
-      if (answer !== undefined) (mcpAnswers[mcpEntry.name] ??= {})[input.name] = answer;
+      if (answer !== undefined) answers[input.name] = answer;
     }
+    resolvedMcp.push(resolveMcp(mcpEntry, answers));
+  }
   let agents: ReadonlyArray<string> | undefined =
     options.agents.length > 0 ? options.agents : undefined;
-  let detectedUniversalAgents: ReadonlyArray<string> = [];
+  let detectedUniversal: ReadonlyArray<string> = [];
   // Spec #37, User Story 57: a chosen Universal stands for the detected Universal Agents, also with -a.
   if (
     options.agents.length === 0 ||
@@ -120,7 +162,7 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   ) {
     const upstream = yield* Upstream;
     const detected = yield* upstream.detectAgents();
-    detectedUniversalAgents = detected.agents
+    detectedUniversal = detected.agents
       .filter((agent) => agent.universal && agent.id !== "universal")
       .map((agent) => agent.id);
     if (options.agents.length === 0) {
@@ -137,15 +179,19 @@ export const buildInstallPlan = Effect.fn("buildInstallPlan")(function* (
   if (!options.copy) {
     mode = yield* prompter.mode();
   }
+  const { targets, unsupported } =
+    resolvedMcp.length > 0
+      ? resolveMcpTargets(agents, detectedUniversal)
+      : { targets: [], unsupported: [] };
   const plan: InstallPlan = {
     skillEntries:
       selecting && options.selected.length === 0
         ? []
         : selectSkillEntries(skillset, names).skillEntries,
-    mcpEntries,
-    mcpAnswers,
     agents,
-    ...(detectedUniversalAgents.length > 0 ? { detectedUniversalAgents } : {}),
+    resolvedMcp,
+    mcpTargets: targets,
+    mcpUnsupported: unsupported,
     scope,
     mode,
   };

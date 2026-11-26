@@ -1,9 +1,8 @@
 import { Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { Expansion } from "../argv.ts";
-import { agents } from "../agent-flag.ts";
-import { installSkillset } from "../install.ts";
-import { makePrompter } from "../prompts/prompter.ts";
+import { installFlags, installSkillset } from "../install.ts";
+import { makePrompter, type InstallPrompter, type RemotePrompter } from "../prompts/prompter.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
 
@@ -22,10 +21,7 @@ export const install = Command.make(
       Flag.annotate(Expansion, { reserveLast: true }),
       Flag.atLeast(0),
     ),
-    agents: agents(),
-    global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
-    copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
-    yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
+    ...installFlags(),
   },
   Effect.fn(function* (options) {
     const store = yield* openCommandSkillset({
@@ -34,7 +30,7 @@ export const install = Command.make(
       install: true,
     });
     const upstream = yield* Upstream;
-    const prompter = yield* makePrompter(options.yes);
+    const prompter: InstallPrompter & RemotePrompter = yield* makePrompter(options.yes);
     if (store.remote && !options.yes && !(yield* prompter.confirmRemote(store.skillset))) return;
     return yield* upstream.withSession((session) =>
       installSkillset(store.skillset, options, session, prompter),
