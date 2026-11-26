@@ -15,14 +15,20 @@ export type ResolvedMcp = {
   readonly values: Readonly<Record<string, InputValue | undefined>>;
 };
 
-// ADR 0008: a secret `{var}` defaults to <ENTRY>_<VAR> in upper snake case; an env input keeps its name.
-export const defaultEnvVarName = (entryName: string, inputName: string) => {
-  const name = `${entryName}_${inputName}`.replace(/[^A-Za-z0-9]+/gu, "_").toUpperCase();
+// ADR 0008: a name becomes an env var identifier in upper snake case.
+export const toEnvVarName = (text: string) => {
+  const name = text.replace(/[^A-Za-z0-9]+/gu, "_").toUpperCase();
   return /^\d/u.test(name) ? `_${name}` : name;
 };
 
+// ADR 0008: a secret `{var}` defaults to <ENTRY>_<VAR>; an env input keeps its name unless it is no identifier.
+export const defaultEnvVarName = (entryName: string, inputName: string) =>
+  toEnvVarName(`${entryName}_${inputName}`);
+
 const envVarName = (entry: McpEntry, input: Input) =>
-  input.kind === "env" ? input.name : (input.env ?? defaultEnvVarName(entry.name, input.name));
+  input.kind === "env"
+    ? (input.env ?? input.name)
+    : (input.env ?? defaultEnvVarName(entry.name, input.name));
 
 // ADR 0008: secrets are never prompted or written; a required input without a value is a reference.
 export const resolveMcp = (

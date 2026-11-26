@@ -58,6 +58,28 @@ const cases: ReadonlyArray<{ title: string; entry: McpEntry; expected: unknown }
     },
   },
   {
+    title: "oci package whose env input has a non-identifier name keeps it as the key only",
+    entry: {
+      name: "spotdb",
+      launch: {
+        type: "package",
+        registryType: "oci",
+        identifier: "docker.io/aliengiraffe/spotdb:0.1.0",
+        version: "0.1.0",
+        runtimeArguments: ["-e", "X-API-Key"],
+        transport: "stdio",
+      },
+      inputs: [{ name: "X-API-Key", kind: "env", required: true, secret: true, env: "X_API_KEY" }],
+      origin,
+    },
+    expected: {
+      type: "stdio",
+      command: "docker",
+      args: ["run", "-i", "--rm", "-e", "X-API-Key", "docker.io/aliengiraffe/spotdb:0.1.0"],
+      env: { "X-API-Key": "${X_API_KEY}" },
+    },
+  },
+  {
     title: "pypi package with a runtime hint",
     entry: {
       name: "py",

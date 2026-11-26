@@ -8,6 +8,6 @@ Skillset files are shared and published, and Agents' project files such as `.mcp
 
 ## Consequences
 
-- An env var input keeps its own name as the env var. A secret `{var}` in an argument, header or URL defaults to `<ENTRY>_<VAR>` in upper snake case, which the curator can edit in the Skillset file.
+- An env var input keeps its own name as the env var, unless it is not a valid identifier (such as `X-API-Key`): the Registry snapshot then sets `env` to the upper snake case name (`X_API_KEY`) and the Agent keeps the real name as its key. A secret `{var}` in an argument, header or URL defaults to `<ENTRY>_<VAR>` in upper snake case, which the curator can edit in the Skillset file.
 - `mcp add` rejects `--env NAME=value` and `--header NAME=value`: only names are accepted.
 - Agents without env references (Zed, Cline) cannot receive MCP Entries until they can be served without plain-text secrets.

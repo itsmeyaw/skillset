@@ -166,6 +166,60 @@ it.effect("an oci package passes its environment variables on with -e and keeps 
   }),
 );
 
+it.effect("an env var whose name is not an identifier gets a valid reference name", () =>
+  Effect.gen(function* () {
+    const entry = yield* snapshot({
+      packages: [
+        {
+          registryType: "oci",
+          identifier: "docker.io/aliengiraffe/spotdb:0.1.0",
+          environmentVariables: [
+            { name: "X-API-Key", isRequired: true, isSecret: true },
+            { name: "9lives", isRequired: true },
+            { name: "LOG_LEVEL", default: "info" },
+          ],
+          ...stdio,
+        },
+      ],
+    });
+    assert.deepStrictEqual(
+      entry.inputs?.map(({ name, env }) => [name, env]),
+      [
+        ["X-API-Key", "X_API_KEY"],
+        ["9lives", "_9LIVES"],
+        ["LOG_LEVEL", undefined],
+      ],
+    );
+    assert.deepStrictEqual(entry.launch.type === "package" && entry.launch.runtimeArguments, [
+      "-e",
+      "X-API-Key",
+      "-e",
+      "9lives",
+      "-e",
+      "LOG_LEVEL",
+    ]);
+  }),
+);
+
+it.effect("env vars that map to one reference name are rejected", () =>
+  Effect.gen(function* () {
+    const error = yield* Effect.flip(
+      snapshot({
+        packages: [
+          {
+            registryType: "npm",
+            identifier: "x",
+            version: "1.0.0",
+            environmentVariables: [{ name: "X-KEY" }, { name: "X_KEY" }],
+            ...stdio,
+          },
+        ],
+      }),
+    );
+    assert.include(error.message, "X_KEY");
+  }),
+);
+
 it.effect.each([
   { type: "cargo", identifier: "widget-mcp", version: "0.3.0" },
   { type: "mcpb", identifier: "https://example.com/x.mcpb" },

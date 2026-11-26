@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { CliMessageError } from "./errors.ts";
-import { MCP_NAME_PATTERN, type McpEntry, ociVersion } from "./mcp-entry.ts";
-import { defaultEnvVarName } from "./mcp-inputs.ts";
+import { ENV_NAME_PATTERN, MCP_NAME_PATTERN, type McpEntry, ociVersion } from "./mcp-entry.ts";
+import { defaultEnvVarName, toEnvVarName } from "./mcp-inputs.ts";
 import type {
   RegistryInput,
   RegistryPackage,
@@ -62,6 +62,8 @@ const declaration = (
   ...(!from.isSecret && from.default ? { default: from.default } : {}),
   ...(from.choices?.length ? { choices: from.choices } : {}),
   ...(from.isSecret && kind === "variable" ? { env: defaultEnvVarName(entryName, name) } : {}),
+  // The Agent keeps the real name as the key; only the reference needs a valid identifier.
+  ...(kind === "env" && !ENV_NAME_PATTERN.test(name) ? { env: toEnvVarName(name) } : {}),
 });
 
 // ADR 0006: arguments become token lists; each `{var}` template stays and its variable becomes an input.
@@ -164,6 +166,15 @@ const packageEntry = (
     // A container sees only the variables docker is told to pass on.
     if (pkg.registryType === "oci") runtimeArguments.push("-e", env.name);
   }
+  const built = inputs();
+  const names = new Set<string>();
+  for (const { name, kind, env } of built) {
+    if (kind !== "env") continue;
+    const reference = env ?? name;
+    if (names.has(reference))
+      throw new Unsupported(`Environment variables clash on the reference name ${reference}.`);
+    names.add(reference);
+  }
   // dnx takes its options after the package and the package's own arguments after "--".
   // https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/generic-server-json.md
   const launchArguments =
@@ -181,7 +192,7 @@ const packageEntry = (
       ...(launchArguments.length > 0 ? { packageArguments: launchArguments } : {}),
       transport: "stdio",
     },
-    ...withInputs(inputs()),
+    ...withInputs(built),
   };
 };
 
