@@ -29,7 +29,7 @@ export const existingJsonFile = Effect.fn("existingJsonFile")(function* (base: s
 });
 
 // ADR 0007: add servers to a JSON or JSONC file in place, so comments and other settings survive.
-// shortcut: edits are not merged across concurrent writers; a running Agent can still overwrite the file.
+// shortcut: a write over a file changed since it was read fails rather than merges; a running Agent can still overwrite the file.
 export const installJsonMcp = Effect.fn("installJsonMcp")(function* (
   file: string,
   // A function chooses the table from the file's content, for Agents with more than one layout.
@@ -83,7 +83,7 @@ export const installJsonMcp = Effect.fn("installJsonMcp")(function* (
     outcomes.push({ name, file, status });
   }
   if (text !== original)
-    yield* writeFileAtomic(file, exists ? text : `${text}\n`).pipe(
+    yield* writeFileAtomic(file, exists ? text : `${text}\n`, exists ? original : null).pipe(
       Effect.mapError(
         (error) => new CliMessageError({ message: `Cannot write ${file}: ${error.message}` }),
       ),

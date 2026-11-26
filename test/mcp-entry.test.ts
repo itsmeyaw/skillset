@@ -77,7 +77,7 @@ it.effect("a valid mcp array loads and round-trips through save sorted by name",
         const fs = yield* FileSystem.FileSystem;
         const loaded = yield* readSkillset(path);
         assert.deepStrictEqual(loaded.mcp, [packageEntry, remoteEntry, commandEntry]);
-        yield* writeSkillset(path, loaded);
+        yield* writeSkillset(path, loaded, yield* fs.readFileString(path));
         assert.strictEqual(
           yield* fs.readFileString(path),
           JSON.stringify(
@@ -94,7 +94,7 @@ it.effect("a Skillset without MCP Entries is written without an mcp key", () =>
   withFile({ $schema: SCHEMA_URL, skills: [], mcp: [] }, (path) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      yield* writeSkillset(path, yield* readSkillset(path));
+      yield* writeSkillset(path, yield* readSkillset(path), yield* fs.readFileString(path));
       assert.strictEqual(
         yield* fs.readFileString(path),
         JSON.stringify({ $schema: SCHEMA_URL, skills: [] }, null, 2) + "\n",
