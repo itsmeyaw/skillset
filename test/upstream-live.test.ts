@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
 import { expect, it } from "vitest";
-import { mcpAgents } from "../src/agents/registry.ts";
+import { mcpAgents } from "../src/agents/mcp-agents.ts";
 import { makePinning } from "../src/pinning.ts";
 import { Upstream } from "../src/upstream.ts";
 import { assertPin, selectRemoteCommit, UpstreamLive } from "../src/upstream-live.ts";

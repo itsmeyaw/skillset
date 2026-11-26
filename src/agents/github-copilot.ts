@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
-import type { Agent, McpScope } from "./agent.ts";
+import type { Agent, InstallScope } from "./agent.ts";
 import { claudeEntry } from "./claude-code.ts";
 import { toLaunch } from "./launch.ts";
 
@@ -13,7 +13,7 @@ const envRef = (name: string) => `\${${name}}`;
 // project .mcp.json files use the mcpServers format of Claude Code and need no tools list, so Copilot writes
 // exactly Claude Code's entry there; the file is shared and both Agents must produce the same bytes.
 // The user mcp-config.json requires type and tools: "local" or "stdio" for local servers, "http" or "sse" for remote.
-export const copilotEntry = (resolved: ResolvedMcp, scope: McpScope) => {
+export const copilotEntry = (resolved: ResolvedMcp, scope: InstallScope) => {
   if (scope === "project") return claudeEntry(resolved);
   const launch = toLaunch(resolved, envRef);
   if (launch.type === "remote")

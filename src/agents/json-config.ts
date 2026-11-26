@@ -3,7 +3,7 @@ import { Effect, FileSystem } from "effect";
 import { applyEdits, modify, parse, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { writeFileAtomic } from "../atomic-write.ts";
 import { CliMessageError } from "../errors.ts";
-import type { Agent, McpInstallContext, McpOutcome, McpScope } from "./agent.ts";
+import type { Agent, McpInstallContext, McpOutcome, InstallScope } from "./agent.ts";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 
 export const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -99,7 +99,7 @@ export const writeAgentMcp = (
   {
     scope,
     confirmOverwrite,
-  }: { readonly scope: McpScope } & Pick<McpInstallContext, "confirmOverwrite">,
+  }: { readonly scope: InstallScope } & Pick<McpInstallContext, "confirmOverwrite">,
 ) =>
   installJsonMcp(
     file,

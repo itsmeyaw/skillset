@@ -1,6 +1,6 @@
 import { Effect, FileSystem, JsonSchema, Schema } from "effect";
 import { writeFileAtomic } from "./atomic-write.ts";
-import { CliMessageError as SkillsetFileError } from "./errors.ts";
+import { SkillsetFileError } from "./errors.ts";
 import { entryText } from "./entry-text.ts";
 import { McpEntry } from "./mcp-entry.ts";
 import { PIN_PATTERN } from "./pin.ts";

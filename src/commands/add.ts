@@ -2,7 +2,7 @@ import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { prepareAddition } from "../addition.ts";
 import { Expansion } from "../argv.ts";
-import { CliMessageError } from "../errors.ts";
+import { AddError } from "../errors.ts";
 import { chainFlag, chainInstall, installFlags, requireInstallForFlags } from "../install.ts";
 import { makePinning } from "../pinning.ts";
 import { makePrompter, type AddPrompter, type InstallPrompter } from "../prompts/prompter.ts";
@@ -40,7 +40,7 @@ export const add = Command.make(
         const askSource = Effect.filterOrFail(
           prompter.source(),
           (answer) => answer !== undefined,
-          () => new CliMessageError({ message: usage }),
+          () => new AddError({ message: usage }),
         );
         let input = Option.isSome(source) ? source.value : yield* askSource;
         const store = yield* openCommandSkillset({ missing: "create" });

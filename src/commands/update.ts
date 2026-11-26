@@ -1,6 +1,6 @@
 import { Console, Effect } from "effect";
 import { Argument, Command } from "effect/cli";
-import { CliMessageError as UpdateError } from "../errors.ts";
+import { UpdateError } from "../errors.ts";
 import { makePinning } from "../pinning.ts";
 import { Upstream } from "../upstream.ts";
 import {

@@ -1,10 +1,6 @@
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
-import {
-  CliMessageError as RemoveError,
-  emptySkillsetMessage,
-  noSkillsMessage,
-} from "../errors.ts";
+import { RemoveError, emptySkillsetMessage, noSkillsMessage } from "../errors.ts";
 import { makePrompter, type RemovePrompter } from "../prompts/prompter.ts";
 import {
   hasSkillEntries,
