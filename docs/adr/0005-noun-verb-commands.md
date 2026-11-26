@@ -12,5 +12,6 @@ Adding MCP Entries means `add`, `remove` and `update` must say which kind of Ent
 
 - Top-level `add`, `rm` and `up` remain as aliases of `skill add`, `skill rm` and `skill up`, print a one-line deprecation notice, and are removed at 1.0.
 - `install -s <skill>` and `install -m <name>` select Entries of each kind. When any selection flag is given, only the selected Entries are installed.
-- `mcp add --install`, like `skill add --install`, writes the Skillset file and then installs the whole Skillset.
+- `mcp add --install`, like `skill add --install`, writes the Skillset file and then installs the whole Skillset. Without `--install`, `mcp add` asks "Install skillset?" on a terminal, as `skill add` does; `-y` or no terminal means no. Both commands share one chain step, `chainInstall`, so the two cannot drift again.
+- `chainInstall` uses the Upstream session it is given: `skill add` already holds one for pinning and passes it so clones are shared; `mcp add` pins nothing and lets the install open its own.
 - `skill rm` and `mcp rm` change only the Skillset file and never remove anything from Agents.

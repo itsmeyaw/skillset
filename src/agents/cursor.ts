@@ -1,7 +1,7 @@
 import { join } from "node:path";
+import { Effect } from "effect";
 import type { ResolvedMcp } from "../mcp-inputs.ts";
 import type { Agent } from "./agent.ts";
-import { installJsonMcp } from "./json-config.ts";
 import { toLaunch } from "./launch.ts";
 
 // Cursor docs, "Config interpolation" (https://cursor.com/docs/mcp.md): ${env:NAME} in command, args, env, url, headers.
@@ -27,11 +27,8 @@ export const cursorEntry = (resolved: ResolvedMcp) => {
 export const cursor: Agent = {
   id: "cursor",
   name: "Cursor",
-  installMcp: (servers, { scope, paths, confirmOverwrite }) =>
-    installJsonMcp(
-      join(scope === "project" ? paths.cwd : paths.home, ".cursor", "mcp.json"),
-      ["mcpServers"],
-      servers.map((server) => ({ name: server.entry.name, value: cursorEntry(server) })),
-      confirmOverwrite,
-    ),
+  file: (scope, { paths }) =>
+    Effect.succeed(join(scope === "project" ? paths.cwd : paths.home, ".cursor", "mcp.json")),
+  keyPath: ["mcpServers"],
+  entry: cursorEntry,
 };

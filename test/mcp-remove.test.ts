@@ -94,7 +94,17 @@ it.effect("mcp rm without names or --all fails when unattended", () =>
     const { file } = yield* setup;
     const result = yield* runCli(["mcp", "rm", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Usage/);
+    assert.include(result.err.join("\n"), "Usage: skillset mcp rm [names...] [--all]");
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("mcp rm -y without names fails with the mcp rm usage", () =>
+  Effect.gen(function* () {
+    const { file } = yield* setup;
+    const result = yield* runCli(["mcp", "rm", "-y", "--set", file]);
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), "Usage: skillset mcp rm [names...] [--all]");
+    assert.notInclude(result.err.join("\n"), "skillset remove");
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 

@@ -2,6 +2,7 @@ import { NodeFileSystem } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
 import { key, runCli } from "./harness.ts";
+import { docs } from "./mcp-fixtures.ts";
 
 const schemaUrl =
   "https://raw.githubusercontent.com/itsmeyaw/skillset/main/schemas/skillset/v1.json";
@@ -13,7 +14,7 @@ it.effect("remove -y keeps non-interactive usage behavior on a TTY", () =>
   Effect.gen(function* () {
     const result = yield* runCli(["skill", "rm", "-y"], { tty: true });
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /Usage/);
+    assert.include(result.err.join("\n"), "Usage: skillset skill rm [skills...] [--all]");
     assert.deepStrictEqual(result.screen, []);
   }),
 );
@@ -44,6 +45,22 @@ it.effect("interactive remove on an empty Skillset skips the picker", () =>
     assert.strictEqual(result.code, 0);
     assert.include(result.out.join("\n"), "This Skillset is empty.");
     assert.deepStrictEqual(result.screen, []);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("interactive remove on an MCP-only Skillset does not call it empty", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const file = `${dir}/set.json`;
+    const original = JSON.stringify({ $schema: schemaUrl, skills: [], mcp: [docs] });
+    yield* fs.writeFileString(file, original);
+    const result = yield* runCli(["skill", "rm", "--set", file], { tty: true });
+    assert.strictEqual(result.code, 0);
+    assert.include(result.out.join("\n"), "This Skillset has no skills.");
+    assert.notInclude(result.out.join("\n"), "empty");
+    assert.deepStrictEqual(result.screen, []);
+    assert.strictEqual(yield* fs.readFileString(file), original);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
 
@@ -112,7 +129,7 @@ it.effect("remove without names or --all reports usage without changing the file
 
     const result = yield* runCli(["skill", "rm", "--set", file]);
     assert.strictEqual(result.code, 1);
-    assert.match(result.err.join("\n"), /usage:.*remove.*--all/i);
+    assert.include(result.err.join("\n"), "Usage: skillset skill rm [skills...] [--all]");
     assert.strictEqual(yield* fs.readFileString(file), original);
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );

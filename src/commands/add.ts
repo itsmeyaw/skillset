@@ -2,11 +2,10 @@ import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { prepareAddition } from "../addition.ts";
 import { Expansion } from "../argv.ts";
-import { CliMessageError as AddError } from "../errors.ts";
-import { agents } from "../agent-flag.ts";
-import { installSkillset } from "../install.ts";
+import { AddError } from "../errors.ts";
+import { chainFlag, chainInstall, installFlags, requireInstallForFlags } from "../install.ts";
 import { makePinning } from "../pinning.ts";
-import { makePrompter } from "../prompts/prompter.ts";
+import { makePrompter, type AddPrompter, type InstallPrompter } from "../prompts/prompter.ts";
 import type { SkillEntry, Skillset } from "../skillset-file.ts";
 import { openCommandSkillset } from "../skillset-store.ts";
 import { Upstream } from "../upstream.ts";
@@ -14,6 +13,8 @@ import { Upstream } from "../upstream.ts";
 // Issue #11: only the add command takes a Source.
 // Spec #1, User Story 3: a Source can follow space-separated skill names.
 const isSource = (value: string) => /[/:]/u.test(value);
+
+const usage = "Usage: skillset skill add <source>";
 
 // Spec #1, add: list skills without changing the Skillset when no selection is given.
 export const add = Command.make(
@@ -27,23 +28,21 @@ export const add = Command.make(
     ),
     all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
     list: Flag.Boolean("list").pipe(Flag.withAlias("l"), Flag.withDefault(false)),
-    install: Flag.Boolean("install").pipe(Flag.withDefault(false)),
-    agents: agents(isSource),
-    global: Flag.Boolean("global").pipe(Flag.withAlias("g"), Flag.withDefault(false)),
-    copy: Flag.Boolean("copy").pipe(Flag.withDefault(false)),
-    yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
+    install: chainFlag,
+    ...installFlags(isSource),
   },
   Effect.fn(function* ({ source, selected, all, list, install, agents, global, copy, yes }) {
     const upstream = yield* Upstream;
     return yield* upstream.withSession((session) =>
       Effect.gen(function* () {
-        // ADR 0003: install options are meaningful only when --install chains an install.
-        if (!install && (agents.length > 0 || global || copy))
-          return yield* new AddError({
-            message: "--agent, --global and --copy require --install.",
-          });
-        const prompter = yield* makePrompter(yes);
-        let input = Option.isSome(source) ? source.value : yield* prompter.source();
+        yield* requireInstallForFlags({ install, agents, global, copy });
+        const prompter: AddPrompter & InstallPrompter = yield* makePrompter(yes);
+        const askSource = Effect.filterOrFail(
+          prompter.source(),
+          (answer) => answer !== undefined,
+          () => new AddError({ message: usage }),
+        );
+        let input = Option.isSome(source) ? source.value : yield* askSource;
         const store = yield* openCommandSkillset({ missing: "create" });
         const pinning = yield* makePinning(session);
         let first = true;
@@ -74,7 +73,7 @@ export const add = Command.make(
             !(yield* prompter.anotherSource(result._tag === "Failure" ? result.failure : undefined))
           )
             break;
-          input = yield* prompter.source();
+          input = yield* askSource;
         }
         // Interactive add recovery spec: write successful rounds once, or fail with the last error.
         if (!pending && lastError) return yield* lastError;
@@ -86,19 +85,8 @@ export const add = Command.make(
             );
         }
         // ADR 0003: write additions before either chained or prompted full-Skillset installation.
-        if (pending && (install || (yield* prompter.confirmInstall())))
-          yield* installSkillset(
-            pending,
-            {
-              selected: [],
-              selectedMcp: [],
-              agents,
-              global,
-              copy,
-            },
-            session,
-            prompter,
-          );
+        if (pending)
+          yield* chainInstall(pending, { install, agents, global, copy }, prompter, session);
       }),
     );
   }),

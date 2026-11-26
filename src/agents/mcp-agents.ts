@@ -10,7 +10,7 @@ import { roo } from "./roo.ts";
 import { windsurf } from "./windsurf.ts";
 
 // ADR 0007: ids match the skills Agent ids; an id with no module here cannot receive MCP Entries.
-const agents: ReadonlyArray<Agent> = [
+export const mcpAgents: ReadonlyArray<Agent> = [
   amp,
   claudeCode,
   cursor,
@@ -22,4 +22,4 @@ const agents: ReadonlyArray<Agent> = [
   windsurf,
 ];
 
-export const findMcpAgent = (id: string) => agents.find((agent) => agent.id === id);
+export const findMcpAgent = (id: string) => mcpAgents.find((agent) => agent.id === id);

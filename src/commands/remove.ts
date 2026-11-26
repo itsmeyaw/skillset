@@ -1,14 +1,17 @@
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
-import { CliMessageError as RemoveError, emptySkillsetMessage } from "../errors.ts";
-import { makePrompter } from "../prompts/prompter.ts";
+import { RemoveError, emptySkillsetMessage, noSkillsMessage } from "../errors.ts";
+import { makePrompter, type RemovePrompter } from "../prompts/prompter.ts";
 import {
+  hasSkillEntries,
   isEmpty,
   openCommandSkillset,
   removeSkillEntries,
   selectSkillEntries,
   unknownNamesMessage,
 } from "../skillset-store.ts";
+
+const usage = "Usage: skillset skill rm [skills...] [--all]";
 
 // Spec #1, User Story 17: removing Skill Entries changes only the Skillset file.
 export const remove = Command.make(
@@ -19,16 +22,17 @@ export const remove = Command.make(
     yes: Flag.Boolean("yes").pipe(Flag.withAlias("y"), Flag.withDefault(false)),
   },
   Effect.fn(function* ({ skills: supplied, all, yes }) {
-    const prompter = yield* makePrompter(yes);
+    const prompter: RemovePrompter = yield* makePrompter(yes);
     // Spec #1, User Story 19: an empty selection must not remove anything.
-    if (!all && supplied.length === 0) yield* prompter.ensureRemoveInput();
+    if (!all && supplied.length === 0 && !prompter.canSelect)
+      return yield* new RemoveError({ message: usage });
     const store = yield* openCommandSkillset({ missing: "fail" });
     const { skillset } = store;
     let skills: ReadonlyArray<string> = supplied;
     // Issue #11: select Skill Entries only when an interactive removal is ambiguous.
     if (!all && skills.length === 0) {
-      if (isEmpty(skillset)) {
-        yield* Console.log(emptySkillsetMessage);
+      if (!hasSkillEntries(skillset)) {
+        yield* Console.log(isEmpty(skillset) ? emptySkillsetMessage : noSkillsMessage);
         return;
       }
       const chosen = yield* prompter.skills(

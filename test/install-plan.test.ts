@@ -1,15 +1,18 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { Effect, Layer, Stdio } from "effect";
+import { claudeCode } from "../src/agents/claude-code.ts";
+import { cursor } from "../src/agents/cursor.ts";
 import { buildInstallPlan, type InstallPlanOptions } from "../src/install-plan.ts";
-import { makePrompter, type Prompter } from "../src/prompts/prompter.ts";
+import type { McpEntry } from "../src/mcp-entry.ts";
+import { makePrompter, type PlanPrompter } from "../src/prompts/prompter.ts";
 import type { SearchChoice } from "../src/prompts/search.ts";
 import { SCHEMA_URL, type Skillset } from "../src/skillset-file.ts";
 import { fakeTerminal, fakeUpstream } from "./harness.ts";
 
 const alpha = { name: "alpha", source: "owner/repo", commit: "a".repeat(40) };
 const beta = { name: "beta", source: "owner/repo", commit: "b".repeat(40) };
-const skillset = { $schema: SCHEMA_URL, skills: [alpha, beta] } as const;
+const skillset = { $schema: SCHEMA_URL, skills: [alpha, beta], mcp: [] } as const;
 const options = { selected: [], selectedMcp: [], agents: [], global: false, copy: false };
 
 const scripted = (
@@ -21,11 +24,9 @@ const scripted = (
 ) => {
   const asked: Array<string> = [];
   const offered: Record<string, ReadonlyArray<SearchChoice>> = {};
-  const prompter: Prompter = {
-    skills: () => Effect.die("unexpected optional skills question"),
+  const prompter: PlanPrompter = {
     mcpServers: () => Effect.die("unexpected MCP servers question"),
     mcpInput: () => Effect.die("unexpected MCP input question"),
-    confirmOverwrite: () => Effect.die("unexpected overwrite question"),
     requiredSkills: (choices) =>
       Effect.sync(() => {
         asked.push("skills");
@@ -46,15 +47,7 @@ const scripted = (
       }),
     scope: () => Effect.sync(() => (asked.push("scope"), "global" as const)),
     mode: () => Effect.sync(() => (asked.push("mode"), "symlink" as const)),
-    searchTerm: () => Effect.die("unexpected search question"),
-    registryServer: () => Effect.die("unexpected Registry server question"),
-    launchChoice: () => Effect.die("unexpected launch question"),
     confirmPlan: () => Effect.sync(() => (asked.push("confirm"), answers.proceed ?? true)),
-    confirmRemote: () => Effect.die("unexpected remote question"),
-    source: () => Effect.die("unexpected source question"),
-    ensureRemoveInput: () => Effect.die("unexpected remove question"),
-    anotherSource: () => Effect.die("unexpected add question"),
-    confirmInstall: () => Effect.die("unexpected install question"),
   };
   return { prompter, asked, offered };
 };
@@ -62,7 +55,7 @@ const scripted = (
 const runPlan = Effect.fn("runPlan")(function* (
   set: Skillset,
   flags: InstallPlanOptions,
-  prompter: Prompter,
+  prompter: PlanPrompter,
   upstream: Parameters<typeof fakeUpstream>[0] = {},
 ) {
   const terminal = yield* fakeTerminal([], []);
@@ -76,24 +69,14 @@ const runPlan = Effect.fn("runPlan")(function* (
 it.effect("explicit install flags skip their questions", () =>
   Effect.gen(function* () {
     const asked: Array<string> = [];
-    const prompter: Prompter = {
-      skills: () => Effect.die("unexpected skills question"),
+    const prompter: PlanPrompter = {
       mcpServers: () => Effect.die("unexpected MCP servers question"),
       mcpInput: () => Effect.die("unexpected MCP input question"),
-      confirmOverwrite: () => Effect.die("unexpected overwrite question"),
       requiredSkills: () => Effect.die("unexpected skills question"),
       agents: () => Effect.die("unexpected agents question"),
       scope: () => Effect.die("unexpected scope question"),
       mode: () => Effect.die("unexpected mode question"),
-      searchTerm: () => Effect.die("unexpected search question"),
-      registryServer: () => Effect.die("unexpected Registry server question"),
-      launchChoice: () => Effect.die("unexpected launch question"),
       confirmPlan: () => Effect.sync(() => (asked.push("confirm"), true)),
-      confirmRemote: () => Effect.die("unexpected remote question"),
-      source: () => Effect.die("unexpected source question"),
-      ensureRemoveInput: () => Effect.die("unexpected remove question"),
-      anotherSource: () => Effect.die("unexpected add question"),
-      confirmInstall: () => Effect.die("unexpected install question"),
     };
     const terminal = yield* fakeTerminal([], []);
     const plan = yield* buildInstallPlan(
@@ -103,8 +86,9 @@ it.effect("explicit install flags skip their questions", () =>
     ).pipe(Effect.provide(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, terminal)));
     assert.deepStrictEqual(plan, {
       skillEntries: [beta],
-      mcpEntries: [],
-      mcpAnswers: {},
+      resolvedMcp: [],
+      mcpTargets: [],
+      mcpUnsupported: [],
       agents: ["cursor"],
       scope: "global",
       mode: "copy",
@@ -129,8 +113,9 @@ it.effect("plan uses scripted answers and offers all Skill Entries selected", ()
     });
     assert.deepStrictEqual(plan, {
       skillEntries: [beta],
-      mcpEntries: [],
-      mcpAnswers: {},
+      resolvedMcp: [],
+      mcpTargets: [],
+      mcpUnsupported: [],
       agents: ["cursor"],
       scope: "global",
       mode: "symlink",
@@ -240,8 +225,9 @@ it.effect("unattended plans leave agents undefined when no defaults exist", () =
     });
     assert.deepStrictEqual(plan, {
       skillEntries: [alpha, beta],
-      mcpEntries: [],
-      mcpAnswers: {},
+      resolvedMcp: [],
+      mcpTargets: [],
+      mcpUnsupported: [],
       agents: undefined,
       scope: "project",
       mode: "auto",
@@ -279,5 +265,79 @@ it.effect.each([
     yield* runPlan(skillset, { ...options, ...flags }, script.prompter);
     for (const question of ["skills", "agents", "scope", "mode", "confirm"])
       assert.strictEqual(script.asked.includes(question), question !== skipped);
+  }),
+);
+
+const docs: McpEntry = {
+  name: "docs",
+  launch: { type: "remote", transport: "streamable-http", url: "https://mcp.example.com/mcp" },
+  inputs: [{ name: "region", kind: "env" }],
+};
+const mcpSkillset = { ...skillset, mcp: [docs] };
+const mcpOptions = { ...options, selectedMcp: ["docs"], global: true, copy: true };
+const agentInfo = (id: string, universal: boolean) => ({
+  id,
+  name: id,
+  universal,
+  projectSkillsDir: `.${id}/skills`,
+  globalSkillsDir: null,
+});
+
+// A prompter that answers every MCP input with "eu" and fails on any other question.
+const mcpPrompter = () => ({
+  ...scripted().prompter,
+  mcpInput: () => Effect.succeed("eu"),
+});
+
+it.effect("MCP targets default to claude-code when no agents are chosen", () =>
+  Effect.gen(function* () {
+    const prompter = { ...mcpPrompter(), agents: () => Effect.undefined };
+    const plan = yield* runPlan(mcpSkillset, mcpOptions, prompter, {
+      supportedAgents: [agentInfo("cursor", false)],
+    });
+    assert.isUndefined(plan?.agents);
+    assert.deepStrictEqual(plan?.mcpTargets, [claudeCode]);
+    assert.deepStrictEqual(plan?.mcpUnsupported, []);
+  }),
+);
+
+it.effect("a chosen Universal stands for the detected Universal Agents that can take MCP", () =>
+  Effect.gen(function* () {
+    const plan = yield* runPlan(
+      mcpSkillset,
+      { ...mcpOptions, agents: ["universal", "goose"] },
+      mcpPrompter(),
+      {
+        detectedAgents: [
+          agentInfo("cursor", true),
+          agentInfo("replit", true),
+          agentInfo("windsurf", false),
+        ],
+      },
+    );
+    assert.deepStrictEqual(plan?.agents, ["universal", "goose"]);
+    assert.deepStrictEqual(plan?.mcpTargets, [cursor]);
+    assert.deepStrictEqual(plan?.mcpUnsupported, ["goose"]);
+  }),
+);
+
+it.effect("a Universal choice without MCP Entries detects nothing", () =>
+  Effect.gen(function* () {
+    const plan = yield* runPlan(
+      skillset,
+      { ...options, agents: ["universal", "goose"], global: true, copy: true },
+      scripted().prompter,
+    );
+    assert.deepStrictEqual(plan?.mcpTargets, []);
+    assert.deepStrictEqual(plan?.mcpUnsupported, []);
+  }),
+);
+
+it.effect("MCP servers carry the typed answers of their own Entry", () =>
+  Effect.gen(function* () {
+    const plan = yield* runPlan(mcpSkillset, { ...mcpOptions, agents: ["cursor"] }, mcpPrompter());
+    assert.deepStrictEqual(plan?.resolvedMcp, [
+      { entry: docs, values: { region: { literal: "eu" } } },
+    ]);
   }),
 );
