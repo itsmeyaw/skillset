@@ -234,3 +234,32 @@ it.effect("renewSnapshot keeps a curator-renamed secret env var and nothing else
     }
   }),
 );
+
+it.effect("snapshotFromRegistry offers only the supported launch choices", () =>
+  Effect.gen(function* () {
+    const offered: Array<ReadonlyArray<string>> = [];
+    const asking = {
+      ...picker,
+      launchChoice: (titles: ReadonlyArray<string>) => {
+        offered.push(titles);
+        return Effect.succeed(1);
+      },
+    };
+    const entry = yield* snapshotFromRegistry({ server: serverName }, asking).pipe(
+      withFetch({
+        [versionUrl("latest")]: json(
+          versionResponse({
+            ...npmServer("2.0.0"),
+            packages: [
+              { registryType: "mcpb", identifier: "https://x.example/a.mcpb", version: "1.0.0" },
+              ...npmServer("2.0.0").packages,
+            ],
+            remotes: [{ type: "sse", url: "https://x.example/sse" }],
+          }),
+        ),
+      }),
+    );
+    assert.deepStrictEqual(offered, [["npm @owner/server", "sse https://x.example/sse"]]);
+    assert.strictEqual(entry.launch.type, "remote");
+  }),
+);

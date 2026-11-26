@@ -460,3 +460,52 @@ it.effect("mcp add stores a remote when the server offers only remotes", () =>
     assert.strictEqual(entry.inputs[0].env, "GITHUB_MCP_SERVER_AUTHORIZATION");
   }).pipe(Effect.provide(NodeFileSystem.layer)),
 );
+
+const unsupportedPackages = [
+  { registryType: "mcpb", identifier: "https://x.example/a.mcpb", version: "1.0.0" },
+  {
+    registryType: "oci",
+    identifier: "ghcr.io/owner/server:1.0.0",
+    transport: { type: "streamable-http", url: "http://localhost:8080/mcp" },
+  },
+];
+
+it.effect("mcp add -y skips unsupported launch choices and takes the first supported one", () =>
+  Effect.gen(function* () {
+    const { file, read } = yield* setup;
+    const fetch = cannedFetch({
+      [versionUrl("latest")]: json(
+        versionResponse({
+          ...npmServer("2.0.0"),
+          packages: unsupportedPackages,
+          remotes: [{ type: "streamable-http", url: "https://x.example/mcp" }],
+        }),
+      ),
+    });
+    const added = yield* runCli(["mcp", "add", name, "-y", "--set", file], { fetch });
+    assert.deepStrictEqual(added.err, []);
+    assert.strictEqual(added.code, 0);
+    const [entry] = (yield* read).mcp;
+    assert.deepStrictEqual(entry.launch, {
+      type: "remote",
+      transport: "streamable-http",
+      url: "https://x.example/mcp",
+    });
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
+
+it.effect("mcp add -y fails with the first choice's error when no launch choice is supported", () =>
+  Effect.gen(function* () {
+    const { file, fs } = yield* setup;
+    const before = yield* fs.readFileString(file);
+    const fetch = cannedFetch({
+      [versionUrl("latest")]: json(
+        versionResponse({ ...npmServer("2.0.0"), packages: unsupportedPackages }),
+      ),
+    });
+    const result = yield* runCli(["mcp", "add", name, "-y", "--set", file], { fetch });
+    assert.strictEqual(result.code, 1);
+    assert.include(result.err.join("\n"), 'Package type "mcpb" is not supported');
+    assert.strictEqual(yield* fs.readFileString(file), before);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);

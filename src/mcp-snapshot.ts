@@ -116,16 +116,34 @@ const collectInputs = (entryName: string) => {
 
 const withInputs = (inputs: ReadonlyArray<Input>) => (inputs.length > 0 ? { inputs } : {});
 
+const unsupportedPackage = (pkg: RegistryPackage) => {
+  if (!SUPPORTED_PACKAGES.includes(pkg.registryType))
+    return `Package type "${pkg.registryType}" is not supported; choose a remote or a package of type ${SUPPORTED_PACKAGES.join(", ")}.`;
+  if (pkg.transport !== undefined && pkg.transport.type !== "stdio")
+    return `Package transport "${pkg.transport.type}" is not supported.`;
+  return undefined;
+};
+
+const unsupportedRemote = (remote: RegistryRemote) => {
+  if (remote.type !== "streamable-http" && remote.type !== "sse")
+    return `Remote transport "${remote.type}" is not supported.`;
+  if (!remote.url.startsWith("https://"))
+    return `Remote URL ${remote.url} must start with https://.`;
+  return undefined;
+};
+
+// Whether a launch choice can be snapshotted; -y takes the first one that can.
+export const isSupported = (choice: LaunchChoice) =>
+  (choice.kind === "package"
+    ? unsupportedPackage(choice.package)
+    : unsupportedRemote(choice.remote)) === undefined;
+
 const packageEntry = (
   pkg: RegistryPackage,
   entryName: string,
 ): Pick<McpEntry, "launch" | "inputs"> => {
-  if (!SUPPORTED_PACKAGES.includes(pkg.registryType))
-    throw new Unsupported(
-      `Package type "${pkg.registryType}" is not supported; choose a remote or a package of type ${SUPPORTED_PACKAGES.join(", ")}.`,
-    );
-  if (pkg.transport !== undefined && pkg.transport.type !== "stdio")
-    throw new Unsupported(`Package transport "${pkg.transport.type}" is not supported.`);
+  const unsupported = unsupportedPackage(pkg);
+  if (unsupported !== undefined) throw new Unsupported(unsupported);
   const version = pkg.version ?? (pkg.registryType === "oci" ? ociVersion(pkg.identifier) : "");
   if (!version || version === "latest")
     throw new Unsupported(`Package ${pkg.identifier} names no exact version.`);
@@ -172,10 +190,8 @@ const remoteEntry = (
   remote: RegistryRemote,
   entryName: string,
 ): Pick<McpEntry, "launch" | "inputs"> => {
-  if (remote.type !== "streamable-http" && remote.type !== "sse")
-    throw new Unsupported(`Remote transport "${remote.type}" is not supported.`);
-  if (!remote.url.startsWith("https://"))
-    throw new Unsupported(`Remote URL ${remote.url} must start with https://.`);
+  const unsupported = unsupportedRemote(remote);
+  if (unsupported !== undefined) throw new Unsupported(unsupported);
   const { inputs, declare } = collectInputs(entryName);
   const variable = declare("variable");
   for (const [name, from] of Object.entries(remote.variables ?? {})) variable(name, from);
@@ -188,7 +204,7 @@ const remoteEntry = (
   return {
     launch: {
       type: "remote",
-      transport: remote.type,
+      transport: remote.type as "streamable-http" | "sse",
       url: remote.url,
       ...(headers.length > 0 ? { headers } : {}),
     },
