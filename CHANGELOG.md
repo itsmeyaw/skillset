@@ -1,5 +1,11 @@
 # @itsmeyaw/skillset
 
+## 0.4.1
+
+### Patch Changes
+
+- [`4a08656`](https://github.com/itsmeyaw/skillset/commit/4a086560c2c33bd6770a66e67f191da0ba7a2d9c) Thanks [@itsmeyaw](https://github.com/itsmeyaw)! - The deprecated top-level `add`, `remove` and `update` commands no longer appear in `skillset --help`. They still run, with their aliases, and print the deprecation notice.
+
 ## 0.4.0
 
 ### Minor Changes
