@@ -235,14 +235,14 @@ it.effect("renewSnapshot keeps a curator-renamed secret env var and nothing else
   }),
 );
 
-it.effect("snapshotFromRegistry offers only the supported launch choices", () =>
+it.effect("snapshotFromRegistry offers every launch choice and the first supported index", () =>
   Effect.gen(function* () {
-    const offered: Array<ReadonlyArray<string>> = [];
+    const offered: Array<readonly [ReadonlyArray<string>, number]> = [];
     const asking = {
       ...picker,
-      launchChoice: (titles: ReadonlyArray<string>) => {
-        offered.push(titles);
-        return Effect.succeed(1);
+      launchChoice: (titles: ReadonlyArray<string>, firstSupported: number) => {
+        offered.push([titles, firstSupported]);
+        return Effect.succeed(2);
       },
     };
     const entry = yield* snapshotFromRegistry({ server: serverName }, asking).pipe(
@@ -259,7 +259,9 @@ it.effect("snapshotFromRegistry offers only the supported launch choices", () =>
         ),
       }),
     );
-    assert.deepStrictEqual(offered, [["npm @owner/server", "sse https://x.example/sse"]]);
+    assert.deepStrictEqual(offered, [
+      [["mcpb https://x.example/a.mcpb", "npm @owner/server", "sse https://x.example/sse"], 1],
+    ]);
     assert.strictEqual(entry.launch.type, "remote");
   }),
 );

@@ -72,7 +72,7 @@ export type RegistryPrompter = {
     hasMore: boolean,
   ) => Answer<string | undefined>;
   // Resolves to the index of the chosen title.
-  readonly launchChoice: (titles: ReadonlyArray<string>) => Answer<number>;
+  readonly launchChoice: (titles: ReadonlyArray<string>, firstSupported: number) => Answer<number>;
 };
 
 export type RemotePrompter = {
@@ -119,7 +119,7 @@ const unattended: Prompter = {
   mode: () => Effect.succeed("auto"),
   searchTerm: () => Effect.undefined,
   registryServer: (names) => Effect.succeed(names[0]),
-  launchChoice: () => Effect.succeed(0),
+  launchChoice: (_titles, firstSupported) => Effect.succeed(firstSupported),
   confirmPlan: () => Effect.succeed(true),
   confirmRemote: (skillset) =>
     Effect.andThen(
