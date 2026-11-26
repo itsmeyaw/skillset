@@ -1,6 +1,6 @@
 {
   "name": "@itsmeyaw/skillset",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Curate and install agent skills pinned to Git commits",
   "keywords": [
     "adal",
