@@ -306,7 +306,10 @@ it.effect("-m installs only that MCP Entry and -s only that skill", () =>
     const skillOnly = yield* run(["-y", "-s", "bar"]);
     assert.strictEqual(skillOnly.code, 0);
     assert.deepStrictEqual(installCalls, [remote]);
-    assert.deepStrictEqual(skillOnly.out.slice(mcpOnly.out.length), ["Installed bar"]);
+    assert.deepStrictEqual(skillOnly.out.slice(mcpOnly.out.length), [
+      "Fetching 1 source(s)…",
+      "Installed bar",
+    ]);
     assert.deepStrictEqual(Object.keys(JSON.parse(yield* read(`${cwd}/.mcp.json`)).mcpServers), [
       "docs",
     ]);
@@ -406,7 +409,7 @@ it.effect("a Skillset without MCP Entries prints and writes nothing MCP-related"
       },
     });
     assert.strictEqual(result.code, 0);
-    assert.deepStrictEqual(result.out, ["Installed alpha"]);
+    assert.deepStrictEqual(result.out, ["Fetching 1 source(s)…", "Installed alpha"]);
     assert.deepStrictEqual(result.err, []);
     assert.isFalse(yield* fs.exists(`${cwd}/.mcp.json`));
   }).pipe(Effect.provide(NodeFileSystem.layer)),

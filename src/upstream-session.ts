@@ -1,4 +1,4 @@
-import { Effect, Scope } from "effect";
+import { Console, Effect, Scope } from "effect";
 import { missingSkillsMessage, UpstreamError } from "./errors.ts";
 import { parseSource } from "./source.ts";
 import { type InstallChoices, type InstallOutcome, type UpstreamSession } from "./upstream.ts";
@@ -54,18 +54,23 @@ export const withUpstreamSession = <Handle extends Source, A, E, R>(
             group.names.push(skillEntry.name);
             groups.set(key, group);
           }
-          const checked: Array<{ source: Handle; names: Array<string> }> = [];
-          for (const group of groups.values()) {
-            const source = yield* get(group.remote, group.commit);
-            const missing = group.names.filter(
-              (name) => !source.skills.some((skill) => skill.name === name),
-            );
-            if (missing.length > 0)
-              return yield* new UpstreamError({
-                message: missingSkillsMessage(group.commit, missing),
-              });
-            checked.push({ source, names: group.names });
-          }
+          if (groups.size > 0) yield* Console.log(`Fetching ${groups.size} source(s)…`);
+          // skills CLI: clones run 4 at a time (DEFAULT_FETCH_CONCURRENCY).
+          const checked = yield* Effect.forEach(
+            groups.values(),
+            Effect.fnUntraced(function* (group) {
+              const source = yield* get(group.remote, group.commit);
+              const missing = group.names.filter(
+                (name) => !source.skills.some((skill) => skill.name === name),
+              );
+              if (missing.length > 0)
+                return yield* new UpstreamError({
+                  message: missingSkillsMessage(group.commit, missing),
+                });
+              return { source, names: group.names };
+            }),
+            { concurrency: 4 },
+          );
           const installed: Array<InstallOutcome["installed"][number]> = [];
           const skipped: Array<InstallOutcome["skipped"][number]> = [];
           const failed: Array<InstallOutcome["failed"][number]> = [];
