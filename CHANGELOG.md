@@ -1,5 +1,11 @@
 # @itsmeyaw/skillset
 
+## 0.4.2
+
+### Patch Changes
+
+- [`e3b3002`](https://github.com/itsmeyaw/skillset/commit/e3b3002c1bf1cb0d38c1a14805c898a5e8ac599c) Thanks [@itsmeyaw](https://github.com/itsmeyaw)! - `install` now fetches up to 4 Sources at once instead of one after another, and prints `Fetching N source(s)…` first, so an install with many Sources no longer looks stuck.
+
 ## 0.4.1
 
 ### Patch Changes
